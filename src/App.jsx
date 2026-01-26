@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { leaveRoom } from "./services/leave";
 import { touchPlayer } from "./services/presence";
+import { Container } from "./ui/Container";
+import { Card } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
 import {
   createRoomWithCode,
   getRoomByCode,
@@ -46,73 +50,72 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-// Auto-restore (safe): verify room + player still exist, otherwise clear saved session
-useEffect(() => {
-  let cancelled = false;
+  // Auto-restore (safe): verify room + player still exist, otherwise clear saved session
+  useEffect(() => {
+    let cancelled = false;
 
-  async function restore() {
-    const savedCode = localStorage.getItem("scoreboard_room_code");
-    const savedRoomId = localStorage.getItem("scoreboard_room_id");
-    const savedPlayerId = localStorage.getItem("scoreboard_player_id");
+    async function restore() {
+      const savedCode = localStorage.getItem("scoreboard_room_code");
+      const savedPlayerId = localStorage.getItem("scoreboard_player_id");
 
-    if (!savedCode || !savedRoomId || !savedPlayerId) return;
+      if (!savedCode || !savedPlayerId) return;
 
-    // 1) Verify room still exists (by code)
-    const { data: room, error: roomErr } = await getRoomByCode(savedCode);
-    if (roomErr || !room) {
-      localStorage.removeItem("scoreboard_room_code");
-      localStorage.removeItem("scoreboard_room_id");
-      localStorage.removeItem("scoreboard_player_id");
-      return;
+      // 1) Verify room still exists (by code)
+      const { data: room, error: roomErr } = await getRoomByCode(savedCode);
+      if (roomErr || !room) {
+        localStorage.removeItem("scoreboard_room_code");
+        localStorage.removeItem("scoreboard_room_id");
+        localStorage.removeItem("scoreboard_player_id");
+        return;
+      }
+
+      // 2) Prefer: re-use player tied to this device in this room
+      const { data: existing } = await getPlayerByDevice(room.id, deviceId);
+
+      // Fallback: if device lookup fails but savedPlayerId exists, try loading that player
+      let player = existing ?? null;
+      if (!player) {
+        const { data: p } = await supabase
+          .from("players")
+          .select("*")
+          .eq("id", savedPlayerId)
+          .eq("room_id", room.id)
+          .maybeSingle();
+        player = p ?? null;
+      }
+
+      // If player no longer exists -> clear session (so we don't get stuck)
+      if (!player) {
+        localStorage.removeItem("scoreboard_room_code");
+        localStorage.removeItem("scoreboard_room_id");
+        localStorage.removeItem("scoreboard_player_id");
+        return;
+      }
+
+      // 3) Ensure score row exists (safety)
+      await ensureScore(room.id, player.id);
+
+      if (cancelled) return;
+
+      // 4) Restore UI state
+      setRoomCode(savedCode);
+      setRoomId(room.id);
+      setPlayerId(player.id);
+      setName(player.name ?? "");
+      setStep("room");
+
+      // 5) Normalize stored IDs
+      localStorage.setItem("scoreboard_room_code", savedCode);
+      localStorage.setItem("scoreboard_room_id", room.id);
+      localStorage.setItem("scoreboard_player_id", player.id);
     }
 
-    // 2) Prefer: re-use player tied to this device in this room
-    const { data: existing } = await getPlayerByDevice(room.id, deviceId);
+    restore();
 
-    // Fallback: if device lookup fails but savedPlayerId exists, try loading that player
-    let player = existing ?? null;
-    if (!player) {
-      const { data: p } = await supabase
-        .from("players")
-        .select("*")
-        .eq("id", savedPlayerId)
-        .eq("room_id", room.id)
-        .maybeSingle();
-      player = p ?? null;
-    }
-
-    // If player no longer exists -> clear session (so we don't get stuck)
-    if (!player) {
-      localStorage.removeItem("scoreboard_room_code");
-      localStorage.removeItem("scoreboard_room_id");
-      localStorage.removeItem("scoreboard_player_id");
-      return;
-    }
-
-    // 3) Ensure score row exists (safety)
-    await ensureScore(room.id, player.id);
-
-    if (cancelled) return;
-
-    // 4) Restore UI state
-    setRoomCode(savedCode);
-    setRoomId(room.id);
-    setPlayerId(player.id);
-    if (!name && player.name) setName(player.name);
-    setStep("room");
-
-    // 5) Normalize stored IDs (in case roomId changed format)
-    localStorage.setItem("scoreboard_room_code", savedCode);
-    localStorage.setItem("scoreboard_room_id", room.id);
-    localStorage.setItem("scoreboard_player_id", player.id);
-  }
-
-  restore();
-
-  return () => {
-    cancelled = true;
-  };
-}, [deviceId, name]);
+    return () => {
+      cancelled = true;
+    };
+  }, [deviceId]);
 
   const canJoin = useMemo(
     () => roomCode.trim().length >= 4 && name.trim().length >= 2,
@@ -133,7 +136,7 @@ useEffect(() => {
     const playerName = name.trim();
 
     const { data: room, error: roomErr } = await getRoomByCode(code);
-    if (roomErr) return alert("Rummet hittades inte. Kontrollera koden.");
+    if (roomErr || !room) return alert("Rummet hittades inte. Kontrollera koden.");
 
     // Try to re-use existing player for this device in this room
     let player = null;
@@ -206,7 +209,6 @@ useEffect(() => {
       localStorage.removeItem("scoreboard_room_code");
       localStorage.removeItem("scoreboard_room_id");
       localStorage.removeItem("scoreboard_player_id");
-
       window.location.reload();
     }
   }
@@ -278,93 +280,108 @@ useEffect(() => {
       .sort((a, b) => b.score - a.score);
   }, [players, scores]);
 
+  // ---------------- UI ----------------
+
   if (step === "home") {
     return (
-      <div style={{ maxWidth: 520, margin: "40px auto", padding: 16, fontFamily: "system-ui" }}>
-        <h1>Scoreboard (PWA)</h1>
+      <Container>
+        <Card style={{ padding: 22 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+            <h1 style={{ margin: 0, fontSize: 28 }}>Scoreboard</h1>
+            <span style={{ color: "var(--muted)", fontWeight: 700 }}>PWA</span>
+          </div>
 
-        <label style={{ display: "block", marginTop: 12 }}>
-          Ditt namn
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ width: "100%", padding: 10, marginTop: 6 }}
-          />
-        </label>
+          <div style={{ marginTop: 14 }}>
+            <label style={{ display: "block", color: "var(--muted)", fontWeight: 700, marginBottom: 8 }}>
+              Ditt namn
+            </label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
 
-        <label style={{ display: "block", marginTop: 12 }}>
-          Rumskod (för att joina)
-          <input
-            value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value)}
-            placeholder="t.ex. A1B2C3"
-            style={{ width: "100%", padding: 10, marginTop: 6, textTransform: "uppercase" }}
-          />
-        </label>
+          <div style={{ marginTop: 14 }}>
+            <label style={{ display: "block", color: "var(--muted)", fontWeight: 700, marginBottom: 8 }}>
+              Rumskod
+            </label>
+            <Input
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value)}
+              placeholder="t.ex. A1B2C3"
+              style={{ textTransform: "uppercase" }}
+            />
+          </div>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-          <button onClick={createRoom} style={{ padding: 12, flex: 1 }}>
-            Skapa rum
-          </button>
-          <button onClick={() => joinRoom()} disabled={!canJoin} style={{ padding: 12, flex: 1 }}>
-            Joina rum
-          </button>
-        </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
+            <Button onClick={createRoom}>Skapa rum</Button>
+            <Button variant="ghost" onClick={() => joinRoom()} disabled={!canJoin}>
+              Joina rum
+            </Button>
+          </div>
 
-        <p style={{ marginTop: 18, opacity: 0.8 }}>
-          Skapa rum → dela rumskoden → alla ser live-ställningen.
-        </p>
-      </div>
+          <p style={{ marginTop: 14, color: "var(--muted)" }}>
+            Skapa rum → dela rumskoden → alla ser live-ställningen.
+          </p>
+        </Card>
+      </Container>
     );
   }
 
   return (
-    <div style={{ maxWidth: 720, margin: "24px auto", padding: 16, fontFamily: "system-ui" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-        <h2>Rum: {roomCode.toUpperCase()}</h2>
-        <button onClick={handleLeave} style={{ padding: 10 }}>
-          Lämna
-        </button>
-      </div>
-
-      <div style={{ display: "flex", gap: 12, margin: "12px 0 18px" }}>
-        <button onClick={() => changeMyScore(-1)} style={{ padding: 12, flex: 1 }}>
-          -1
-        </button>
-        <button onClick={() => changeMyScore(+1)} style={{ padding: 12, flex: 1 }}>
-          +1
-        </button>
-        <button onClick={() => changeMyScore(+5)} style={{ padding: 12, flex: 1 }}>
-          +5
-        </button>
-      </div>
-
-      <h3>Ställning</h3>
-      <div style={{ border: "1px solid #ddd", borderRadius: 8, overflow: "hidden" }}>
-        {scoreRows.map((r, idx) => (
-          <div
-            key={r.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "12px 14px",
-              borderTop: idx === 0 ? "none" : "1px solid #eee",
-              fontWeight: r.id === playerId ? 700 : 400,
-            }}
-          >
-            <span>
-              {idx + 1}. {r.name}{" "}
-              <span style={{ opacity: 0.7, fontWeight: 400 }}>({r.status})</span>
-            </span>
-            <span>{r.score}</span>
+    <Container>
+      <Card style={{ padding: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+          <div>
+            <div style={{ color: "var(--muted)", fontWeight: 800, letterSpacing: 0.2 }}>RUM</div>
+            <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>{roomCode.toUpperCase()}</h2>
           </div>
-        ))}
-        {scoreRows.length === 0 && <div style={{ padding: 12 }}>Väntar på spelare...</div>}
-      </div>
 
-      <p style={{ marginTop: 14, opacity: 0.8 }}>
-        Dela rumskoden <b>{roomCode.toUpperCase()}</b> så kan andra joina.
-      </p>
-    </div>
+          <div style={{ width: 140 }}>
+            <Button variant="danger" onClick={handleLeave}>
+              Lämna
+            </Button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 16 }}>
+          <Button variant="ghost" onClick={() => changeMyScore(-1)}>
+            -1
+          </Button>
+          <Button onClick={() => changeMyScore(+1)}>+1</Button>
+          <Button variant="ghost" onClick={() => changeMyScore(+5)}>
+            +5
+          </Button>
+        </div>
+
+        <h3 style={{ marginTop: 18, marginBottom: 10 }}>Ställning</h3>
+
+        <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+          {scoreRows.map((r, idx) => (
+            <div
+              key={r.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "12px 14px",
+                borderTop: idx === 0 ? "none" : "1px solid var(--border)",
+                fontWeight: r.id === playerId ? 800 : 500,
+                background: r.id === playerId ? "rgba(255,255,255,.03)" : "transparent",
+              }}
+            >
+              <span>
+                {idx + 1}. {r.name}{" "}
+                <span style={{ opacity: 0.7, fontWeight: 600 }}>({r.status})</span>
+              </span>
+              <span style={{ fontWeight: 900 }}>{r.score}</span>
+            </div>
+          ))}
+          {scoreRows.length === 0 && (
+            <div style={{ padding: 12, color: "var(--muted)" }}>Väntar på spelare...</div>
+          )}
+        </div>
+
+        <p style={{ marginTop: 14, color: "var(--muted)" }}>
+          Dela rumskoden <b>{roomCode.toUpperCase()}</b> så kan andra joina.
+        </p>
+      </Card>
+    </Container>
   );
 }
