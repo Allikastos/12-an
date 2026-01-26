@@ -1,37 +1,58 @@
-export function Button({ children, variant = "primary", style, disabled, ...props }) {
-  const variants = {
-    primary: {
-      background: "linear-gradient(180deg, rgba(124,58,237,1), rgba(99,102,241,1))",
-      border: "1px solid rgba(255,255,255,.12)",
-      color: "white",
-    },
-    ghost: {
-      background: "rgba(255,255,255,.03)",
-      border: "1px solid var(--border)",
-      color: "var(--text)",
-    },
-    danger: {
-      background: "linear-gradient(180deg, rgba(239,68,68,1), rgba(220,38,38,1))",
-      border: "1px solid rgba(255,255,255,.12)",
-      color: "white",
-    },
-  };
+const variants = {
+  primary: {
+    background: "var(--accent)",
+    color: "white",
+    border: "1px solid rgba(255,255,255,.10)",
+  },
+  ghost: {
+    background: "transparent",
+    color: "var(--text)",
+    border: "1px solid var(--border)",
+  },
+  danger: {
+    background: "rgba(239,68,68,.14)",
+    color: "#fecaca",
+    border: "1px solid rgba(239,68,68,.35)",
+  },
+};
+
+export function Button({
+  children,
+  variant = "primary",
+  disabled,
+  onClick,
+  type = "button",
+  style,
+}) {
+  const v = variants[variant] ?? variants.primary;
 
   return (
     <button
+      type={type}
       disabled={disabled}
+      onClick={onClick}
       style={{
         width: "100%",
         padding: "12px 14px",
         borderRadius: 14,
+        fontWeight: 900,
+        letterSpacing: 0.2,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.6 : 1,
-        fontWeight: 700,
-        letterSpacing: 0.2,
-        ...variants[variant],
+        transition: "transform .06s ease, filter .15s ease",
+        outline: "none",
+        ...v,
         ...style,
       }}
-      {...props}
+      onMouseDown={(e) => {
+        if (!disabled) e.currentTarget.style.transform = "scale(0.98)";
+      }}
+      onMouseUp={(e) => {
+        e.currentTarget.style.transform = "scale(1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "scale(1)";
+      }}
     >
       {children}
     </button>
