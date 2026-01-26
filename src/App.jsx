@@ -46,19 +46,73 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
-  // Auto-restore: if user accidentally closes app, come back to same room/player
-  useEffect(() => {
+// Auto-restore (safe): verify room + player still exist, otherwise clear saved session
+useEffect(() => {
+  let cancelled = false;
+
+  async function restore() {
     const savedCode = localStorage.getItem("scoreboard_room_code");
     const savedRoomId = localStorage.getItem("scoreboard_room_id");
     const savedPlayerId = localStorage.getItem("scoreboard_player_id");
 
-    if (savedCode && savedRoomId && savedPlayerId) {
-      setRoomCode(savedCode);
-      setRoomId(savedRoomId);
-      setPlayerId(savedPlayerId);
-      setStep("room");
+    if (!savedCode || !savedRoomId || !savedPlayerId) return;
+
+    // 1) Verify room still exists (by code)
+    const { data: room, error: roomErr } = await getRoomByCode(savedCode);
+    if (roomErr || !room) {
+      localStorage.removeItem("scoreboard_room_code");
+      localStorage.removeItem("scoreboard_room_id");
+      localStorage.removeItem("scoreboard_player_id");
+      return;
     }
-  }, []);
+
+    // 2) Prefer: re-use player tied to this device in this room
+    const { data: existing } = await getPlayerByDevice(room.id, deviceId);
+
+    // Fallback: if device lookup fails but savedPlayerId exists, try loading that player
+    let player = existing ?? null;
+    if (!player) {
+      const { data: p } = await supabase
+        .from("players")
+        .select("*")
+        .eq("id", savedPlayerId)
+        .eq("room_id", room.id)
+        .maybeSingle();
+      player = p ?? null;
+    }
+
+    // If player no longer exists -> clear session (so we don't get stuck)
+    if (!player) {
+      localStorage.removeItem("scoreboard_room_code");
+      localStorage.removeItem("scoreboard_room_id");
+      localStorage.removeItem("scoreboard_player_id");
+      return;
+    }
+
+    // 3) Ensure score row exists (safety)
+    await ensureScore(room.id, player.id);
+
+    if (cancelled) return;
+
+    // 4) Restore UI state
+    setRoomCode(savedCode);
+    setRoomId(room.id);
+    setPlayerId(player.id);
+    if (!name && player.name) setName(player.name);
+    setStep("room");
+
+    // 5) Normalize stored IDs (in case roomId changed format)
+    localStorage.setItem("scoreboard_room_code", savedCode);
+    localStorage.setItem("scoreboard_room_id", room.id);
+    localStorage.setItem("scoreboard_player_id", player.id);
+  }
+
+  restore();
+
+  return () => {
+    cancelled = true;
+  };
+}, [deviceId, name]);
 
   const canJoin = useMemo(
     () => roomCode.trim().length >= 4 && name.trim().length >= 2,
