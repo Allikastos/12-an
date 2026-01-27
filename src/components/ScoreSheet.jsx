@@ -41,6 +41,7 @@ export default function ScoreSheet({
   onCloseWin,
   headerRight,
   settings,
+  readOnly = false,
 }) {
   const safeProgress = progress ?? defaultProgress();
 
@@ -86,6 +87,8 @@ export default function ScoreSheet({
   const boxSize = settings?.boxSize ?? "medium";
   const rowDoneBg = settings?.rowCompleteBg ?? "rgba(34,197,94,.10)";
   const checkColor = settings?.checkColor ?? "var(--accent)";
+  const checkIcon = settings?.buttonIcon ?? "";
+  const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
 
   return (
     <div>
@@ -107,13 +110,7 @@ export default function ScoreSheet({
             <div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.weightedPercent}%</div>
               <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                viktad progress
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.percent}%</div>
-              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                oviktad progress
+                avklarat
               </div>
             </div>
             <div>
@@ -171,30 +168,40 @@ export default function ScoreSheet({
                   return (
                     <button
                       key={i}
-                      onClick={() => onToggle(row, i)}
+                      onClick={() => !readOnly && onToggle(row, i)}
                       style={{
                         width: "var(--box)",
                         height: "var(--box)",
-                        borderRadius: 12,
-                        border: "1px solid var(--border)",
-                        background: checked ? "rgba(34,197,94,.18)" : "rgba(255,255,255,.03)",
-                        cursor: "pointer",
+                        borderRadius: 999,
+                        border: checked ? `2px solid ${checkColor}` : "2px solid rgba(148,163,184,.7)",
+                        background: "transparent",
+                        cursor: readOnly ? "default" : "pointer",
                         position: "relative",
                         outline: "none",
                       }}
                       aria-label={`Rad ${row}, ruta ${i + 1}`}
                       type="button"
+                      disabled={readOnly}
                     >
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: 14,
-                          height: 14,
-                          borderRadius: 999,
-                          border: checked ? `2px solid ${checkColor}` : "2px solid rgba(148,163,184,.7)",
-                          background: checked ? checkColor : "transparent",
-                        }}
-                      />
+                      {checkIcon && checked && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            inset: "10%",
+                            display: "block",
+                            backgroundImage: isSvgIcon ? `url("${checkIcon}")` : "none",
+                            backgroundRepeat: "no-repeat",
+                            backgroundPosition: "center",
+                            backgroundSize: "contain",
+                            fontSize: isSvgIcon ? 0 : "calc(var(--box) * 0.45)",
+                            color: checkColor,
+                            lineHeight: 1,
+                            textAlign: "center",
+                          }}
+                        >
+                          {!isSvgIcon ? checkIcon : ""}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -207,6 +214,7 @@ export default function ScoreSheet({
       <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
         <button
           onClick={onReset}
+          disabled={readOnly}
           style={{
             padding: "10px 14px",
             borderRadius: 12,
@@ -214,7 +222,8 @@ export default function ScoreSheet({
             background: "rgba(239,68,68,.08)",
             color: "var(--text)",
             fontWeight: 800,
-            cursor: "pointer",
+            cursor: readOnly ? "default" : "pointer",
+            opacity: readOnly ? 0.5 : 1,
           }}
           type="button"
         >
@@ -243,10 +252,7 @@ export default function ScoreSheet({
               padding: 18,
             }}
           >
-            <div style={{ fontSize: 22, fontWeight: 950 }}>Du vann!</div>
-            <div style={{ color: "var(--muted)", marginTop: 6, fontWeight: 700 }}>
-              Alla rader (1–12) är klara.
-            </div>
+            <div style={{ fontSize: 22, fontWeight: 950 }}>Grattis! Du Vann!!</div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
               <button
