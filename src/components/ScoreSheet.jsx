@@ -1,16 +1,10 @@
 import { useMemo } from "react";
 
-// 7 kryss per rad (1–12)
 const REQUIRED_PER_ROW = 7;
 const ROWS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-// Viktning baserat på sannolikhet:
-// 1–6: 1 tärning => P = 1/6
-// 7–12: 2 tärningar => klassisk 2d6-sannolikhet
 function rowProbability(row) {
   if (row >= 1 && row <= 6) return 1 / 6;
-
-  // 2d6
   const counts = {
     2: 1,
     3: 2,
@@ -28,7 +22,6 @@ function rowProbability(row) {
 }
 
 function rowWeight(row) {
-  // Vikt = 1 / sannolikhet (rarare => tyngre)
   const p = rowProbability(row);
   const w = 1 / p;
   return Math.min(w, 36);
@@ -36,9 +29,7 @@ function rowWeight(row) {
 
 function defaultProgress() {
   const obj = {};
-  for (const r of ROWS) {
-    obj[r] = Array(REQUIRED_PER_ROW).fill(false);
-  }
+  for (const r of ROWS) obj[r] = Array(REQUIRED_PER_ROW).fill(false);
   return obj;
 }
 
@@ -49,6 +40,7 @@ export default function ScoreSheet({
   showWin,
   onCloseWin,
   headerRight,
+  settings,
 }) {
   const safeProgress = progress ?? defaultProgress();
 
@@ -74,15 +66,29 @@ export default function ScoreSheet({
     }
 
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-    const weightedPercent =
-      totalWeighted > 0 ? Math.round((doneWeighted / totalWeighted) * 100) : 0;
+    const weightedPercent = totalWeighted > 0 ? Math.round((doneWeighted / totalWeighted) * 100) : 0;
 
     return { done, total, percent, weightedPercent };
   }, [safeProgress]);
 
+  const sizeMap = {
+    small: "clamp(22px, 6vw, 30px)",
+    medium: "clamp(26px, 6.5vw, 36px)",
+    large: "clamp(30px, 7.5vw, 44px)",
+  };
+
+  const gapMap = {
+    small: "clamp(6px, 1.8vw, 8px)",
+    medium: "clamp(8px, 2vw, 10px)",
+    large: "clamp(10px, 2.4vw, 12px)",
+  };
+
+  const boxSize = settings?.boxSize ?? "medium";
+  const rowDoneBg = settings?.rowCompleteBg ?? "rgba(34,197,94,.10)";
+  const checkColor = settings?.checkColor ?? "var(--accent)";
+
   return (
     <div>
-      {/* Topprad med progress */}
       <div
         style={{
           display: "flex",
@@ -90,6 +96,7 @@ export default function ScoreSheet({
           alignItems: "baseline",
           gap: 12,
           marginBottom: 14,
+          flexWrap: "wrap",
         }}
       >
         <div>
@@ -123,74 +130,80 @@ export default function ScoreSheet({
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>{headerRight}</div>
       </div>
 
-      {/* Tabell */}
       <div
         style={{
           border: "1px solid var(--border)",
           borderRadius: 16,
-          overflow: "hidden",
           background: "rgba(255,255,255,.02)",
+          overflowX: "auto",
         }}
       >
-        {ROWS.map((row) => {
-          const rowArr = safeProgress[row] ?? Array(REQUIRED_PER_ROW).fill(false);
-          const rowDone = rowArr.every(Boolean);
+        <div
+          style={{
+            display: "grid",
+            gap: 0,
+            minWidth: "calc(44px + (7 * var(--box)) + (6 * var(--gap)))",
+            "--box": sizeMap[boxSize],
+            "--gap": gapMap[boxSize],
+          }}
+        >
+          {ROWS.map((row) => {
+            const rowArr = safeProgress[row] ?? Array(REQUIRED_PER_ROW).fill(false);
+            const rowDone = rowArr.every(Boolean);
 
-          return (
-            <div
-              key={row}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "44px repeat(7, 1fr)",
-                gap: 10,
-                alignItems: "center",
-                padding: "12px 12px",
-                borderTop: row === 1 ? "none" : "1px solid var(--border)",
-                background: rowDone ? "rgba(34,197,94,.10)" : "transparent",
-              }}
-            >
-              <div style={{ fontWeight: 900, opacity: rowDone ? 1 : 0.9 }}>{row}</div>
+            return (
+              <div
+                key={row}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "44px repeat(7, var(--box))",
+                  gap: "var(--gap)",
+                  alignItems: "center",
+                  padding: "12px 12px",
+                  borderTop: row === 1 ? "none" : "1px solid var(--border)",
+                  background: rowDone ? rowDoneBg : "transparent",
+                }}
+              >
+                <div style={{ fontWeight: 900, opacity: rowDone ? 1 : 0.9 }}>{row}</div>
 
-              {Array.from({ length: REQUIRED_PER_ROW }, (_, i) => {
-                const checked = Boolean(rowArr[i]);
-                return (
-                  <button
-                    key={i}
-                    onClick={() => onToggle(row, i)}
-                    style={{
-                      width: "100%",
-                      height: 34,
-                      borderRadius: 12,
-                      border: "1px solid var(--border)",
-                      background: checked ? "rgba(34,197,94,.22)" : "rgba(255,255,255,.03)",
-                      cursor: "pointer",
-                      position: "relative",
-                      outline: "none",
-                    }}
-                    aria-label={`Rad ${row}, ruta ${i + 1}`}
-                    type="button"
-                  >
-                    <span
+                {Array.from({ length: REQUIRED_PER_ROW }, (_, i) => {
+                  const checked = Boolean(rowArr[i]);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => onToggle(row, i)}
                       style={{
-                        display: "inline-block",
-                        width: 14,
-                        height: 14,
-                        borderRadius: 999,
-                        border: checked
-                          ? "2px solid rgba(34,197,94,1)"
-                          : "2px solid rgba(148,163,184,.7)",
-                        background: checked ? "rgba(34,197,94,1)" : "transparent",
+                        width: "var(--box)",
+                        height: "var(--box)",
+                        borderRadius: 12,
+                        border: "1px solid var(--border)",
+                        background: checked ? "rgba(34,197,94,.18)" : "rgba(255,255,255,.03)",
+                        cursor: "pointer",
+                        position: "relative",
+                        outline: "none",
                       }}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
+                      aria-label={`Rad ${row}, ruta ${i + 1}`}
+                      type="button"
+                    >
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 14,
+                          height: 14,
+                          borderRadius: 999,
+                          border: checked ? `2px solid ${checkColor}` : "2px solid rgba(148,163,184,.7)",
+                          background: checked ? checkColor : "transparent",
+                        }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Reset */}
       <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
         <button
           onClick={onReset}
@@ -209,7 +222,6 @@ export default function ScoreSheet({
         </button>
       </div>
 
-      {/* Vinst-modal */}
       {showWin && (
         <div
           style={{

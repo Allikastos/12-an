@@ -9,6 +9,7 @@ import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 
 import ScoreSheet from "./components/ScoreSheet";
+import DiceTray from "./components/DiceTray";
 
 import {
   createRoomWithCode,
@@ -29,7 +30,6 @@ function getOrCreateDeviceId() {
   const key = "scoreboard_device_id";
   let id = localStorage.getItem(key);
   if (!id) {
-    // Robust fallback (undviker vit sida om randomUUID saknas)
     id =
       globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
         ? globalThis.crypto.randomUUID()
@@ -53,6 +53,39 @@ function isProgressWin(p) {
   return true;
 }
 
+function calcWeightedProgress(progressObj) {
+  if (!progressObj) return 0;
+
+  const weights = {
+    1: 0.6,
+    2: 0.65,
+    3: 0.7,
+    4: 0.8,
+    5: 0.9,
+    6: 1.0,
+    7: 1.25,
+    8: 1.35,
+    9: 1.45,
+    10: 1.55,
+    11: 1.7,
+    12: 1.9,
+  };
+
+  let done = 0;
+  let total = 0;
+
+  for (let r = 1; r <= 12; r++) {
+    const w = weights[r] ?? 1;
+    const row = progressObj[r] ?? Array(7).fill(false);
+    for (let i = 0; i < 7; i++) {
+      total += w;
+      if (row[i]) done += w;
+    }
+  }
+
+  return total > 0 ? done / total : 0;
+}
+
 export default function App() {
   const [deviceId] = useState(() => getOrCreateDeviceId());
 
@@ -62,7 +95,6 @@ export default function App() {
   const [roomId, setRoomId] = useState(null);
   const [playerId, setPlayerId] = useState(null);
 
-  // Settings (globalt)
   const [settings, setSettings] = useState(() => {
     try {
       const raw = localStorage.getItem("scoreboard_settings_v1");
@@ -72,7 +104,7 @@ export default function App() {
             boxSize: "medium",
             checkColor: "var(--accent)",
             rowCompleteBg: "rgba(34,197,94,.12)",
-            showDice: false, // tillval senare
+            showDice: false,
           };
     } catch {
       return {
@@ -90,50 +122,21 @@ export default function App() {
 
   const [showSettings, setShowSettings] = useState(false);
 
-  // Progress lagras per rum+spelare (så olika personer får egna blad i samma lobby)
   const progressStorageKey = useMemo(() => {
     if (roomId && playerId) return `t12_progress_${roomId}_${playerId}`;
     return "t12_progress_local";
   }, [roomId, playerId]);
 
-  const [progress, setProgress] = useState(() => {
-    try {
-      const raw = localStorage.getItem("t12_progress_local");
-      return raw ? JSON.parse(raw) : emptyProgress();
-    } catch {
-      return emptyProgress();
-    }
-  });
-
+  const [progress, setProgress] = useState(() => emptyProgress());
   const [showWin, setShowWin] = useState(false);
-// --- Top stats (för headern) ---
-const TOTAL_BOXES = 12 * 7;
 
-const completedBoxes = useMemo(() => {
-  if (!progress) return 0;
-  let c = 0;
-  for (let r = 1; r <= 12; r++) {
-    const row = progress[r] ?? [];
-    for (let i = 0; i < 7; i++) if (row[i]) c++;
-  }
-  return c;
-}, [progress]);
+  // Dice state (optional)
+  const [dice, setDice] = useState(() => Array(6).fill(1));
+  const [locked, setLocked] = useState(() => Array(6).fill(false));
+  const [target, setTarget] = useState(null); // 1..12, null until chosen
+  const [lastGain, setLastGain] = useState(0);
+  const [diceStatus, setDiceStatus] = useState("idle"); // idle | choose | running | stopped | all
 
-const completedRows = useMemo(() => {
-  if (!progress) return 0;
-  let rows = 0;
-  for (let r = 1; r <= 12; r++) {
-    const row = progress[r] ?? [];
-    if (row.length === 7 && row.every(Boolean)) rows++;
-  }
-  return rows;
-}, [progress]);
-
-// OBS: Den här "weightedPercent" använder din befintliga `progress` (0..1).
-// Om din `progress` inte är 0..1: säg till så justerar vi.
-const weightedPercent = Math.round((progress ?? 0) * 100);
-
-  // När man byter rum/spelare: ladda rätt progress
   useEffect(() => {
     try {
       const raw = localStorage.getItem(progressStorageKey);
@@ -147,19 +150,39 @@ const weightedPercent = Math.round((progress ?? 0) * 100);
     }
   }, [progressStorageKey]);
 
-  // Spara progress när det ändras
   useEffect(() => {
     localStorage.setItem(progressStorageKey, JSON.stringify(progress));
   }, [progress, progressStorageKey]);
 
-  // Force tick för att UI känns levande (valfritt men ok)
+  const TOTAL_BOXES = 12 * 7;
+
+  const completedBoxes = useMemo(() => {
+    let c = 0;
+    for (let r = 1; r <= 12; r++) {
+      const row = progress?.[r] ?? [];
+      for (let i = 0; i < 7; i++) if (row[i]) c++;
+    }
+    return c;
+  }, [progress]);
+
+  const completedRows = useMemo(() => {
+    let rows = 0;
+    for (let r = 1; r <= 12; r++) {
+      const row = progress?.[r] ?? [];
+      if (row.length === 7 && row.every(Boolean)) rows++;
+    }
+    return rows;
+  }, [progress]);
+
+  const weightedProgress = useMemo(() => calcWeightedProgress(progress), [progress]);
+  const weightedPercent = Math.round(weightedProgress * 100);
+
   const [, forceTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => forceTick((x) => x + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Auto-restore lobby/session
   useEffect(() => {
     let cancelled = false;
 
@@ -279,7 +302,6 @@ const weightedPercent = Math.round((progress ?? 0) * 100);
     }
   }
 
-  // Presence heartbeat
   useEffect(() => {
     if (!roomId || !playerId) return;
 
@@ -305,7 +327,6 @@ const weightedPercent = Math.round((progress ?? 0) * 100);
     };
   }, [roomId, playerId]);
 
-  // Poängblad actions
   function toggleCell(row, idx) {
     setProgress((prev) => {
       const base = prev && typeof prev === "object" ? prev : emptyProgress();
@@ -325,7 +346,102 @@ const weightedPercent = Math.round((progress ?? 0) * 100);
     setShowWin(false);
   }
 
-  // ---------------- UI ----------------
+  function setTargetSafe(value) {
+    setTarget(value);
+    setLocked(Array(6).fill(false));
+    setLastGain(0);
+    setDiceStatus("running");
+  }
+
+  function rollDie() {
+    return Math.floor(Math.random() * 6) + 1;
+  }
+
+  function rerollAll() {
+    setDice(Array(6).fill(0).map(() => rollDie()));
+    setLocked(Array(6).fill(false));
+    setLastGain(0);
+    setDiceStatus("idle");
+    setTarget(null);
+  }
+
+  function rollOnce() {
+    if (diceStatus === "idle") {
+      const firstDice = Array(6).fill(0).map(() => rollDie());
+      setDice(firstDice);
+      setLocked(Array(6).fill(false));
+      setLastGain(0);
+      setDiceStatus("choose");
+      return;
+    }
+
+    if (!target) return;
+
+    const nextDice = dice.map((d, i) => (locked[i] ? d : rollDie()));
+    const nextLocked = [...locked];
+    let gain = 0;
+
+    if (target >= 1 && target <= 6) {
+      for (let i = 0; i < nextDice.length; i++) {
+        if (!nextLocked[i] && nextDice[i] === target) {
+          nextLocked[i] = true;
+          gain += 1;
+        }
+      }
+    } else {
+      const buckets = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+      for (let i = 0; i < nextDice.length; i++) {
+        if (!nextLocked[i]) buckets[nextDice[i]].push(i);
+      }
+
+      for (let v = 1; v <= 6; v++) {
+        const c = target - v;
+        if (c < 1 || c > 6) continue;
+        if (v > c) continue;
+
+        if (v === c) {
+          while (buckets[v].length >= 2) {
+            const i1 = buckets[v].shift();
+            const i2 = buckets[v].shift();
+            nextLocked[i1] = true;
+            nextLocked[i2] = true;
+            gain += 1;
+          }
+        } else {
+          while (buckets[v].length > 0 && buckets[c].length > 0) {
+            const i1 = buckets[v].shift();
+            const i2 = buckets[c].shift();
+            nextLocked[i1] = true;
+            nextLocked[i2] = true;
+            gain += 1;
+          }
+        }
+      }
+    }
+
+    setDice(nextDice);
+    setLocked(nextLocked);
+    setLastGain(gain);
+
+    if (gain === 0) {
+      setDiceStatus("stopped");
+      return;
+    }
+
+    if (nextLocked.every(Boolean)) {
+      setDiceStatus("all");
+    } else {
+      setDiceStatus("running");
+    }
+  }
+
+  function endRound() {
+    setDiceStatus("idle");
+    setTarget(null);
+    setLocked(Array(6).fill(false));
+    setLastGain(0);
+  }
+
   if (step === "home") {
     return (
       <Container>
@@ -334,60 +450,56 @@ const weightedPercent = Math.round((progress ?? 0) * 100);
             <h1 style={{ margin: 0, fontSize: 28 }}>12:an</h1>
             <span style={{ color: "var(--muted)", fontWeight: 700 }}>Poängblad</span>
           </div>
-{/* Stats (0/84, klara summor, viktad %) */}
-<div
-  style={{
-    marginTop: 14,
-    padding: 14,
-    border: "1px solid var(--border)",
-    borderRadius: 16,
-    background: "rgba(255,255,255,.02)",
-  }}
->
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr 1fr",
-      gap: 12,
-      alignItems: "end",
-    }}
-  >
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 26, fontWeight: 900 }}>{completedBoxes}</div>
-      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-        av {TOTAL_BOXES}
-      </div>
-    </div>
 
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 26, fontWeight: 900 }}>{completedRows}</div>
-      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-        klara summor
-      </div>
-    </div>
+          <div
+            style={{
+              marginTop: 14,
+              padding: 14,
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              background: "rgba(255,255,255,.02)",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                gap: 12,
+                alignItems: "end",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>{completedBoxes}</div>
+                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                  av {TOTAL_BOXES}
+                </div>
+              </div>
 
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 26, fontWeight: 900 }}>{weightedPercent}%</div>
-      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-        färdigt (viktat)
-      </div>
-    </div>
-  </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>{completedRows}</div>
+                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>klara summor</div>
+              </div>
 
-  <div style={{ marginTop: 12 }}>
-    <div style={{ height: 10, background: "rgba(148,163,184,.22)", borderRadius: 999 }}>
-      <div
-        style={{
-          height: 10,
-          width: `${weightedPercent}%`,
-          background: "var(--accent)",
-          borderRadius: 999,
-          transition: "width .2s ease",
-        }}
-      />
-    </div>
-  </div>
-</div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>{weightedPercent}%</div>
+                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>färdigt (viktat)</div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <div style={{ height: 10, background: "rgba(148,163,184,.22)", borderRadius: 999 }}>
+                <div
+                  style={{
+                    height: 10,
+                    width: `${weightedPercent}%`,
+                    background: "var(--accent)",
+                    borderRadius: 999,
+                    transition: "width .2s ease",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
 
           <div style={{ marginTop: 14 }}>
             <label style={{ display: "block", color: "var(--muted)", fontWeight: 700, marginBottom: 8 }}>
@@ -450,15 +562,28 @@ const weightedPercent = Math.round((progress ?? 0) * 100);
             showWin={showWin}
             onCloseWin={() => setShowWin(false)}
             headerRight={null}
+            settings={settings}
           />
         </div>
 
         <p style={{ marginTop: 14, color: "var(--muted)" }}>
           Dela koden <b>{roomCode.toUpperCase()}</b> så kan andra ansluta.
         </p>
+
+        <DiceTray
+          show={Boolean(settings.showDice)}
+          dice={dice}
+          locked={locked}
+          target={target}
+          onSetTarget={setTargetSafe}
+          onRoll={rollOnce}
+          onReroll={rerollAll}
+          onEndRound={endRound}
+          lastGain={lastGain}
+          status={diceStatus}
+        />
       </Card>
 
-      {/* Settings modal */}
       {showSettings && (
         <div
           onClick={() => setShowSettings(false)}

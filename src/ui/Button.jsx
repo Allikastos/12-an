@@ -1,5 +1,3 @@
-import React from "react";
-
 export function Button({
   children,
   variant = "primary", // primary | ghost | danger
@@ -12,8 +10,8 @@ export function Button({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    padding: "12px 14px",
-    borderRadius: 14,
+    padding: "12px 16px",
+    borderRadius: 16,
     border: "1px solid transparent",
     fontWeight: 800,
     letterSpacing: 0.2,
@@ -24,19 +22,21 @@ export function Button({
 
   const variants = {
     primary: {
-      background: "var(--accent)",
+      background: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
       color: "#07110b",
       borderColor: "rgba(0,0,0,.12)",
+      boxShadow: "0 10px 24px rgba(16,185,129,.25)",
     },
     ghost: {
-      background: "rgba(255,255,255,.03)",
+      background: "rgba(255,255,255,.04)",
       color: "var(--text)",
       borderColor: "var(--border)",
     },
     danger: {
-      background: "rgba(239,68,68,.14)",
-      color: "rgba(248,113,113,1)",
-      borderColor: "rgba(239,68,68,.25)",
+      background: "linear-gradient(180deg, rgba(239,68,68,.9), rgba(220,38,38,.9))",
+      color: "white",
+      borderColor: "rgba(239,68,68,.35)",
+      boxShadow: "0 10px 24px rgba(239,68,68,.2)",
     },
   };
 
