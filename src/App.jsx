@@ -9,8 +9,6 @@ import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 
 import ScoreSheet from "./components/ScoreSheet";
-import { weightedProgress, isWin, ROWS } from "./game/weights";
-import { loadSheet, saveSheet, clearSheet, loadSettings, saveSettings } from "./game/storage";
 
 import {
   createRoomWithCode,
@@ -31,16 +29,28 @@ function getOrCreateDeviceId() {
   const key = "scoreboard_device_id";
   let id = localStorage.getItem(key);
   if (!id) {
-    id = crypto.randomUUID();
+    // Robust fallback (undviker vit sida om randomUUID saknas)
+    id =
+      globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : `dev-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     localStorage.setItem(key, id);
   }
   return id;
 }
 
-function emptySheet() {
-  const s = {};
-  for (const r of ROWS) s[r] = 0;
-  return s;
+function emptyProgress() {
+  const obj = {};
+  for (let r = 1; r <= 12; r++) obj[r] = Array(7).fill(false);
+  return obj;
+}
+
+function isProgressWin(p) {
+  for (let r = 1; r <= 12; r++) {
+    const row = p?.[r];
+    if (!row || row.length !== 7 || !row.every(Boolean)) return false;
+  }
+  return true;
 }
 
 export default function App() {
@@ -52,34 +62,104 @@ export default function App() {
   const [roomId, setRoomId] = useState(null);
   const [playerId, setPlayerId] = useState(null);
 
-  // Poängblad + settings (lokalt först)
-  const [sheet, setSheet] = useState(() => loadSheet() ?? emptySheet());
-  const [settings, setSettings] = useState(() => loadSettings() ?? {
-    boxSize: "medium",
-    checkColor: "var(--accent)",
-    rowCompleteBg: "rgba(34,197,94,.12)",
-    showDice: false, // tillval senare
+  // Settings (globalt)
+  const [settings, setSettings] = useState(() => {
+    try {
+      const raw = localStorage.getItem("scoreboard_settings_v1");
+      return raw
+        ? JSON.parse(raw)
+        : {
+            boxSize: "medium",
+            checkColor: "var(--accent)",
+            rowCompleteBg: "rgba(34,197,94,.12)",
+            showDice: false, // tillval senare
+          };
+    } catch {
+      return {
+        boxSize: "medium",
+        checkColor: "var(--accent)",
+        rowCompleteBg: "rgba(34,197,94,.12)",
+        showDice: false,
+      };
+    }
   });
+
+  useEffect(() => {
+    localStorage.setItem("scoreboard_settings_v1", JSON.stringify(settings));
+  }, [settings]);
 
   const [showSettings, setShowSettings] = useState(false);
 
-  // För att Online/Pausad och progress ska kännas levande
+  // Progress lagras per rum+spelare (så olika personer får egna blad i samma lobby)
+  const progressStorageKey = useMemo(() => {
+    if (roomId && playerId) return `t12_progress_${roomId}_${playerId}`;
+    return "t12_progress_local";
+  }, [roomId, playerId]);
+
+  const [progress, setProgress] = useState(() => {
+    try {
+      const raw = localStorage.getItem("t12_progress_local");
+      return raw ? JSON.parse(raw) : emptyProgress();
+    } catch {
+      return emptyProgress();
+    }
+  });
+
+  const [showWin, setShowWin] = useState(false);
+// --- Top stats (för headern) ---
+const TOTAL_BOXES = 12 * 7;
+
+const completedBoxes = useMemo(() => {
+  if (!progress) return 0;
+  let c = 0;
+  for (let r = 1; r <= 12; r++) {
+    const row = progress[r] ?? [];
+    for (let i = 0; i < 7; i++) if (row[i]) c++;
+  }
+  return c;
+}, [progress]);
+
+const completedRows = useMemo(() => {
+  if (!progress) return 0;
+  let rows = 0;
+  for (let r = 1; r <= 12; r++) {
+    const row = progress[r] ?? [];
+    if (row.length === 7 && row.every(Boolean)) rows++;
+  }
+  return rows;
+}, [progress]);
+
+// OBS: Den här "weightedPercent" använder din befintliga `progress` (0..1).
+// Om din `progress` inte är 0..1: säg till så justerar vi.
+const weightedPercent = Math.round((progress ?? 0) * 100);
+
+  // När man byter rum/spelare: ladda rätt progress
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(progressStorageKey);
+      const p = raw ? JSON.parse(raw) : emptyProgress();
+      setProgress(p);
+      setShowWin(isProgressWin(p));
+    } catch {
+      const p = emptyProgress();
+      setProgress(p);
+      setShowWin(false);
+    }
+  }, [progressStorageKey]);
+
+  // Spara progress när det ändras
+  useEffect(() => {
+    localStorage.setItem(progressStorageKey, JSON.stringify(progress));
+  }, [progress, progressStorageKey]);
+
+  // Force tick för att UI känns levande (valfritt men ok)
   const [, forceTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => forceTick((x) => x + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Spara sheet/settings lokalt
-  useEffect(() => {
-    saveSheet(sheet);
-  }, [sheet]);
-
-  useEffect(() => {
-    saveSettings(settings);
-  }, [settings]);
-
-  // Auto-restore (safe) av lobby/session
+  // Auto-restore lobby/session
   useEffect(() => {
     let cancelled = false;
 
@@ -134,7 +214,9 @@ export default function App() {
     }
 
     restore();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [deviceId, name]);
 
   const canJoin = useMemo(
@@ -156,7 +238,7 @@ export default function App() {
     const playerName = name.trim();
 
     const { data: room, error: roomErr } = await getRoomByCode(code);
-    if (roomErr) return alert("Rummet hittades inte. Kontrollera koden.");
+    if (roomErr || !room) return alert("Rummet hittades inte. Kontrollera koden.");
 
     let player = null;
     const { data: existing, error: existingErr } = await getPlayerByDevice(room.id, deviceId);
@@ -197,7 +279,7 @@ export default function App() {
     }
   }
 
-  // Presence heartbeat (så lobby kan visa online senare)
+  // Presence heartbeat
   useEffect(() => {
     if (!roomId || !playerId) return;
 
@@ -223,32 +305,27 @@ export default function App() {
     };
   }, [roomId, playerId]);
 
-  // --- Poängblad actions ---
-  const inc = (row) => {
-    setSheet((prev) => {
-      const next = { ...prev };
-      next[row] = Math.min(7, Number(next[row] ?? 0) + 1);
+  // Poängblad actions
+  function toggleCell(row, idx) {
+    setProgress((prev) => {
+      const base = prev && typeof prev === "object" ? prev : emptyProgress();
+      const next = { ...base, [row]: [...(base[row] ?? Array(7).fill(false))] };
+      next[row][idx] = !next[row][idx];
+
+      const won = isProgressWin(next);
+      setShowWin(won);
+
       return next;
     });
-  };
-
-  const dec = (row) => {
-    setSheet((prev) => {
-      const next = { ...prev };
-      next[row] = Math.max(0, Number(next[row] ?? 0) - 1);
-      return next;
-    });
-  };
-
-  const progress = weightedProgress(sheet);
-  const won = isWin(sheet);
-
-  function resetSheet() {
-    clearSheet();
-    setSheet(emptySheet());
   }
 
-  // ------------------ UI ------------------
+  function resetProgress() {
+    const p = emptyProgress();
+    setProgress(p);
+    setShowWin(false);
+  }
+
+  // ---------------- UI ----------------
   if (step === "home") {
     return (
       <Container>
@@ -257,6 +334,60 @@ export default function App() {
             <h1 style={{ margin: 0, fontSize: 28 }}>12:an</h1>
             <span style={{ color: "var(--muted)", fontWeight: 700 }}>Poängblad</span>
           </div>
+{/* Stats (0/84, klara summor, viktad %) */}
+<div
+  style={{
+    marginTop: 14,
+    padding: 14,
+    border: "1px solid var(--border)",
+    borderRadius: 16,
+    background: "rgba(255,255,255,.02)",
+  }}
+>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gap: 12,
+      alignItems: "end",
+    }}
+  >
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: 26, fontWeight: 900 }}>{completedBoxes}</div>
+      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+        av {TOTAL_BOXES}
+      </div>
+    </div>
+
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: 26, fontWeight: 900 }}>{completedRows}</div>
+      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+        klara summor
+      </div>
+    </div>
+
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: 26, fontWeight: 900 }}>{weightedPercent}%</div>
+      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+        färdigt (viktat)
+      </div>
+    </div>
+  </div>
+
+  <div style={{ marginTop: 12 }}>
+    <div style={{ height: 10, background: "rgba(148,163,184,.22)", borderRadius: 999 }}>
+      <div
+        style={{
+          height: 10,
+          width: `${weightedPercent}%`,
+          background: "var(--accent)",
+          borderRadius: 999,
+          transition: "width .2s ease",
+        }}
+      />
+    </div>
+  </div>
+</div>
 
           <div style={{ marginTop: 14 }}>
             <label style={{ display: "block", color: "var(--muted)", fontWeight: 700, marginBottom: 8 }}>
@@ -295,7 +426,6 @@ export default function App() {
   return (
     <Container>
       <Card style={{ padding: 22 }}>
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
           <div>
             <div style={{ color: "var(--muted)", fontWeight: 800, letterSpacing: 0.2 }}>RUM</div>
@@ -312,58 +442,23 @@ export default function App() {
           </div>
         </div>
 
-        {/* Progress */}
-        <div style={{ marginTop: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ color: "var(--muted)", fontWeight: 700 }}>Färdigt (viktat)</span>
-            <span style={{ fontWeight: 900 }}>{Math.round(progress * 100)}%</span>
-          </div>
-          <div style={{ height: 10, background: "rgba(148,163,184,.25)", borderRadius: 999 }}>
-            <div
-              style={{
-                height: 10,
-                width: `${Math.round(progress * 100)}%`,
-                background: "var(--accent)",
-                borderRadius: 999,
-                transition: "width .2s ease",
-              }}
-            />
-          </div>
+        <div style={{ marginTop: 16 }}>
+          <ScoreSheet
+            progress={progress}
+            onToggle={toggleCell}
+            onReset={resetProgress}
+            showWin={showWin}
+            onCloseWin={() => setShowWin(false)}
+            headerRight={null}
+          />
         </div>
 
-        {/* Win message */}
-        {won && (
-          <div
-            style={{
-              marginTop: 14,
-              padding: 14,
-              borderRadius: 14,
-              border: "1px solid var(--border)",
-              background: "rgba(34,197,94,.12)",
-              fontWeight: 900,
-            }}
-          >
-            Du vann! Alla rader är klara.
-          </div>
-        )}
-
-        {/* Sheet */}
-        <div style={{ marginTop: 18 }}>
-          <ScoreSheet sheet={sheet} onIncrement={inc} onDecrement={dec} settings={settings} />
-        </div>
-
-        {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 16 }}>
-          <p style={{ margin: 0, color: "var(--muted)" }}>
-            Dela koden <b>{roomCode.toUpperCase()}</b> så kan andra ansluta.
-          </p>
-          <Button variant="ghost" onClick={resetSheet}>
-            Återställ spel
-          </Button>
-        </div>
+        <p style={{ marginTop: 14, color: "var(--muted)" }}>
+          Dela koden <b>{roomCode.toUpperCase()}</b> så kan andra ansluta.
+        </p>
       </Card>
 
-      {/* Settings modal (enkel inline) */}
+      {/* Settings modal */}
       {showSettings && (
         <div
           onClick={() => setShowSettings(false)}
@@ -381,7 +476,9 @@ export default function App() {
             <Card style={{ padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <h3 style={{ margin: 0 }}>Inställningar</h3>
-                <Button variant="ghost" onClick={() => setShowSettings(false)}>Stäng</Button>
+                <Button variant="ghost" onClick={() => setShowSettings(false)}>
+                  Stäng
+                </Button>
               </div>
 
               <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
@@ -416,7 +513,9 @@ export default function App() {
                       <div style={{ color: "var(--muted)", fontWeight: 700 }}>Rumskod</div>
                       <div style={{ fontWeight: 900, fontSize: 18 }}>{roomCode.toUpperCase()}</div>
                     </div>
-                    <Button variant="danger" onClick={handleLeave}>Lämna lobby</Button>
+                    <Button variant="danger" onClick={handleLeave}>
+                      Lämna lobby
+                    </Button>
                   </div>
                 </div>
 

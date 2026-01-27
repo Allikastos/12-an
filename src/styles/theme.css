@@ -5,16 +5,14 @@
   --text: rgba(226,232,240,1);
   --muted: rgba(148,163,184,1);
   --accent: #22c55e;
+
+  --shadow: 0 22px 70px rgba(0,0,0,.35);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: radial-gradient(1200px 700px at 20% 0%, rgba(34,197,94,.08), transparent 60%), var(--bg); color: var(--text); }
+#root { min-height: 100%; }
 
-html, body {
-  height: 100%;
-}
-
-body {
-  margin: 0;
-}
+/* Hjälpklasser (valfritt) */
+.muted { color: var(--muted); }

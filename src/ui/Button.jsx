@@ -1,51 +1,60 @@
-const variants = {
-  primary: {
-    background: "var(--accent)",
-    color: "white",
-    border: "1px solid rgba(255,255,255,.10)",
-  },
-  ghost: {
-    background: "transparent",
-    color: "var(--text)",
-    border: "1px solid var(--border)",
-  },
-  danger: {
-    background: "rgba(239,68,68,.14)",
-    color: "#fecaca",
-    border: "1px solid rgba(239,68,68,.35)",
-  },
-};
+import React from "react";
 
 export function Button({
   children,
-  variant = "primary",
-  disabled,
-  onClick,
-  type = "button",
+  variant = "primary", // primary | ghost | danger
   style,
+  ...props
 }) {
-  const v = variants[variant] ?? variants.primary;
+  const base = {
+    width: "100%",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid transparent",
+    fontWeight: 800,
+    letterSpacing: 0.2,
+    cursor: "pointer",
+    userSelect: "none",
+    transition: "transform .06s ease, background .15s ease, border-color .15s ease, opacity .15s ease",
+  };
+
+  const variants = {
+    primary: {
+      background: "var(--accent)",
+      color: "#07110b",
+      borderColor: "rgba(0,0,0,.12)",
+    },
+    ghost: {
+      background: "rgba(255,255,255,.03)",
+      color: "var(--text)",
+      borderColor: "var(--border)",
+    },
+    danger: {
+      background: "rgba(239,68,68,.14)",
+      color: "rgba(248,113,113,1)",
+      borderColor: "rgba(239,68,68,.25)",
+    },
+  };
+
+  const disabled = props.disabled;
 
   return (
     <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
+      {...props}
       style={{
-        width: "100%",
-        padding: "12px 14px",
-        borderRadius: 14,
-        fontWeight: 900,
-        letterSpacing: 0.2,
+        ...base,
+        ...(variants[variant] ?? variants.primary),
+        opacity: disabled ? 0.55 : 1,
         cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.6 : 1,
-        transition: "transform .06s ease, filter .15s ease",
-        outline: "none",
-        ...v,
         ...style,
       }}
       onMouseDown={(e) => {
-        if (!disabled) e.currentTarget.style.transform = "scale(0.98)";
+        if (disabled) return;
+        e.currentTarget.style.transform = "scale(0.99)";
       }}
       onMouseUp={(e) => {
         e.currentTarget.style.transform = "scale(1)";
