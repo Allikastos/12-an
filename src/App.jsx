@@ -145,6 +145,7 @@ export default function App() {
             bgColor: "#0b1020",
             buttonIcon: "",
             showDice: false,
+            vibrateOnTurn: false,
           };
     } catch {
       return {
@@ -155,6 +156,7 @@ export default function App() {
         bgColor: "#0b1020",
         buttonIcon: "",
         showDice: false,
+        vibrateOnTurn: false,
       };
     }
   });
@@ -419,6 +421,14 @@ export default function App() {
       resetTurnState();
     }
   }, [roomState?.turn_player_id, gameStarted]);
+
+  useEffect(() => {
+    if (!gameStarted || !isMyTurn) return;
+    if (!settings.vibrateOnTurn) return;
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([200, 80, 200]);
+    }
+  }, [gameStarted, isMyTurn, settings.vibrateOnTurn]);
 
   const playerSummaries = useMemo(() => {
     return players.map((p) => {
@@ -1360,6 +1370,18 @@ export default function App() {
                       onClick={() => setSettings((s) => ({ ...s, showDice: !s.showDice }))}
                     >
                       {settings.showDice ? "På" : "Av"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Vibration</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <Button
+                      variant={settings.vibrateOnTurn ? "primary" : "ghost"}
+                      onClick={() => setSettings((s) => ({ ...s, vibrateOnTurn: !s.vibrateOnTurn }))}
+                    >
+                      {settings.vibrateOnTurn ? "På" : "Av"}
                     </Button>
                   </div>
                 </div>
