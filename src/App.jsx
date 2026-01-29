@@ -304,7 +304,14 @@ export default function App() {
       last_target: target,
       updated_at: new Date().toISOString(),
     };
-    supabase.from("player_state").upsert(payload, { onConflict: "room_id,player_id" });
+    (async () => {
+      const { error } = await supabase
+        .from("player_state")
+        .upsert(payload, { onConflict: "room_id,player_id" });
+      if (error) {
+        console.error("player_state upsert failed", error);
+      }
+    })();
   }, [roomId, playerId, progress, dice, target]);
 
   const resetTurnState = () => {
