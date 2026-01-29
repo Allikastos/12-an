@@ -276,6 +276,7 @@ export default function App() {
   const [targetLocked, setTargetLocked] = useState(false);
   const [rolling, setRolling] = useState(false);
   const rollTimerRef = useRef(null);
+  const [turnFlash, setTurnFlash] = useState(false);
 
   const isSolo = step === "solo";
 
@@ -425,10 +426,19 @@ export default function App() {
   useEffect(() => {
     if (!gameStarted || !isMyTurn) return;
     if (!settings.vibrateOnTurn) return;
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      navigator.vibrate([200, 80, 200]);
-    }
+    setTurnFlash(true);
+    const t = setTimeout(() => setTurnFlash(false), 1500);
+    return () => clearTimeout(t);
   }, [gameStarted, isMyTurn, settings.vibrateOnTurn]);
+
+  useEffect(() => {
+    if (turnFlash) {
+      document.body.classList.add("turn-flash");
+    } else {
+      document.body.classList.remove("turn-flash");
+    }
+    return () => document.body.classList.remove("turn-flash");
+  }, [turnFlash]);
 
   const playerSummaries = useMemo(() => {
     return players.map((p) => {
