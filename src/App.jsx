@@ -104,10 +104,11 @@ function countCompletedRows(progressObj) {
   return rows;
 }
 
+
 export default function App() {
   const [deviceId] = useState(() => getOrCreateDeviceId());
 
-  const [step, setStep] = useState("home"); // home | room
+  const [step, setStep] = useState("home"); // home | room | solo
   const [roomCode, setRoomCode] = useState("");
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState(null);
@@ -259,6 +260,8 @@ export default function App() {
   const [diceStatus, setDiceStatus] = useState("idle"); // idle | choose | running | stopped | all
   const [targetLocked, setTargetLocked] = useState(false);
 
+  const isSolo = step === "solo";
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(progressStorageKey);
@@ -321,6 +324,35 @@ export default function App() {
   const weightedProgress = useMemo(() => calcWeightedProgress(progress), [progress]);
   const weightedPercent = Math.round(weightedProgress * 100);
 
+  const fullRows = useMemo(() => {
+    const set = new Set();
+    for (let r = 1; r <= 12; r++) {
+      const row = progress?.[r] ?? [];
+      if (row.length === 7 && row.every(Boolean)) set.add(r);
+    }
+    return set;
+  }, [progress]);
+
+  const availableTargets = useMemo(() => {
+    if (diceStatus !== "choose" || targetLocked) return [];
+    const list = [];
+    for (let n = 1; n <= 12; n++) {
+      if (fullRows.has(n)) continue;
+      const gain = countMatchesForTargetLocal(dice, n);
+      if (gain > 0) list.push(n);
+    }
+    return list;
+  }, [diceStatus, targetLocked, dice, fullRows]);
+
+  useEffect(() => {
+    if (diceStatus === "choose" && !targetLocked && availableTargets.length === 0) {
+      setDiceStatus("stopped");
+      setTarget(null);
+      setPreviewLocked(Array(6).fill(false));
+      setLastGain(0);
+    }
+  }, [diceStatus, targetLocked, availableTargets.length]);
+
   const isHost = roomState?.host_player_id && roomState.host_player_id === playerId;
   const gameStarted = Boolean(roomState?.started);
   const isMyTurn = gameStarted && roomState?.turn_player_id === playerId;
@@ -357,7 +389,7 @@ export default function App() {
   const playerSummaries = useMemo(() => {
     return players.map((p) => {
       const ps = playerStates.find((s) => s.player_id === p.id);
-      const prog = ps?.progress ?? emptyProgress();
+      const prog = ps?.progress ?? (p.id === playerId ? progress : emptyProgress());
       const w = calcWeightedProgress(prog);
       const rows = countCompletedRows(prog);
       return {
@@ -703,6 +735,11 @@ export default function App() {
     setShowWin(false);
   }
 
+  function confirmReset() {
+    if (!window.confirm("Vill du verkligen återställa hela spelet?")) return;
+    resetProgress();
+  }
+
   function rollDie() {
     return Math.floor(Math.random() * 6) + 1;
   }
@@ -750,6 +787,11 @@ export default function App() {
     }
 
     return { nextLocked, gain };
+  }
+
+  function countMatchesForTargetLocal(diceArr, targetVal) {
+    const { gain } = computeLocks(diceArr, Array(6).fill(false), targetVal);
+    return gain;
   }
 
   function setTargetSafe(value) {
@@ -951,11 +993,11 @@ export default function App() {
       <Card style={{ padding: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
           <div>
-            <div style={{ color: "var(--muted)", fontWeight: 800, letterSpacing: 0.2 }}>RUM</div>
-            <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>{roomCode.toUpperCase()}</h2>
+            <div style={{ color: "var(--muted)", fontWeight: 800, letterSpacing: 0.2 }}>12:AN</div>
+            <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>Poängblad</h2>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             {isHost && !gameStarted && (
               <Button onClick={startGame}>Starta spelet</Button>
             )}
@@ -1012,6 +1054,52 @@ export default function App() {
           </div>
         </div>
 
+        {/* Avklarat / klara rader / ikryssade */}
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 14,
+            border: "1px solid var(--border)",
+            background: "rgba(255,255,255,.02)",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+              gap: 10,
+              alignItems: "end",
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>{weightedPercent}%</div>
+              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>avklarat</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>{completedRows}</div>
+              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>klara rader</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>{completedBoxes}</div>
+              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>ikryssade rutor</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ height: 10, background: "rgba(148,163,184,.22)", borderRadius: 999 }}>
+              <div
+                style={{
+                  height: 10,
+                  width: `${weightedPercent}%`,
+                  background: "var(--accent)",
+                  borderRadius: 999,
+                  transition: "width .2s ease",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
         <div style={{ marginTop: 16 }}>
           <ScoreSheet
             progress={progress}
@@ -1021,8 +1109,26 @@ export default function App() {
             onCloseWin={() => setShowWin(false)}
             headerRight={null}
             settings={settings}
+            showHeader={false}
+            showReset={false}
           />
         </div>
+
+        <DiceTray
+          show={Boolean(settings.showDice)}
+          canAct={canAct}
+          dice={dice}
+          locked={locked}
+          previewLocked={previewLocked}
+          isPreview={diceStatus === "choose" && !targetLocked}
+          target={target}
+          onSetTarget={setTargetSafe}
+          onRoll={rollOnce}
+          onReroll={rerollAll}
+          onEndRound={endRound}
+          lastGain={lastGain}
+          status={diceStatus}
+        />
 
         <div
           style={{
@@ -1033,7 +1139,7 @@ export default function App() {
             background: "rgba(255,255,255,.02)",
           }}
         >
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Spelare</div>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>Ställning</div>
           <div style={{ display: "grid", gap: 8 }}>
             {playerSummaries.map((p) => (
               <div
@@ -1061,25 +1167,23 @@ export default function App() {
           </div>
         </div>
 
-        <p style={{ marginTop: 14, color: "var(--muted)" }}>
-          Dela koden <b>{roomCode.toUpperCase()}</b> så kan andra ansluta.
-        </p>
-
-        <DiceTray
-          show={Boolean(settings.showDice)}
-          canAct={canAct}
-          dice={dice}
-          locked={locked}
-          previewLocked={previewLocked}
-          isPreview={diceStatus === "choose" && !targetLocked}
-          target={target}
-          onSetTarget={setTargetSafe}
-          onRoll={rollOnce}
-          onReroll={rerollAll}
-          onEndRound={endRound}
-          lastGain={lastGain}
-          status={diceStatus}
-        />
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+            Rumskod: <b>{roomCode.toUpperCase()}</b>
+          </div>
+          <Button variant="ghost" onClick={confirmReset}>
+            Återställ spel
+          </Button>
+        </div>
       </Card>
 
       {showSettings && (

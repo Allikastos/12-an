@@ -41,6 +41,8 @@ export default function ScoreSheet({
   onCloseWin,
   headerRight,
   settings,
+  showReset = true,
+  showHeader = true,
   readOnly = false,
 }) {
   const safeProgress = progress ?? defaultProgress();
@@ -92,40 +94,42 @@ export default function ScoreSheet({
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          gap: 12,
-          marginBottom: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <div style={{ color: "var(--muted)", fontWeight: 800, letterSpacing: 0.2 }}>
-            12:AN – POÄNGBLAD
-          </div>
-          <div style={{ marginTop: 6, display: "flex", gap: 18, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.weightedPercent}%</div>
-              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                avklarat
+      {showHeader && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            gap: 12,
+            marginBottom: 14,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div style={{ color: "var(--muted)", fontWeight: 800, letterSpacing: 0.2 }}>
+              12:AN – POÄNGBLAD
+            </div>
+            <div style={{ marginTop: 6, display: "flex", gap: 18, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900 }}>{stats.weightedPercent}%</div>
+                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                  avklarat
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900 }}>
+                  {stats.done}/{stats.total}
+                </div>
+                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                  ikryssade rutor
+                </div>
               </div>
             </div>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>
-                {stats.done}/{stats.total}
-              </div>
-              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                ikryssade rutor
-              </div>
-            </div>
           </div>
-        </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>{headerRight}</div>
-      </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>{headerRight}</div>
+        </div>
+      )}
 
       <div
         style={{
@@ -211,25 +215,27 @@ export default function ScoreSheet({
         </div>
       </div>
 
-      <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
-        <button
-          onClick={onReset}
-          disabled={readOnly}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 12,
-            border: "1px solid rgba(239,68,68,.35)",
-            background: "rgba(239,68,68,.08)",
-            color: "var(--text)",
-            fontWeight: 800,
-            cursor: readOnly ? "default" : "pointer",
-            opacity: readOnly ? 0.5 : 1,
-          }}
-          type="button"
-        >
-          Återställ spel
-        </button>
-      </div>
+      {showReset && (
+        <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={onReset}
+            disabled={readOnly}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(239,68,68,.35)",
+              background: "rgba(239,68,68,.08)",
+              color: "var(--text)",
+              fontWeight: 800,
+              cursor: readOnly ? "default" : "pointer",
+              opacity: readOnly ? 0.5 : 1,
+            }}
+            type="button"
+          >
+            Återställ spel
+          </button>
+        </div>
+      )}
 
       {showWin && (
         <div
