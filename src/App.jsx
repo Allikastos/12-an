@@ -1050,14 +1050,23 @@ export default function App() {
   return (
     <Container>
       <Card style={{ padding: 22 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "nowrap",
+          }}
+        >
           {isHost && !gameStarted && (
-            <Button onClick={startGame}>
+            <Button onClick={startGame} style={{ width: "auto", paddingInline: 10, fontSize: 14 }}>
               Starta spelet
             </Button>
           )}
           <Button
             variant="ghost"
+            style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
             onClick={() => {
               setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
               setShowInspect(true);
@@ -1065,10 +1074,10 @@ export default function App() {
           >
             Inspektera
           </Button>
-          <Button variant="ghost" onClick={() => setShowSettings(true)}>
+          <Button variant="ghost" style={{ width: "auto", paddingInline: 10, fontSize: 14 }} onClick={() => setShowSettings(true)}>
             Inställningar
           </Button>
-          <Button variant="danger" onClick={handleLeave}>
+          <Button variant="danger" style={{ width: "auto", paddingInline: 10, fontSize: 14 }} onClick={handleLeave}>
             Lämna
           </Button>
         </div>
@@ -1476,6 +1485,33 @@ export default function App() {
                 )}
               </div>
             </Card>
+          </div>
+        </div>
+      )}
+
+      {turnFlash && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(56,189,248,.14)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 80,
+            pointerEvents: "none",
+            animation: "turnPulse 1.6s ease-in-out 1",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 42,
+              fontWeight: 900,
+              letterSpacing: 1,
+              color: "white",
+              textShadow: "0 8px 30px rgba(0,0,0,.55)",
+            }}
+          >
+            DIN TUR
           </div>
         </div>
       )}
