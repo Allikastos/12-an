@@ -70,6 +70,13 @@ h1, h2, h3 {
   letter-spacing: 0.2px;
 }
 
+@keyframes dice-roll {
+  0% { transform: rotate(0deg) scale(1); }
+  35% { transform: rotate(6deg) scale(0.96); }
+  70% { transform: rotate(-6deg) scale(0.98); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
 @media (max-width: 420px) {
   :root {
     --box: 34px;

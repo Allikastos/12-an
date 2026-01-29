@@ -11,7 +11,7 @@ const PIP_MAP = {
   6: [0, 2, 3, 5, 6, 8],
 };
 
-function DieFace({ value, locked, isPreview }) {
+function DieFace({ value, locked, isPreview, rolling }) {
   const pips = PIP_MAP[value] ?? [];
   return (
     <div
@@ -32,6 +32,7 @@ function DieFace({ value, locked, isPreview }) {
         gridTemplateRows: "repeat(3, 1fr)",
         gap: 0,
         padding: 6,
+        animation: rolling ? "dice-roll 0.45s ease" : "none",
         boxShadow: locked
           ? isPreview
             ? "inset 0 1px 0 rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.25)"
@@ -80,6 +81,9 @@ export default function DiceTray({
   previewLocked,
   isPreview,
   target,
+  availableTargets = [],
+  fullRows = new Set(),
+  rolling,
   onSetTarget,
   onRoll,
   onReroll,
@@ -118,7 +122,12 @@ export default function DiceTray({
                 key={n}
                 variant={target === n ? "primary" : "ghost"}
                 onClick={() => canAct && onSetTarget(n)}
-                disabled={!canAct || status !== "choose"}
+                disabled={
+                  !canAct ||
+                  status !== "choose" ||
+                  fullRows.has(n) ||
+                  !availableTargets.includes(n)
+                }
                 style={{ padding: "8px 6px", fontWeight: 800 }}
               >
                 {formatTargetLabel(n)}
@@ -141,7 +150,15 @@ export default function DiceTray({
           >
             {dice.map((d, i) => {
               const showLocked = isPreview ? previewLocked?.[i] : locked[i];
-              return <DieFace key={i} value={d} locked={showLocked} isPreview={isPreview} />;
+              return (
+                <DieFace
+                  key={i}
+                  value={d}
+                  locked={showLocked}
+                  isPreview={isPreview}
+                  rolling={rolling}
+                />
+              );
             })}
           </div>
         </div>

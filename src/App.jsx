@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabase";
 import { leaveRoom } from "./services/leave";
 import { touchPlayer } from "./services/presence";
@@ -259,6 +259,8 @@ export default function App() {
   const [lastGain, setLastGain] = useState(0);
   const [diceStatus, setDiceStatus] = useState("idle"); // idle | choose | running | stopped | all
   const [targetLocked, setTargetLocked] = useState(false);
+  const [rolling, setRolling] = useState(false);
+  const rollTimerRef = useRef(null);
 
   const isSolo = step === "solo";
 
@@ -378,6 +380,18 @@ export default function App() {
   }, [roomState, players]);
 
   const canAct = gameStarted && isMyTurn;
+
+  const triggerRollAnimation = () => {
+    setRolling(true);
+    if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
+    rollTimerRef.current = setTimeout(() => setRolling(false), 450);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!gameStarted) return;
@@ -796,6 +810,7 @@ export default function App() {
 
   function setTargetSafe(value) {
     if (targetLocked) return;
+    if (fullRows.has(value)) return;
     setTarget(value);
 
     if (diceStatus === "choose") {
@@ -810,6 +825,7 @@ export default function App() {
   }
 
   function rerollAll() {
+    triggerRollAnimation();
     setDice(Array(6).fill(0).map(() => rollDie()));
     resetTurnState();
   }
@@ -834,6 +850,7 @@ export default function App() {
   function rollOnce() {
     if (diceStatus === "stopped" || diceStatus === "all") return;
     if (diceStatus === "idle") {
+      triggerRollAnimation();
       const firstDice = Array(6).fill(0).map(() => rollDie());
       setDice(firstDice);
       setLocked(Array(6).fill(false));
@@ -850,6 +867,7 @@ export default function App() {
       setTargetLocked(true);
     }
 
+    triggerRollAnimation();
     const baseLocked = diceStatus === "choose" ? previewLocked : locked;
     const nextDice = dice.map((d, i) => (baseLocked[i] ? d : rollDie()));
     const { nextLocked, gain } = computeLocks(nextDice, baseLocked, target);
@@ -991,68 +1009,29 @@ export default function App() {
   return (
     <Container>
       <Card style={{ padding: 22 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-          <div>
-            <div style={{ color: "var(--muted)", fontWeight: 800, letterSpacing: 0.2 }}>12:AN</div>
-            <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>Poängblad</h2>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            {isHost && !gameStarted && (
-              <Button onClick={startGame}>Starta spelet</Button>
-            )}
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
-                setShowInspect(true);
-              }}
-            >
-              Inspektera
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {isHost && !gameStarted && (
+            <Button onClick={startGame}>
+              Starta spelet
             </Button>
-            <Button variant="ghost" onClick={() => setShowSettings(true)}>
-              Inställningar
-            </Button>
-            <Button variant="danger" onClick={handleLeave}>
-              Lämna
-            </Button>
-          </div>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
+              setShowInspect(true);
+            }}
+          >
+            Inspektera
+          </Button>
+          <Button variant="ghost" onClick={() => setShowSettings(true)}>
+            Inställningar
+          </Button>
+          <Button variant="danger" onClick={handleLeave}>
+            Lämna
+          </Button>
         </div>
 
-        <div
-          style={{
-            marginTop: 14,
-            padding: 12,
-            borderRadius: 14,
-            border: "1px solid var(--border)",
-            background: "rgba(255,255,255,.03)",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-            gap: 10,
-          }}
-        >
-          <div>
-            <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Spelstatus</div>
-            <div style={{ fontWeight: 900 }}>
-              {gameStarted ? "Pågående" : "Väntar på start"}
-            </div>
-          </div>
-
-          <div>
-            <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Tur</div>
-            <div style={{ fontWeight: 900 }}>
-              {activePlayer ? activePlayer.name : "—"}
-              {isMyTurn && gameStarted ? " (din tur)" : ""}
-            </div>
-          </div>
-
-          <div>
-            <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Ledare</div>
-            <div style={{ fontWeight: 900 }}>
-              {leader ? `${leader.name} – ${Math.round(leader.w * 100)}%` : "—"}
-            </div>
-          </div>
-        </div>
 
         {/* Avklarat / klara rader / ikryssade */}
         <div
@@ -1121,6 +1100,9 @@ export default function App() {
           locked={locked}
           previewLocked={previewLocked}
           isPreview={diceStatus === "choose" && !targetLocked}
+          availableTargets={availableTargets}
+          fullRows={fullRows}
+          rolling={rolling}
           target={target}
           onSetTarget={setTargetSafe}
           onRoll={rollOnce}
@@ -1379,11 +1361,11 @@ export default function App() {
             zIndex: 50,
           }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(760px, 100%)" }}>
-            <Card style={{ padding: 18 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
+            <Card style={{ padding: 18, maxHeight: "82vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <h3 style={{ margin: 0 }}>Inspektera</h3>
-                <Button variant="ghost" onClick={() => setShowInspect(false)}>
+                <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowInspect(false)}>
                   Stäng
                 </Button>
               </div>
@@ -1405,7 +1387,7 @@ export default function App() {
                 {inspectPlayerId ? (
                   (() => {
                     const ps = playerStates.find((s) => s.player_id === inspectPlayerId);
-                    const prog = ps?.progress ?? emptyProgress();
+                    const prog = ps?.progress ?? (inspectPlayerId === playerId ? progress : emptyProgress());
                     const lastDice = ps?.last_dice ?? [];
                     const lastTarget = ps?.last_target;
                     const player = players.find((p) => p.id === inspectPlayerId);
@@ -1428,8 +1410,10 @@ export default function App() {
                           showWin={false}
                           onCloseWin={() => {}}
                           headerRight={null}
-                          settings={settings}
+                          settings={{ ...settings, boxSize: "small" }}
                           readOnly
+                          showReset={false}
+                          showHeader={false}
                         />
                       </div>
                     );
