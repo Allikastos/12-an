@@ -86,6 +86,19 @@ function calcWeightedProgress(progressObj) {
   return total > 0 ? done / total : 0;
 }
 
+function normalizeProgress(p) {
+  if (!p) return emptyProgress();
+  if (typeof p === "string") {
+    try {
+      return JSON.parse(p) ?? emptyProgress();
+    } catch {
+      return emptyProgress();
+    }
+  }
+  if (typeof p === "object") return p;
+  return emptyProgress();
+}
+
 function shuffleArray(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -363,7 +376,7 @@ export default function App() {
     if (!playerStates?.length || !players?.length) return null;
     let best = null;
     for (const ps of playerStates) {
-      const p = ps.progress ?? emptyProgress();
+      const p = normalizeProgress(ps.progress);
       const w = calcWeightedProgress(p);
       const rows = countCompletedRows(p);
       if (!best || w > best.w || (w === best.w && rows > best.rows)) {
@@ -403,7 +416,8 @@ export default function App() {
   const playerSummaries = useMemo(() => {
     return players.map((p) => {
       const ps = playerStates.find((s) => s.player_id === p.id);
-      const prog = ps?.progress ?? (p.id === playerId ? progress : emptyProgress());
+      const prog =
+        ps?.progress ? normalizeProgress(ps.progress) : p.id === playerId ? progress : emptyProgress();
       const w = calcWeightedProgress(prog);
       const rows = countCompletedRows(prog);
       return {
