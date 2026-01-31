@@ -174,7 +174,6 @@ const BG_PATTERNS = {
     size: "cover",
     repeat: "no-repeat",
     position: "center top",
-    position: "center top",
   },
   crystals: {
     image:
