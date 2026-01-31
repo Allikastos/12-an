@@ -126,7 +126,7 @@ const BG_PATTERNS = {
       'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'160\' height=\'160\' viewBox=\'0 0 160 160\'><ellipse cx=\'40\' cy=\'40\' rx=\'8\' ry=\'4\' fill=\'%23fb7185\' fill-opacity=\'0.22\'/><ellipse cx=\'120\' cy=\'70\' rx=\'6\' ry=\'3\' fill=\'%23f472b6\' fill-opacity=\'0.22\'/><ellipse cx=\'80\' cy=\'120\' rx=\'7\' ry=\'3.5\' fill=\'%23fb7185\' fill-opacity=\'0.2\'/></svg>")',
     size: "180px",
   },
-  blossom-trees: {
+  "blossom-trees": {
     image:
       'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'160\' viewBox=\'0 0 220 160\'><path d=\'M0 120 C40 80 90 80 140 110 C170 130 200 120 220 100\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.25\' stroke-width=\'3\'/><circle cx=\'40\' cy=\'80\' r=\'4\' fill=\'%23f9a8d4\' fill-opacity=\'0.32\'/><circle cx=\'60\' cy=\'70\' r=\'3\' fill=\'%23f472b6\' fill-opacity=\'0.3\'/><circle cx=\'90\' cy=\'75\' r=\'3\' fill=\'%23fbcfe8\' fill-opacity=\'0.35\'/><circle cx=\'120\' cy=\'90\' r=\'3\' fill=\'%23f9a8d4\' fill-opacity=\'0.3\'/><circle cx=\'160\' cy=\'95\' r=\'4\' fill=\'%23f472b6\' fill-opacity=\'0.28\'/></svg>")',
     size: "240px",
