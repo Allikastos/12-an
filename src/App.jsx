@@ -120,7 +120,7 @@ function ceilToHalf(value) {
 
 const BONUS_ROUNDS_TIER_1 = 37; // ~45% probability threshold (simulation, rounds)
 const BONUS_ROUNDS_TIER_2 = 33; // ~20% probability threshold (simulation, rounds)
-const UNLOCK_KING_FOR_PREVIEW = true;
+const UNLOCK_KING_FOR_PREVIEW = false;
 
 function calcWinBonuses(roundsUsed) {
   let bonus = 0;
