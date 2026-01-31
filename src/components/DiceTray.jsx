@@ -11,33 +11,76 @@ const PIP_MAP = {
   6: [0, 2, 3, 5, 6, 8],
 };
 
-export function DieFace({ value, locked, isPreview, rolling }) {
+export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classic" }) {
+  const styleMap = {
+    classic: {
+      borderRadius: 12,
+      background: (locked, isPreview) =>
+        locked
+          ? isPreview
+            ? "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 70%, transparent), color-mix(in srgb, var(--dice-locked) 30%, transparent))"
+            : "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 90%, transparent), color-mix(in srgb, var(--dice-locked) 40%, transparent))"
+          : "linear-gradient(180deg, color-mix(in srgb, var(--dice-bg) 85%, transparent), color-mix(in srgb, var(--dice-bg) 40%, transparent))",
+      boxShadow: (locked, isPreview) =>
+        locked
+          ? isPreview
+            ? "inset 0 1px 0 rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.25)"
+            : "inset 0 1px 0 rgba(255,255,255,.25), 0 8px 18px rgba(0,0,0,.35)"
+          : "inset 0 1px 0 rgba(255,255,255,.18), 0 10px 22px rgba(0,0,0,.45)",
+    },
+    glass: {
+      borderRadius: 14,
+      background: (locked, isPreview) =>
+        locked
+          ? "linear-gradient(160deg, color-mix(in srgb, var(--dice-locked) 70%, transparent), rgba(255,255,255,.08))"
+          : "linear-gradient(160deg, rgba(255,255,255,.18), color-mix(in srgb, var(--dice-bg) 75%, transparent))",
+      boxShadow: () => "inset 0 1px 0 rgba(255,255,255,.25), 0 12px 24px rgba(0,0,0,.35)",
+    },
+    neon: {
+      borderRadius: 10,
+      background: (locked, isPreview) =>
+        locked
+          ? "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 80%, transparent), rgba(0,0,0,.25))"
+          : "linear-gradient(180deg, rgba(255,255,255,.12), color-mix(in srgb, var(--dice-bg) 65%, transparent))",
+      boxShadow: () =>
+        "0 0 12px color-mix(in srgb, var(--dice-pip) 55%, transparent), 0 10px 20px rgba(0,0,0,.35)",
+    },
+    etched: {
+      borderRadius: 8,
+      background: (locked, isPreview) =>
+        locked
+          ? "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 85%, transparent), rgba(0,0,0,.2))"
+          : "linear-gradient(180deg, rgba(255,255,255,.14), color-mix(in srgb, var(--dice-bg) 70%, transparent))",
+      boxShadow: () => "inset 0 0 0 1px rgba(255,255,255,.12), 0 10px 20px rgba(0,0,0,.35)",
+    },
+    king: {
+      borderRadius: 14,
+      background: () =>
+        "linear-gradient(160deg, #fef3c7 0%, #f59e0b 60%, #b45309 100%)",
+      boxShadow: () =>
+        "inset 0 1px 0 rgba(255,255,255,.4), 0 12px 24px rgba(0,0,0,.4)",
+    },
+  };
+
+  const stylePreset = styleMap[diceStyle] ?? styleMap.classic;
   const pips = PIP_MAP[value] ?? [];
   return (
     <div
       style={{
         width: 52,
         height: 52,
-        borderRadius: 12,
+        borderRadius: stylePreset.borderRadius,
         border: locked
           ? "1px solid var(--dice-border)"
           : "1px solid var(--dice-border)",
-        background: locked
-          ? isPreview
-            ? "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 70%, transparent), color-mix(in srgb, var(--dice-locked) 30%, transparent))"
-            : "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 90%, transparent), color-mix(in srgb, var(--dice-locked) 40%, transparent))"
-          : "linear-gradient(180deg, color-mix(in srgb, var(--dice-bg) 85%, transparent), color-mix(in srgb, var(--dice-bg) 40%, transparent))",
+        background: stylePreset.background(locked, isPreview),
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
         gridTemplateRows: "repeat(3, 1fr)",
         gap: 0,
         padding: 6,
         animation: rolling ? "dice-roll 0.45s ease" : "none",
-        boxShadow: locked
-          ? isPreview
-            ? "inset 0 1px 0 rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.25)"
-            : "inset 0 1px 0 rgba(255,255,255,.25), 0 8px 18px rgba(0,0,0,.35)"
-          : "inset 0 1px 0 rgba(255,255,255,.18), 0 10px 22px rgba(0,0,0,.45)",
+        boxShadow: stylePreset.boxShadow(locked, isPreview),
       }}
     >
       {Array.from({ length: 9 }).map((_, i) => (
@@ -84,6 +127,7 @@ export default function DiceTray({
   availableTargets = [],
   fullRows = new Set(),
   rolling,
+  diceStyle = "classic",
   onSetTarget,
   onRoll,
   onReroll,
@@ -159,6 +203,7 @@ export default function DiceTray({
                   locked={showLocked}
                   isPreview={isPreview}
                   rolling={rolling}
+                  diceStyle={diceStyle}
                 />
               );
             })}

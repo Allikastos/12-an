@@ -521,6 +521,9 @@ export default function App() {
             ringColors: null,
             themeKey: "Standard",
             buttonIcon: "",
+            personalThemes: [],
+            personalThemeId: null,
+            diceStyle: "classic",
             showDice: false,
             vibrateOnTurn: false,
           };
@@ -548,6 +551,9 @@ export default function App() {
         ringColors: null,
         themeKey: "Standard",
         buttonIcon: "",
+        personalThemes: [],
+        personalThemeId: null,
+        diceStyle: "classic",
         showDice: false,
         vibrateOnTurn: false,
       };
@@ -772,7 +778,7 @@ export default function App() {
 
     const matchCount = matches.size;
     const avgRoundsToWin = winRoundsCount ? totalRounds / winRoundsCount : null;
-    const matchesPerWin = wins ? matchCount / wins : null;
+    const winRatio = matchCount ? wins / matchCount : null;
 
     let mostBeaten = null;
     if (wins > 0) {
@@ -798,8 +804,7 @@ export default function App() {
     setStats({
       wins,
       matchCount,
-      winRatio: matchCount ? wins / matchCount : null,
-      matchesPerWin,
+      winRatio,
       avgRoundsToWin,
       mostBeaten,
       kingCount,
@@ -821,6 +826,11 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
+  const [showAuthPanel, setShowAuthPanel] = useState(false);
+  const [advancedTab, setAdvancedTab] = useState("colors");
+  const [personalThemeName, setPersonalThemeName] = useState("");
+  const [showAllThemes, setShowAllThemes] = useState(false);
+  const [showDiceStyles, setShowDiceStyles] = useState(false);
   const themes = THEMES;
 
   function applyTheme(t) {
@@ -847,7 +857,61 @@ export default function App() {
       ringColorMode: t.ringColorMode ?? "none",
       ringColors: t.ringColors ?? null,
       buttonIcon: t.buttonIcon ?? "",
+      personalThemeId: null,
     }));
+  }
+
+  function applyPersonalTheme(theme) {
+    if (!theme) return;
+    setSettings((s) => ({
+      ...s,
+      ...theme.colors,
+      personalThemeId: theme.id,
+    }));
+  }
+
+  function savePersonalTheme() {
+    if (!user) return;
+    const nameValue = personalThemeName.trim();
+    if (!nameValue) return;
+    const id =
+      globalThis.crypto && typeof globalThis.crypto.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : `pt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const colors = {
+      bgColor: settings.bgColor,
+      bgGlow1: settings.bgGlow1,
+      bgGlow2: settings.bgGlow2,
+      accentColor: settings.accentColor,
+      rowCompleteBg: settings.rowCompleteBg,
+      diceBg: settings.diceBg,
+      dicePip: settings.dicePip,
+      diceBorder: settings.diceBorder,
+      diceLocked: settings.diceLocked,
+      dicePipLocked: settings.dicePipLocked,
+      btnPrimaryBg: settings.btnPrimaryBg,
+      btnPrimaryText: settings.btnPrimaryText,
+      btnPrimaryBorder: settings.btnPrimaryBorder,
+      btnPrimaryShadow: settings.btnPrimaryShadow,
+    };
+
+    setSettings((s) => ({
+      ...s,
+      personalThemes: [...(s.personalThemes ?? []), { id, name: nameValue, colors }],
+      personalThemeId: id,
+    }));
+    setPersonalThemeName("");
+  }
+
+  function deletePersonalTheme(id) {
+    setSettings((s) => {
+      const next = (s.personalThemes ?? []).filter((t) => t.id !== id);
+      return {
+        ...s,
+        personalThemes: next,
+        personalThemeId: s.personalThemeId === id ? null : s.personalThemeId,
+      };
+    });
   }
 
   useEffect(() => {
@@ -1753,10 +1817,120 @@ export default function App() {
   if (step === "home") {
     return (
       <Container>
-        <Card style={{ padding: 22 }}>
+        <Card style={{ padding: 22, position: "relative" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
             <h1 style={{ margin: 0, fontSize: 28 }}>12:an</h1>
           </div>
+
+          <div
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              zIndex: 10,
+            }}
+          >
+            <div
+              style={{
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid var(--border)",
+                background: "rgba(0,0,0,.25)",
+                fontWeight: 700,
+                fontSize: 12,
+              }}
+            >
+              {user ? `Inloggad: ${profile?.display_name ?? "Spelare"}` : "Gäst"}
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => setShowAuthPanel((v) => !v)}
+              style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
+            >
+              {user ? "Konto" : "Logga in"}
+            </Button>
+          </div>
+
+          {showAuthPanel && (
+            <div
+              style={{
+                position: "absolute",
+                top: 56,
+                right: 16,
+                width: "min(360px, calc(100% - 32px))",
+                padding: 12,
+                borderRadius: 14,
+                border: "1px solid var(--border)",
+                background: "rgba(8,12,20,.92)",
+                backdropFilter: "blur(8px)",
+                display: "grid",
+                gap: 10,
+                zIndex: 10,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ fontWeight: 800 }}>Konto</div>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthPanel(false)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--muted)",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Stäng
+                </button>
+              </div>
+              {user ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ fontWeight: 700 }}>
+                    {profile?.display_name ?? "Spelare"}
+                    <div style={{ color: "var(--muted)", fontWeight: 600 }}>{user.email}</div>
+                  </div>
+                  <Button variant="ghost" onClick={handleSignOut}>
+                    Logga ut
+                  </Button>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <Input
+                    placeholder="E-post"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Lösenord"
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Visningsnamn"
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                  />
+                  {authError && <div style={{ color: "salmon", fontWeight: 700 }}>{authError}</div>}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <Button onClick={handleSignIn} disabled={authLoading}>
+                      Logga in
+                    </Button>
+                    <Button variant="ghost" onClick={handleSignUp} disabled={authLoading}>
+                      Skapa konto
+                    </Button>
+                  </div>
+                  <div style={{ color: "var(--muted)", fontWeight: 600 }}>
+                    Gäster får inga poäng eller statistik.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ marginTop: 14 }}>
             <label style={{ display: "block", color: "var(--muted)", fontWeight: 700, marginBottom: 8 }}>
@@ -1788,62 +1962,6 @@ export default function App() {
             <Button variant="ghost" onClick={() => setStep("solo")}>
               Poängblad
             </Button>
-          </div>
-
-          <div
-            style={{
-              marginTop: 16,
-              padding: 12,
-              borderRadius: 14,
-              border: "1px solid var(--border)",
-              background: "rgba(255,255,255,.02)",
-              display: "grid",
-              gap: 10,
-            }}
-          >
-            <div style={{ fontWeight: 800 }}>Konto</div>
-            {user ? (
-              <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ fontWeight: 700 }}>
-                  {profile?.display_name ?? "Spelare"}
-                  <div style={{ color: "var(--muted)", fontWeight: 600 }}>{user.email}</div>
-                </div>
-                <Button variant="ghost" onClick={handleSignOut}>
-                  Logga ut
-                </Button>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                <Input
-                  placeholder="E-post"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                />
-                <Input
-                  placeholder="Lösenord"
-                  type="password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                />
-                <Input
-                  placeholder="Visningsnamn"
-                  value={authName}
-                  onChange={(e) => setAuthName(e.target.value)}
-                />
-                {authError && <div style={{ color: "salmon", fontWeight: 700 }}>{authError}</div>}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Button onClick={handleSignIn} disabled={authLoading}>
-                    Logga in
-                  </Button>
-                  <Button variant="ghost" onClick={handleSignUp} disabled={authLoading}>
-                    Skapa konto
-                  </Button>
-                </div>
-                <div style={{ color: "var(--muted)", fontWeight: 600 }}>
-                  Gäster får inga poäng eller statistik.
-                </div>
-              </div>
-            )}
           </div>
 
           <div
@@ -1937,10 +2055,8 @@ export default function App() {
                   <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
                 </div>
                 <div>
-                  <div style={{ fontWeight: 900 }}>
-                    {stats.matchesPerWin ? stats.matchesPerWin.toFixed(2) : "—"}
-                  </div>
-                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>matcher per vinst</div>
+                  <div style={{ fontWeight: 900 }}>{stats.winRatio != null ? stats.winRatio.toFixed(2) : "—"}</div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster / match</div>
                 </div>
                 <div>
                   <div style={{ fontWeight: 900 }}>
@@ -2098,6 +2214,7 @@ export default function App() {
           fullRows={fullRows}
           rolling={rolling}
           target={target}
+          diceStyle={settings.diceStyle}
           onSetTarget={setTargetSafe}
           onRoll={rollOnce}
           onReroll={rerollAll}
@@ -2222,7 +2339,7 @@ export default function App() {
                 <div>
                   <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Tema</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    {themes.map((t) => (
+                    {(showAllThemes ? themes : themes.slice(0, 6)).map((t) => (
                       <Button
                         key={t.name}
                         variant={settings.themeKey === (t.key ?? t.name) ? "primary" : "ghost"}
@@ -2259,6 +2376,23 @@ export default function App() {
                       </Button>
                     ))}
                   </div>
+                  {themes.length > 6 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllThemes((v) => !v)}
+                      style={{
+                        marginTop: 10,
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--muted)",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      {showAllThemes ? "Visa färre" : "Visa fler"}
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -2277,131 +2411,242 @@ export default function App() {
                   </button>
 
                   {showAdvancedColors && (
-                    <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                        Bakgrund
-                        <input
-                          type="color"
-                          value={settings.bgColor ?? "#0b1020"}
-                          onChange={(e) => setSettings((s) => ({ ...s, bgColor: e.target.value }))}
-                          style={{
-                            width: "100%",
-                            height: 36,
-                            border: "1px solid var(--border)",
-                            borderRadius: 10,
-                            background: "transparent",
-                          }}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                        Bakgrund (glow 1)
-                        <input
-                          type="color"
-                          value={settings.bgGlow1 ?? "#38bdf8"}
-                          onChange={(e) => setSettings((s) => ({ ...s, bgGlow1: e.target.value }))}
-                          style={{
-                            width: "100%",
-                            height: 36,
-                            border: "1px solid var(--border)",
-                            borderRadius: 10,
-                            background: "transparent",
-                          }}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                        Knappar
-                        <input
-                          type="color"
-                          value={settings.accentColor ?? "#22c55e"}
-                          onChange={(e) =>
-                            setSettings((s) => ({
-                              ...s,
-                              accentColor: e.target.value,
-                              checkColor: e.target.value,
-                            }))
-                          }
-                          style={{
-                            width: "100%",
-                            height: 36,
-                            border: "1px solid var(--border)",
-                            borderRadius: 10,
-                            background: "transparent",
-                          }}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                        Bakgrund (glow 2)
-                        <input
-                          type="color"
-                          value={settings.bgGlow2 ?? "#22c55e"}
-                          onChange={(e) => setSettings((s) => ({ ...s, bgGlow2: e.target.value }))}
-                          style={{
-                            width: "100%",
-                            height: 36,
-                            border: "1px solid var(--border)",
-                            borderRadius: 10,
-                            background: "transparent",
-                          }}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                        Färdig rad
-                        <input
-                          type="color"
-                          value={settings.rowCompleteBg ?? "#1f3b2e"}
-                          onChange={(e) => setSettings((s) => ({ ...s, rowCompleteBg: e.target.value }))}
-                          style={{
-                            width: "100%",
-                            height: 36,
-                            border: "1px solid var(--border)",
-                            borderRadius: 10,
-                            background: "transparent",
-                          }}
-                        />
-                      </label>
-                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                        Mönster
-                        <select
-                          value={settings.bgPattern ?? "none"}
-                          onChange={(e) => setSettings((s) => ({ ...s, bgPattern: e.target.value }))}
-                          style={{
-                            width: "100%",
-                            height: 36,
-                            border: "1px solid var(--border)",
-                            borderRadius: 10,
-                            background: "transparent",
-                            color: "var(--text)",
-                          }}
+                    <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <Button
+                          variant={advancedTab === "colors" ? "primary" : "ghost"}
+                          onClick={() => setAdvancedTab("colors")}
+                          style={{ width: "auto", padding: "8px 12px" }}
                         >
-                          <option value="none">Ingen</option>
-                          <option value="moon">Midnight – Måne</option>
-                          <option value="waves">Ocean – Vågor</option>
-                          <option value="forest">Forest – Skog</option>
-                          <option value="embers">Amber – Glöd</option>
-                          <option value="petals">Rose – Kronblad</option>
-                          <option value="blossom-trees">Cherry Blossom – Träd</option>
-                          <option value="stars">Stars – Stjärnor</option>
-                          <option value="snow">Ice – Snöflingor</option>
-                          <option value="paws">Otis – Tassar</option>
-                          <option value="crystals">Ice – Kristaller</option>
-                          <option value="reggae">Reggae – Ränder</option>
-                          <option value="lava">Lava – Sprickor</option>
-                        </select>
-                      </label>
-                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                        Mönsterstyrka
-                        <input
-                          type="range"
-                          min="0"
-                          max="0.6"
-                          step="0.05"
-                          value={settings.bgPatternOpacity ?? 0.25}
-                          onChange={(e) =>
-                            setSettings((s) => ({ ...s, bgPatternOpacity: Number(e.target.value) }))
-                          }
-                          style={{ width: "100%" }}
-                        />
-                      </label>
+                          Färger
+                        </Button>
+                        <Button
+                          variant={advancedTab === "personal" ? "primary" : "ghost"}
+                          onClick={() => setAdvancedTab("personal")}
+                          style={{ width: "auto", padding: "8px 12px" }}
+                        >
+                          Personliga färgteman
+                        </Button>
+                      </div>
+
+                      {advancedTab === "colors" && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                            Bakgrund
+                            <input
+                              type="color"
+                              value={settings.bgColor ?? "#0b1020"}
+                              onChange={(e) => setSettings((s) => ({ ...s, bgColor: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                height: 36,
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                background: "transparent",
+                              }}
+                            />
+                          </label>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                            Bakgrund (glow 1)
+                            <input
+                              type="color"
+                              value={settings.bgGlow1 ?? "#38bdf8"}
+                              onChange={(e) => setSettings((s) => ({ ...s, bgGlow1: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                height: 36,
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                background: "transparent",
+                              }}
+                            />
+                          </label>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                            Knappar
+                            <input
+                              type="color"
+                              value={settings.accentColor ?? "#22c55e"}
+                              onChange={(e) =>
+                                setSettings((s) => ({
+                                  ...s,
+                                  accentColor: e.target.value,
+                                  checkColor: e.target.value,
+                                }))
+                              }
+                              style={{
+                                width: "100%",
+                                height: 36,
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                background: "transparent",
+                              }}
+                            />
+                          </label>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                            Bakgrund (glow 2)
+                            <input
+                              type="color"
+                              value={settings.bgGlow2 ?? "#22c55e"}
+                              onChange={(e) => setSettings((s) => ({ ...s, bgGlow2: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                height: 36,
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                background: "transparent",
+                              }}
+                            />
+                          </label>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                            Färdig rad
+                            <input
+                              type="color"
+                              value={settings.rowCompleteBg ?? "#1f3b2e"}
+                              onChange={(e) => setSettings((s) => ({ ...s, rowCompleteBg: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                height: 36,
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                background: "transparent",
+                              }}
+                            />
+                          </label>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                            Mönster
+                            <select
+                              value={settings.bgPattern ?? "none"}
+                              onChange={(e) => setSettings((s) => ({ ...s, bgPattern: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                height: 36,
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                background: "transparent",
+                                color: "var(--text)",
+                              }}
+                            >
+                              <option value="none">Ingen</option>
+                              <option value="moon">Midnight – Måne</option>
+                              <option value="waves">Ocean – Vågor</option>
+                              <option value="forest">Forest – Skog</option>
+                              <option value="embers">Amber – Glöd</option>
+                              <option value="petals">Rose – Kronblad</option>
+                              <option value="blossom-trees">Cherry Blossom – Träd</option>
+                              <option value="stars">Stars – Stjärnor</option>
+                              <option value="snow">Ice – Snöflingor</option>
+                              <option value="paws">Otis – Tassar</option>
+                              <option value="crystals">Ice – Kristaller</option>
+                              <option value="reggae">Reggae – Ränder</option>
+                              <option value="lava">Lava – Sprickor</option>
+                            </select>
+                          </label>
+                          <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                            Mönsterstyrka
+                            <input
+                              type="range"
+                              min="0"
+                              max="0.6"
+                              step="0.05"
+                              value={settings.bgPatternOpacity ?? 0.25}
+                              onChange={(e) =>
+                                setSettings((s) => ({ ...s, bgPatternOpacity: Number(e.target.value) }))
+                              }
+                              style={{ width: "100%" }}
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      {advancedTab === "personal" && (
+                        <div style={{ display: "grid", gap: 10 }}>
+                          {!user && (
+                            <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                              Logga in för att spara personliga färgteman.
+                            </div>
+                          )}
+                          {user && (
+                            <>
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <div style={{ fontWeight: 800 }}>Spara nuvarande färger</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                                  <Input
+                                    placeholder="Namn på tema"
+                                    value={personalThemeName}
+                                    onChange={(e) => setPersonalThemeName(e.target.value)}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    onClick={savePersonalTheme}
+                                    disabled={!personalThemeName.trim()}
+                                    style={{ width: "auto" }}
+                                  >
+                                    Spara
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div style={{ display: "grid", gap: 8 }}>
+                                {(settings.personalThemes ?? []).length === 0 && (
+                                  <div style={{ color: "var(--muted)" }}>Inga sparade teman ännu.</div>
+                                )}
+                                {(settings.personalThemes ?? []).map((t) => (
+                                  <div
+                                    key={t.id}
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns: "1fr auto",
+                                      alignItems: "center",
+                                      gap: 10,
+                                      padding: 10,
+                                      borderRadius: 12,
+                                      border: "1px solid var(--border)",
+                                      background: "rgba(255,255,255,.02)",
+                                    }}
+                                  >
+                                    <div style={{ display: "grid", gap: 6 }}>
+                                      <div style={{ fontWeight: 800 }}>{t.name}</div>
+                                      <div style={{ display: "flex", gap: 6 }}>
+                                        {[t.colors.bgColor, t.colors.bgGlow1, t.colors.bgGlow2, t.colors.accentColor].map(
+                                          (c, i) => (
+                                            <span
+                                              key={`${t.id}-${i}`}
+                                              style={{
+                                                width: 18,
+                                                height: 18,
+                                                borderRadius: 999,
+                                                border: "1px solid rgba(255,255,255,.2)",
+                                                background: c,
+                                                display: "inline-block",
+                                              }}
+                                            />
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                      <Button
+                                        variant={settings.personalThemeId === t.id ? "primary" : "ghost"}
+                                        onClick={() => applyPersonalTheme(t)}
+                                        style={{ width: "auto", padding: "8px 10px" }}
+                                      >
+                                        Använd
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        onClick={() => deletePersonalTheme(t.id)}
+                                        style={{ width: "auto", padding: "8px 10px" }}
+                                      >
+                                        Ta bort
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2431,6 +2676,62 @@ export default function App() {
                       {settings.showDice ? "På" : "Av"}
                     </Button>
                   </div>
+                  {settings.showDice && (
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowDiceStyles((v) => !v)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "var(--muted)",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {showDiceStyles ? "Dölj tärningsdesign" : "Visa tärningsdesign"}
+                      </button>
+                    </div>
+                  )}
+                  {settings.showDice && showDiceStyles && (
+                    <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                      {[
+                        { key: "classic", label: "Klassisk" },
+                        { key: "glass", label: "Glas" },
+                        { key: "neon", label: "Neon" },
+                        { key: "etched", label: "Graverad" },
+                        { key: "king", label: "King (guld)", kingOnly: true },
+                      ].map((opt) => (
+                        <div
+                          key={opt.key}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr auto",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: 10,
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "rgba(255,255,255,.02)",
+                          }}
+                        >
+                          <div style={{ fontWeight: 800 }}>
+                            {opt.label}
+                            {opt.kingOnly && !isKing ? " 🔒" : ""}
+                          </div>
+                          <Button
+                            variant={settings.diceStyle === opt.key ? "primary" : "ghost"}
+                            onClick={() => setSettings((s) => ({ ...s, diceStyle: opt.key }))}
+                            disabled={Boolean(opt.kingOnly && !isKing)}
+                            style={{ width: "auto", padding: "8px 10px" }}
+                          >
+                            Välj
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -2544,6 +2845,7 @@ export default function App() {
                                   locked={targetLocks[i]}
                                   isPreview={Boolean(lastTarget)}
                                   rolling={false}
+                                  diceStyle={settings.diceStyle}
                                 />
                               ))}
                             </div>
