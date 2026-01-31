@@ -20,13 +20,13 @@ export function DieFace({ value, locked, isPreview, rolling }) {
         height: 52,
         borderRadius: 12,
         border: locked
-          ? "1px solid rgba(34,197,94,.35)"
-          : "1px solid rgba(255,255,255,.12)",
+          ? "1px solid var(--dice-border)"
+          : "1px solid var(--dice-border)",
         background: locked
           ? isPreview
-            ? "linear-gradient(180deg, rgba(34,197,94,.10), rgba(34,197,94,.04))"
-            : "linear-gradient(180deg, rgba(34,197,94,.18), rgba(34,197,94,.08))"
-          : "linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.04))",
+            ? "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 70%, transparent), color-mix(in srgb, var(--dice-locked) 30%, transparent))"
+            : "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 90%, transparent), color-mix(in srgb, var(--dice-locked) 40%, transparent))"
+          : "linear-gradient(180deg, color-mix(in srgb, var(--dice-bg) 85%, transparent), color-mix(in srgb, var(--dice-bg) 40%, transparent))",
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
         gridTemplateRows: "repeat(3, 1fr)",
@@ -52,9 +52,9 @@ export function DieFace({ value, locked, isPreview, rolling }) {
             background: pips.includes(i)
               ? locked
                 ? isPreview
-                  ? "rgba(34,197,94,.7)"
-                  : "var(--accent)"
-                : "rgba(15,23,42,.9)"
+                  ? "color-mix(in srgb, var(--dice-pip-locked) 70%, transparent)"
+                  : "var(--dice-pip-locked)"
+                : "var(--dice-pip)"
               : "transparent",
             boxShadow: pips.includes(i) ? "inset 0 -1px 0 rgba(0,0,0,.3)" : "none",
             opacity: pips.includes(i) ? 0.95 : 0,

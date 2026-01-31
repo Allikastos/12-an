@@ -156,7 +156,21 @@ const BG_PATTERNS = {
       'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'140\' viewBox=\'0 0 200 140\'><path d=\'M0 100 L40 80 L80 100 L120 70 L160 100 L200 80\' fill=\'none\' stroke=\'%23fb923c\' stroke-opacity=\'0.35\' stroke-width=\'2\'/><path d=\'M0 120 L50 110 L90 120 L130 95 L170 120 L200 110\' fill=\'none\' stroke=\'%23f97316\' stroke-opacity=\'0.3\' stroke-width=\'2\'/></svg>")',
     size: "220px",
   },
+  reggae: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><rect x=\'0\' y=\'0\' width=\'180\' height=\'60\' fill=\'%23ef4444\' fill-opacity=\'0.22\'/><rect x=\'0\' y=\'60\' width=\'180\' height=\'60\' fill=\'%23facc15\' fill-opacity=\'0.22\'/><rect x=\'0\' y=\'120\' width=\'180\' height=\'60\' fill=\'%2322c55e\' fill-opacity=\'0.22\'/></svg>")',
+    size: "200px",
+  },
 };
+
+function normalizePatternKey(key) {
+  if (!key) return "none";
+  if (BG_PATTERNS[key]) return key;
+  const legacyMap = {
+    blossom: "blossom-trees",
+  };
+  return BG_PATTERNS[legacyMap[key]] ? legacyMap[key] : "none";
+}
 
 
 export default function App() {
@@ -187,7 +201,12 @@ export default function App() {
             bgGlow1: "#38bdf8",
             bgGlow2: "#22c55e",
             bgPattern: "none",
-            bgPatternOpacity: 0.25,
+            bgPatternOpacity: 0.35,
+            diceBg: "#f8fafc",
+            dicePip: "#0f172a",
+            diceBorder: "rgba(255,255,255,.12)",
+            diceLocked: "rgba(34,197,94,.18)",
+            dicePipLocked: "var(--accent)",
             buttonIcon: "",
             showDice: false,
             vibrateOnTurn: false,
@@ -202,7 +221,12 @@ export default function App() {
         bgGlow1: "#38bdf8",
         bgGlow2: "#22c55e",
         bgPattern: "none",
-        bgPatternOpacity: 0.25,
+        bgPatternOpacity: 0.35,
+        diceBg: "#f8fafc",
+        dicePip: "#0f172a",
+        diceBorder: "rgba(255,255,255,.12)",
+        diceLocked: "rgba(34,197,94,.18)",
+        dicePipLocked: "var(--accent)",
         buttonIcon: "",
         showDice: false,
         vibrateOnTurn: false,
@@ -217,12 +241,21 @@ export default function App() {
     if (settings.accentColor) root.style.setProperty("--accent", settings.accentColor);
     if (settings.bgGlow1) root.style.setProperty("--bg-glow-1", settings.bgGlow1);
     if (settings.bgGlow2) root.style.setProperty("--bg-glow-2", settings.bgGlow2);
-    const patternKey = settings.bgPattern || "none";
+    const patternKey = normalizePatternKey(settings.bgPattern);
+    if (patternKey !== settings.bgPattern) {
+      setSettings((s) => ({ ...s, bgPattern: patternKey }));
+      return;
+    }
     const pattern = BG_PATTERNS[patternKey] ?? BG_PATTERNS.none;
     root.style.setProperty("--bg-pattern", pattern.image);
     root.style.setProperty("--bg-pattern-size", pattern.size);
     root.style.setProperty("--bg-pattern-opacity", String(settings.bgPatternOpacity ?? 0.25));
     document.body.dataset.theme = patternKey === "none" ? "custom" : patternKey;
+    if (settings.diceBg) root.style.setProperty("--dice-bg", settings.diceBg);
+    if (settings.dicePip) root.style.setProperty("--dice-pip", settings.dicePip);
+    if (settings.diceBorder) root.style.setProperty("--dice-border", settings.diceBorder);
+    if (settings.diceLocked) root.style.setProperty("--dice-locked", settings.diceLocked);
+    if (settings.dicePipLocked) root.style.setProperty("--dice-pip-locked", settings.dicePipLocked);
   }, [settings]);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -231,6 +264,22 @@ export default function App() {
 
   const themes = [
     {
+      name: "Standard",
+      bgColor: "#0b1020",
+      accentColor: "#22c55e",
+      rowCompleteBg: "#1f3b2e",
+      bgGlow1: "#38bdf8",
+      bgGlow2: "#22c55e",
+      bgPattern: "none",
+      bgPatternOpacity: 0.35,
+      diceBg: "#f8fafc",
+      dicePip: "#0f172a",
+      diceBorder: "rgba(255,255,255,.12)",
+      diceLocked: "rgba(34,197,94,.18)",
+      dicePipLocked: "var(--accent)",
+      buttonIcon: "",
+    },
+    {
       name: "Midnight",
       bgColor: "#0c0b06",
       accentColor: "#f5c542",
@@ -238,6 +287,12 @@ export default function App() {
       bgGlow1: "#f5c542",
       bgGlow2: "#f59e0b",
       bgPattern: "moon",
+      bgPatternOpacity: 0.35,
+      diceBg: "#fef3c7",
+      dicePip: "#3a2a12",
+      diceBorder: "rgba(245,197,66,.35)",
+      diceLocked: "rgba(245,197,66,.22)",
+      dicePipLocked: "#f59e0b",
       buttonIcon: "",
     },
     {
@@ -248,6 +303,12 @@ export default function App() {
       bgGlow1: "#0ea5e9",
       bgGlow2: "#14b8a6",
       bgPattern: "waves",
+      bgPatternOpacity: 0.32,
+      diceBg: "#e0f2fe",
+      dicePip: "#0b1220",
+      diceBorder: "rgba(56,189,248,.35)",
+      diceLocked: "rgba(56,189,248,.2)",
+      dicePipLocked: "#0ea5e9",
       buttonIcon: "",
     },
     {
@@ -258,6 +319,12 @@ export default function App() {
       bgGlow1: "#14532d",
       bgGlow2: "#22c55e",
       bgPattern: "forest",
+      bgPatternOpacity: 0.3,
+      diceBg: "#ecfdf5",
+      dicePip: "#0b1110",
+      diceBorder: "rgba(34,197,94,.35)",
+      diceLocked: "rgba(34,197,94,.2)",
+      dicePipLocked: "#22c55e",
       buttonIcon: "",
     },
     {
@@ -268,6 +335,12 @@ export default function App() {
       bgGlow1: "#f97316",
       bgGlow2: "#f59e0b",
       bgPattern: "embers",
+      bgPatternOpacity: 0.38,
+      diceBg: "#ffedd5",
+      dicePip: "#3a250f",
+      diceBorder: "rgba(245,158,11,.35)",
+      diceLocked: "rgba(245,158,11,.22)",
+      dicePipLocked: "#f59e0b",
       buttonIcon: "",
     },
     {
@@ -278,6 +351,12 @@ export default function App() {
       bgGlow1: "#fb7185",
       bgGlow2: "#f472b6",
       bgPattern: "petals",
+      bgPatternOpacity: 0.34,
+      diceBg: "#ffe4e6",
+      dicePip: "#3a1a24",
+      diceBorder: "rgba(251,113,133,.35)",
+      diceLocked: "rgba(251,113,133,.22)",
+      dicePipLocked: "#fb7185",
       buttonIcon: "♥",
     },
     {
@@ -288,7 +367,29 @@ export default function App() {
       bgGlow1: "#f9a8d4",
       bgGlow2: "#f472b6",
       bgPattern: "blossom-trees",
+      bgPatternOpacity: 0.4,
+      diceBg: "#ffe4e6",
+      dicePip: "#3a1820",
+      diceBorder: "rgba(249,168,212,.35)",
+      diceLocked: "rgba(249,168,212,.22)",
+      dicePipLocked: "#f472b6",
       buttonIcon: "✿",
+    },
+    {
+      name: "Reggae",
+      bgColor: "#0b0f0b",
+      accentColor: "#22c55e",
+      rowCompleteBg: "#1f3b2e",
+      bgGlow1: "#ef4444",
+      bgGlow2: "#facc15",
+      bgPattern: "reggae",
+      bgPatternOpacity: 0.35,
+      diceBg: "#fef9c3",
+      dicePip: "#052e16",
+      diceBorder: "rgba(250,204,21,.35)",
+      diceLocked: "rgba(34,197,94,.22)",
+      dicePipLocked: "#22c55e",
+      buttonIcon: "✶",
     },
     {
       name: "Otis",
@@ -298,6 +399,12 @@ export default function App() {
       bgGlow1: "#94a3b8",
       bgGlow2: "#f8fafc",
       bgPattern: "paws",
+      bgPatternOpacity: 0.28,
+      diceBg: "#f8fafc",
+      dicePip: "#0f172a",
+      diceBorder: "rgba(148,163,184,.35)",
+      diceLocked: "rgba(148,163,184,.22)",
+      dicePipLocked: "#f8fafc",
       buttonIcon:
         "data:image/svg+xml;utf8," +
         "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>" +
@@ -329,6 +436,12 @@ export default function App() {
       bgGlow1: "#7c3aed",
       bgGlow2: "#a78bfa",
       bgPattern: "stars",
+      bgPatternOpacity: 0.26,
+      diceBg: "#ede9fe",
+      dicePip: "#1f1b3a",
+      diceBorder: "rgba(167,139,250,.35)",
+      diceLocked: "rgba(167,139,250,.22)",
+      dicePipLocked: "#a78bfa",
       buttonIcon: "★",
     },
     {
@@ -339,6 +452,12 @@ export default function App() {
       bgGlow1: "#93c5fd",
       bgGlow2: "#38bdf8",
       bgPattern: "snow",
+      bgPatternOpacity: 0.36,
+      diceBg: "#e0f2fe",
+      dicePip: "#0b1220",
+      diceBorder: "rgba(147,197,253,.35)",
+      diceLocked: "rgba(147,197,253,.22)",
+      dicePipLocked: "#93c5fd",
       buttonIcon: "❄",
     },
     {
@@ -349,6 +468,12 @@ export default function App() {
       bgGlow1: "#f97316",
       bgGlow2: "#ef4444",
       bgPattern: "lava",
+      bgPatternOpacity: 0.4,
+      diceBg: "#ffedd5",
+      dicePip: "#3a1a0f",
+      diceBorder: "rgba(249,115,22,.35)",
+      diceLocked: "rgba(249,115,22,.22)",
+      dicePipLocked: "#f97316",
       buttonIcon: "✹",
     },
   ];
@@ -1343,7 +1468,7 @@ export default function App() {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 100%)" }}>
-            <Card style={{ padding: 18, maxHeight: "82vh", overflowY: "auto" }}>
+            <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <h3 style={{ margin: 0 }}>Inställningar</h3>
                 <Button variant="ghost" onClick={() => setShowSettings(false)}>
@@ -1401,6 +1526,11 @@ export default function App() {
                             bgGlow2: t.bgGlow2,
                             bgPattern: t.bgPattern ?? "none",
                             bgPatternOpacity: t.bgPatternOpacity ?? 0.25,
+                            diceBg: t.diceBg,
+                            dicePip: t.dicePip,
+                            diceBorder: t.diceBorder,
+                            diceLocked: t.diceLocked,
+                            dicePipLocked: t.dicePipLocked,
                             buttonIcon: t.buttonIcon ?? "",
                           }))
                         }
@@ -1557,6 +1687,7 @@ export default function App() {
                           <option value="snow">Ice – Snöflingor</option>
                           <option value="paws">Otis – Tassar</option>
                           <option value="crystals">Ice – Kristaller</option>
+                          <option value="reggae">Reggae – Ränder</option>
                           <option value="lava">Lava – Sprickor</option>
                         </select>
                       </label>
@@ -1636,7 +1767,7 @@ export default function App() {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
-            <Card style={{ padding: 18, maxHeight: "82vh", overflowY: "auto" }}>
+            <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <h3 style={{ margin: 0 }}>Inspektera</h3>
                 <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowInspect(false)}>

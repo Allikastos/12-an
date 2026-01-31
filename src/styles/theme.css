@@ -8,6 +8,11 @@
   --bg-pattern: none;
   --bg-pattern-opacity: 0.25;
   --bg-pattern-size: 160px;
+  --dice-bg: #f8fafc;
+  --dice-pip: #0f172a;
+  --dice-border: rgba(255,255,255,.12);
+  --dice-locked: rgba(34,197,94,.18);
+  --dice-pip-locked: var(--accent);
   --card: rgba(13, 20, 36, .86);
   --card-2: rgba(18, 28, 52, .85);
   --border: rgba(148,163,184,.22);
@@ -180,6 +185,10 @@ body[data-theme="paws"]::before {
   animation: pawWalk 10s linear infinite;
 }
 
+body[data-theme="reggae"]::before {
+  animation: reggaeShift 12s linear infinite;
+}
+
 body[data-theme="lava"]::before {
   animation: lavaPulse 5.5s ease-in-out infinite;
 }
@@ -242,6 +251,11 @@ body[data-theme="lava"]::before {
   0% { opacity: 0.18; transform: scale(1); }
   50% { opacity: 0.36; transform: scale(1.02); }
   100% { opacity: 0.18; transform: scale(1); }
+}
+
+@keyframes reggaeShift {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 180px; }
 }
 
 @media (max-width: 420px) {
