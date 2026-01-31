@@ -73,7 +73,7 @@ export default function ScoreSheet({
   const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
   const crownOutlineData = (color) => {
     const stroke = String(color ?? "#f5d77b").replace("#", "%23");
-    return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><path d='M8 46 L14 24 L26 38 L32 18 L38 38 L50 24 L56 46 Z' fill='none' stroke='${stroke}' stroke-width='3.2' stroke-linejoin='round'/><circle cx='14' cy='24' r='2.6' fill='${stroke}'/><circle cx='32' cy='18' r='2.8' fill='${stroke}'/><circle cx='50' cy='24' r='2.6' fill='${stroke}'/></svg>")`;
+    return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><path d='M6 46 L12 22 L26 36 L32 16 L38 36 L52 22 L58 46 Z' fill='none' stroke='${stroke}' stroke-width='3.2' stroke-linejoin='round'/><path d='M10 48 H54' stroke='${stroke}' stroke-width='3.2' stroke-linecap='round'/><path d='M16 44 H48' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-opacity='0.75'/><circle cx='12' cy='22' r='3' fill='${stroke}'/><circle cx='32' cy='16' r='3.2' fill='${stroke}'/><circle cx='52' cy='22' r='3' fill='${stroke}'/></svg>")`;
   };
 
   return (

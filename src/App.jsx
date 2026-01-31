@@ -188,8 +188,8 @@ const BG_PATTERNS = {
   },
   royal: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\' viewBox=\'0 0 200 200\'><g fill=\'none\' stroke=\'%23f5d77b\' stroke-opacity=\'0.2\' stroke-width=\'2\'><path d=\'M20 130 L40 90 L60 120 L80 80 L100 120 L120 90 L140 130 Z\'/><circle cx=\'40\' cy=\'90\' r=\'4\' fill=\'%23f5d77b\' fill-opacity=\'0.2\'/><circle cx=\'80\' cy=\'80\' r=\'4\' fill=\'%23f5d77b\' fill-opacity=\'0.2\'/><circle cx=\'120\' cy=\'90\' r=\'4\' fill=\'%23f5d77b\' fill-opacity=\'0.2\'/></g><g stroke=\'%23f59e0b\' stroke-opacity=\'0.12\' stroke-width=\'1.5\'><path d=\'M10 30 C40 10 70 10 100 30\'/><path d=\'M100 30 C130 10 160 10 190 30\'/><path d=\'M10 170 C40 150 70 150 100 170\'/><path d=\'M100 170 C130 150 160 150 190 170\'/></g></svg>")',
-    size: "220px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'240\' height=\'240\' viewBox=\'0 0 240 240\'><defs><linearGradient id=\'g\' x1=\'0\' y1=\'0\' x2=\'1\' y2=\'1\'><stop offset=\'0\' stop-color=\'%23f5d77b\' stop-opacity=\'0.35\'/><stop offset=\'1\' stop-color=\'%23f59e0b\' stop-opacity=\'0.15\'/></linearGradient></defs><g fill=\'none\' stroke=\'url(%23g)\' stroke-width=\'2.6\' stroke-linejoin=\'round\'><path d=\'M26 164 L42 104 L72 142 L96 84 L120 140 L144 100 L170 164 Z\'/><path d=\'M36 170 H160\' stroke-width=\'2.2\' stroke-linecap=\'round\'/></g><g fill=\'%23f5d77b\' fill-opacity=\'0.35\'><circle cx=\'42\' cy=\'104\' r=\'4\'/><circle cx=\'96\' cy=\'84\' r=\'4.6\'/><circle cx=\'144\' cy=\'100\' r=\'4\'/></g><g stroke=\'%23f59e0b\' stroke-opacity=\'0.12\' stroke-width=\'1.4\'><path d=\'M20 40 C50 20 90 20 120 40\'/><path d=\'M120 40 C150 20 190 20 220 40\'/><path d=\'M20 210 C50 190 90 190 120 210\'/><path d=\'M120 210 C150 190 190 190 220 210\'/></g></svg>")',
+    size: "240px",
   },
   reggae: {
     image:
@@ -960,6 +960,12 @@ export default function App() {
       if (fallback) applyTheme(fallback);
     }
   }, [isKing]);
+
+  useEffect(() => {
+    if (!isKing && settings.themeKey !== "King" && settings.buttonIcon === "crown-outline") {
+      setSettings((s) => ({ ...s, buttonIcon: "" }));
+    }
+  }, [isKing, settings.themeKey, settings.buttonIcon]);
 
   const progressStorageKey = useMemo(() => {
     if (roomId && playerId) return `t12_progress_${roomId}_${playerId}`;
