@@ -113,8 +113,8 @@ const BG_PATTERNS = {
   },
   forest: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'160\' height=\'160\' viewBox=\'0 0 160 160\'><path d=\'M20 130 L40 80 L60 130 Z\' fill=\'%2316a34a\' fill-opacity=\'0.22\'/><path d=\'M80 130 L100 70 L120 130 Z\' fill=\'%2322c55e\' fill-opacity=\'0.20\'/><circle cx=\'40\' cy=\'50\' r=\'2\' fill=\'%2384cc16\' fill-opacity=\'0.4\'/></svg>")',
-    size: "180px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'200\' viewBox=\'0 0 220 200\'><g fill=\'%2316a34a\' fill-opacity=\'0.28\'><path d=\'M30 170 L55 110 L80 170 Z\'/><path d=\'M90 175 L120 105 L150 175 Z\'/><path d=\'M150 170 L175 120 L200 170 Z\'/></g><g fill=\'%2322c55e\' fill-opacity=\'0.2\'><path d=\'M40 150 L58 120 L76 150 Z\'/><path d=\'M110 155 L125 120 L140 155 Z\'/><path d=\'M165 152 L180 125 L195 152 Z\'/></g><rect x=\'0\' y=\'170\' width=\'220\' height=\'30\' fill=\'%230b2a18\' fill-opacity=\'0.35\'/></svg>")',
+    size: "220px",
   },
   embers: {
     image:
@@ -128,8 +128,8 @@ const BG_PATTERNS = {
   },
   "blossom-trees": {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'160\' viewBox=\'0 0 220 160\'><path d=\'M0 120 C40 80 90 80 140 110 C170 130 200 120 220 100\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.25\' stroke-width=\'3\'/><circle cx=\'40\' cy=\'80\' r=\'4\' fill=\'%23f9a8d4\' fill-opacity=\'0.32\'/><circle cx=\'60\' cy=\'70\' r=\'3\' fill=\'%23f472b6\' fill-opacity=\'0.3\'/><circle cx=\'90\' cy=\'75\' r=\'3\' fill=\'%23fbcfe8\' fill-opacity=\'0.35\'/><circle cx=\'120\' cy=\'90\' r=\'3\' fill=\'%23f9a8d4\' fill-opacity=\'0.3\'/><circle cx=\'160\' cy=\'95\' r=\'4\' fill=\'%23f472b6\' fill-opacity=\'0.28\'/></svg>")',
-    size: "240px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'260\' height=\'180\' viewBox=\'0 0 260 180\'><defs><linearGradient id=\'sky\' x1=\'0\' y1=\'0\' x2=\'0\' y2=\'1\'><stop offset=\'0\' stop-color=\'%23fbcfe8\'/><stop offset=\'1\' stop-color=\'%23f9a8d4\'/></linearGradient></defs><rect width=\'260\' height=\'180\' fill=\'url(%23sky)\' fill-opacity=\'0.45\'/><circle cx=\'190\' cy=\'60\' r=\'26\' fill=\'%23fff7ed\' fill-opacity=\'0.6\'/><path d=\'M0 120 C50 80 90 90 140 115 C180 135 220 130 260 110\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.35\' stroke-width=\'4\'/><path d=\'M10 90 C40 70 70 70 100 88\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.3\' stroke-width=\'3\'/><g fill=\'%23f9a8d4\' fill-opacity=\'0.35\'><circle cx=\'40\' cy=\'90\' r=\'4\'/><circle cx=\'60\' cy=\'82\' r=\'3\'/><circle cx=\'92\' cy=\'88\' r=\'3\'/><circle cx=\'120\' cy=\'100\' r=\'3\'/><circle cx=\'160\' cy=\'105\' r=\'4\'/><circle cx=\'200\' cy=\'112\' r=\'3\'/></g><g fill=\'%23f472b6\' fill-opacity=\'0.28\'><circle cx=\'30\' cy=\'130\' r=\'2.5\'/><circle cx=\'80\' cy=\'140\' r=\'2.2\'/><circle cx=\'150\' cy=\'150\' r=\'2.2\'/><circle cx=\'210\' cy=\'145\' r=\'2.5\'/></g></svg>")',
+    size: "260px",
   },
   snow: {
     image:
@@ -143,8 +143,8 @@ const BG_PATTERNS = {
   },
   stars: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\' viewBox=\'0 0 200 200\'><circle cx=\'30\' cy=\'40\' r=\'1.5\' fill=\'%23c4b5fd\' fill-opacity=\'0.6\'/><circle cx=\'160\' cy=\'60\' r=\'1.2\' fill=\'%23ddd6fe\' fill-opacity=\'0.5\'/><circle cx=\'120\' cy=\'140\' r=\'1.4\' fill=\'%23c4b5fd\' fill-opacity=\'0.5\'/></svg>")',
-    size: "220px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'260\' height=\'200\' viewBox=\'0 0 260 200\'><g stroke=\'%23c4b5fd\' stroke-opacity=\'0.25\' stroke-width=\'1\' fill=\'none\'><polyline points=\'30,60 60,50 90,60 120,55\'/><polyline points=\'160,120 175,100 190,85 210,70\'/><polyline points=\'200,150 210,140 225,130\'/></g><g fill=\'%23ddd6fe\' fill-opacity=\'0.7\'><circle cx=\'30\' cy=\'60\' r=\'2\'/><circle cx=\'60\' cy=\'50\' r=\'2\'/><circle cx=\'90\' cy=\'60\' r=\'2\'/><circle cx=\'120\' cy=\'55\' r=\'2\'/><circle cx=\'160\' cy=\'120\' r=\'2\'/><circle cx=\'175\' cy=\'100\' r=\'2\'/><circle cx=\'190\' cy=\'85\' r=\'2\'/><circle cx=\'210\' cy=\'70\' r=\'2\'/><circle cx=\'200\' cy=\'150\' r=\'2\'/><circle cx=\'210\' cy=\'140\' r=\'2\'/><circle cx=\'225\' cy=\'130\' r=\'2\'/></g></svg>")',
+    size: "260px",
   },
   crystals: {
     image:
@@ -153,13 +153,13 @@ const BG_PATTERNS = {
   },
   lava: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'140\' viewBox=\'0 0 200 140\'><path d=\'M0 100 L40 80 L80 100 L120 70 L160 100 L200 80\' fill=\'none\' stroke=\'%23fb923c\' stroke-opacity=\'0.35\' stroke-width=\'2\'/><path d=\'M0 120 L50 110 L90 120 L130 95 L170 120 L200 110\' fill=\'none\' stroke=\'%23f97316\' stroke-opacity=\'0.3\' stroke-width=\'2\'/></svg>")',
-    size: "220px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'240\' height=\'180\' viewBox=\'0 0 240 180\'><path d=\'M0 140 L60 120 L90 150 L140 110 L190 145 L240 120\' fill=\'none\' stroke=\'%23fb923c\' stroke-opacity=\'0.35\' stroke-width=\'10\' stroke-linecap=\'round\'/><path d=\'M-10 100 L50 90 L80 110 L130 80 L170 110 L230 90\' fill=\'none\' stroke=\'%23f97316\' stroke-opacity=\'0.28\' stroke-width=\'8\' stroke-linecap=\'round\'/><circle cx=\'40\' cy=\'40\' r=\'4\' fill=\'%23f97316\' fill-opacity=\'0.35\'/><circle cx=\'120\' cy=\'30\' r=\'3\' fill=\'%23fb923c\' fill-opacity=\'0.35\'/><circle cx=\'200\' cy=\'50\' r=\'3.5\' fill=\'%23ef4444\' fill-opacity=\'0.35\'/></svg>")',
+    size: "260px",
   },
   reggae: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><rect x=\'0\' y=\'0\' width=\'180\' height=\'60\' fill=\'%23ef4444\' fill-opacity=\'0.22\'/><rect x=\'0\' y=\'60\' width=\'180\' height=\'60\' fill=\'%23facc15\' fill-opacity=\'0.22\'/><rect x=\'0\' y=\'120\' width=\'180\' height=\'60\' fill=\'%2322c55e\' fill-opacity=\'0.22\'/></svg>")',
-    size: "200px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'220\' viewBox=\'0 0 220 220\'><g fill=\'%23ef4444\' fill-opacity=\'0.22\'><circle cx=\'30\' cy=\'40\' r=\'3\'/><circle cx=\'80\' cy=\'70\' r=\'4\'/><circle cx=\'140\' cy=\'30\' r=\'3\'/><circle cx=\'190\' cy=\'90\' r=\'4\'/></g><g fill=\'%23facc15\' fill-opacity=\'0.22\'><circle cx=\'50\' cy=\'120\' r=\'3\'/><circle cx=\'110\' cy=\'160\' r=\'4\'/><circle cx=\'170\' cy=\'140\' r=\'3\'/><circle cx=\'200\' cy=\'190\' r=\'4\'/></g><g fill=\'%2322c55e\' fill-opacity=\'0.22\'><circle cx=\'20\' cy=\'180\' r=\'3\'/><circle cx=\'90\' cy=\'200\' r=\'4\'/><circle cx=\'150\' cy=\'190\' r=\'3\'/><circle cx=\'210\' cy=\'40\' r=\'4\'/></g><path d=\'M0 0 L220 220\' stroke=\'%23ef4444\' stroke-opacity=\'0.08\' stroke-width=\'6\'/><path d=\'M-10 60 L200 260\' stroke=\'%23facc15\' stroke-opacity=\'0.08\' stroke-width=\'6\'/><path d=\'M-20 120 L160 260\' stroke=\'%2322c55e\' stroke-opacity=\'0.08\' stroke-width=\'6\'/></svg>")',
+    size: "240px",
   },
 };
 
@@ -207,6 +207,10 @@ export default function App() {
             diceBorder: "rgba(255,255,255,.12)",
             diceLocked: "rgba(34,197,94,.18)",
             dicePipLocked: "var(--accent)",
+            btnPrimaryBg: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
+            btnPrimaryText: "#07110b",
+            btnPrimaryBorder: "rgba(0,0,0,.12)",
+            btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
             buttonIcon: "",
             showDice: false,
             vibrateOnTurn: false,
@@ -227,6 +231,10 @@ export default function App() {
         diceBorder: "rgba(255,255,255,.12)",
         diceLocked: "rgba(34,197,94,.18)",
         dicePipLocked: "var(--accent)",
+        btnPrimaryBg: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
+        btnPrimaryText: "#07110b",
+        btnPrimaryBorder: "rgba(0,0,0,.12)",
+        btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
         buttonIcon: "",
         showDice: false,
         vibrateOnTurn: false,
@@ -256,6 +264,10 @@ export default function App() {
     if (settings.diceBorder) root.style.setProperty("--dice-border", settings.diceBorder);
     if (settings.diceLocked) root.style.setProperty("--dice-locked", settings.diceLocked);
     if (settings.dicePipLocked) root.style.setProperty("--dice-pip-locked", settings.dicePipLocked);
+    if (settings.btnPrimaryBg) root.style.setProperty("--btn-primary-bg", settings.btnPrimaryBg);
+    if (settings.btnPrimaryText) root.style.setProperty("--btn-primary-text", settings.btnPrimaryText);
+    if (settings.btnPrimaryBorder) root.style.setProperty("--btn-primary-border", settings.btnPrimaryBorder);
+    if (settings.btnPrimaryShadow) root.style.setProperty("--btn-primary-shadow", settings.btnPrimaryShadow);
   }, [settings]);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -277,6 +289,10 @@ export default function App() {
       diceBorder: "rgba(255,255,255,.12)",
       diceLocked: "rgba(34,197,94,.18)",
       dicePipLocked: "var(--accent)",
+      btnPrimaryBg: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
+      btnPrimaryText: "#07110b",
+      btnPrimaryBorder: "rgba(0,0,0,.12)",
+      btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
       buttonIcon: "",
     },
     {
@@ -389,6 +405,10 @@ export default function App() {
       diceBorder: "rgba(250,204,21,.35)",
       diceLocked: "rgba(34,197,94,.22)",
       dicePipLocked: "#22c55e",
+      btnPrimaryBg: "linear-gradient(90deg, #ef4444 0%, #facc15 50%, #22c55e 100%)",
+      btnPrimaryText: "#0b0f0b",
+      btnPrimaryBorder: "rgba(250,204,21,.35)",
+      btnPrimaryShadow: "0 10px 24px rgba(250,204,21,.25)",
       buttonIcon: "✶",
     },
     {
@@ -1531,6 +1551,10 @@ export default function App() {
                             diceBorder: t.diceBorder,
                             diceLocked: t.diceLocked,
                             dicePipLocked: t.dicePipLocked,
+                            btnPrimaryBg: t.btnPrimaryBg,
+                            btnPrimaryText: t.btnPrimaryText,
+                            btnPrimaryBorder: t.btnPrimaryBorder,
+                            btnPrimaryShadow: t.btnPrimaryShadow,
                             buttonIcon: t.buttonIcon ?? "",
                           }))
                         }

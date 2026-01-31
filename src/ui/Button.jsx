@@ -22,10 +22,10 @@ export function Button({
 
   const variants = {
     primary: {
-      background: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
-      color: "#07110b",
-      borderColor: "rgba(0,0,0,.12)",
-      boxShadow: "0 10px 24px rgba(16,185,129,.25)",
+      background: "var(--btn-primary-bg)",
+      color: "var(--btn-primary-text)",
+      borderColor: "var(--btn-primary-border)",
+      boxShadow: "var(--btn-primary-shadow)",
     },
     ghost: {
       background: "rgba(255,255,255,.04)",

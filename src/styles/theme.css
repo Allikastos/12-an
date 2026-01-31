@@ -22,6 +22,11 @@
   --accent-2: #38bdf8;
   --danger: #ef4444;
 
+  --btn-primary-bg: linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1));
+  --btn-primary-text: #07110b;
+  --btn-primary-border: rgba(0,0,0,.12);
+  --btn-primary-shadow: 0 10px 24px rgba(16,185,129,.25);
+
   --shadow: 0 20px 70px rgba(2,6,23,.55);
   --glow: 0 0 0 1px rgba(148,163,184,.18), 0 25px 70px rgba(2,6,23,.6);
 
@@ -154,7 +159,7 @@ body[data-theme="waves"]::before {
 }
 
 body[data-theme="forest"]::before {
-  animation: patternDriftY 18s linear infinite;
+  animation: forestSway 18s ease-in-out infinite;
 }
 
 body[data-theme="embers"]::before {
@@ -170,7 +175,7 @@ body[data-theme="blossom-trees"]::before {
 }
 
 body[data-theme="stars"]::before {
-  animation: starsTwinkle 6s ease-in-out infinite;
+  animation: starsGlimmer 9s ease-in-out infinite;
 }
 
 body[data-theme="crystals"]::before {
@@ -190,7 +195,7 @@ body[data-theme="reggae"]::before {
 }
 
 body[data-theme="lava"]::before {
-  animation: lavaPulse 5.5s ease-in-out infinite;
+  animation: lavaFlow 7s ease-in-out infinite;
 }
 
 @keyframes moonPulse {
@@ -232,6 +237,20 @@ body[data-theme="lava"]::before {
   100% { opacity: calc(var(--bg-pattern-opacity) * 0.7); }
 }
 
+@keyframes starsGlimmer {
+  0% { opacity: calc(var(--bg-pattern-opacity) * 0.6); }
+  78% { opacity: calc(var(--bg-pattern-opacity) * 0.6); }
+  82% { opacity: calc(var(--bg-pattern-opacity) * 1.35); }
+  86% { opacity: calc(var(--bg-pattern-opacity) * 0.7); }
+  100% { opacity: calc(var(--bg-pattern-opacity) * 0.6); }
+}
+
+@keyframes forestSway {
+  0% { background-position: 0 0; }
+  50% { background-position: 18px 0; }
+  100% { background-position: 0 0; }
+}
+
 @keyframes crystalDrift {
   0% { background-position: 0 0; }
   100% { background-position: 120px 160px; }
@@ -251,6 +270,12 @@ body[data-theme="lava"]::before {
   0% { opacity: 0.18; transform: scale(1); }
   50% { opacity: 0.36; transform: scale(1.02); }
   100% { opacity: 0.18; transform: scale(1); }
+}
+
+@keyframes lavaFlow {
+  0% { background-position: 0 0; opacity: 0.22; }
+  50% { background-position: 40px -10px; opacity: 0.36; }
+  100% { background-position: 0 0; opacity: 0.22; }
 }
 
 @keyframes reggaeShift {
