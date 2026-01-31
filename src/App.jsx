@@ -9,7 +9,8 @@ import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 
 import ScoreSheet from "./components/ScoreSheet";
-import DiceTray from "./components/DiceTray";
+import DiceTray, { DieFace } from "./components/DiceTray";
+import { rowWeight } from "./utils/probability";
 
 import {
   createRoomWithCode,
@@ -56,26 +57,11 @@ function isProgressWin(p) {
 function calcWeightedProgress(progressObj) {
   if (!progressObj) return 0;
 
-  const weights = {
-    1: 0.6,
-    2: 0.65,
-    3: 0.7,
-    4: 0.8,
-    5: 0.9,
-    6: 1.0,
-    7: 1.25,
-    8: 1.35,
-    9: 1.45,
-    10: 1.55,
-    11: 1.7,
-    12: 1.9,
-  };
-
   let done = 0;
   let total = 0;
 
   for (let r = 1; r <= 12; r++) {
-    const w = weights[r] ?? 1;
+    const w = rowWeight(r);
     const row = progressObj[r] ?? Array(7).fill(false);
     for (let i = 0; i < 7; i++) {
       total += w;
@@ -170,6 +156,7 @@ export default function App() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
+  const [followActivePlayer, setFollowActivePlayer] = useState(false);
 
   const themes = [
     {
@@ -379,8 +366,11 @@ export default function App() {
   }, [diceStatus, targetLocked, availableTargets.length]);
 
   const isHost = roomState?.host_player_id && roomState.host_player_id === playerId;
-  const gameStarted = Boolean(roomState?.started);
-  const isMyTurn = gameStarted && roomState?.turn_player_id === playerId;
+  const gameStarted = isSolo ? true : Boolean(roomState?.started);
+  const isMyTurn = isSolo
+    ? true
+    : gameStarted &&
+      String(roomState?.turn_player_id ?? "") === String(playerId ?? "");
 
   const leader = useMemo(() => {
     if (!playerStates?.length || !players?.length) return null;
@@ -402,7 +392,13 @@ export default function App() {
     return players.find((p) => p.id === roomState.turn_player_id) ?? null;
   }, [roomState, players]);
 
-  const canAct = gameStarted && isMyTurn;
+  useEffect(() => {
+    if (followActivePlayer && activePlayer?.id) {
+      setInspectPlayerId(activePlayer.id);
+    }
+  }, [followActivePlayer, activePlayer?.id]);
+
+  const canAct = isSolo ? true : gameStarted && isMyTurn;
 
   const triggerRollAnimation = () => {
     setRolling(true);
@@ -439,6 +435,16 @@ export default function App() {
     }
     return () => document.body.classList.remove("turn-flash");
   }, [turnFlash]);
+
+  const shouldBlinkEdge = canAct && diceStatus === "idle";
+  useEffect(() => {
+    if (shouldBlinkEdge) {
+      document.body.classList.add("turn-waiting");
+    } else {
+      document.body.classList.remove("turn-waiting");
+    }
+    return () => document.body.classList.remove("turn-waiting");
+  }, [shouldBlinkEdge]);
 
   const playerSummaries = useMemo(() => {
     return players.map((p) => {
@@ -658,6 +664,8 @@ export default function App() {
   }
 
   async function handleLeave() {
+    if (!window.confirm("Vill du lämna rummet?")) return;
+    if (!window.confirm("Är du helt säker att du vill lämna?")) return;
     try {
       await leaveRoom(roomId, playerId);
     } finally {
@@ -694,15 +702,21 @@ export default function App() {
 
   async function advanceTurn() {
     if (!roomState?.turn_order?.length) return;
-    const order = roomState.turn_order;
-    const current = roomState.turn_player_id ?? playerId;
-    const idx = Math.max(0, order.indexOf(current));
-    const next = order[(idx + 1) % order.length] ?? current;
+    const activeOrder = (roomState.turn_order ?? []).filter((id) =>
+      players.some((p) => p.id === id)
+    );
+    if (!activeOrder.length) return;
+    const current = activeOrder.includes(roomState.turn_player_id)
+      ? roomState.turn_player_id
+      : activeOrder[0];
+    const idx = Math.max(0, activeOrder.indexOf(current));
+    const next = activeOrder[(idx + 1) % activeOrder.length] ?? current;
 
     const { data: updated } = await supabase
       .from("room_state")
       .update({
         turn_player_id: next,
+        turn_order: activeOrder,
         updated_at: new Date().toISOString(),
       })
       .eq("room_id", roomId)
@@ -960,57 +974,6 @@ export default function App() {
         <Card style={{ padding: 22 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
             <h1 style={{ margin: 0, fontSize: 28 }}>12:an</h1>
-            <span style={{ color: "var(--muted)", fontWeight: 700 }}>Poängblad</span>
-          </div>
-
-          <div
-            style={{
-              marginTop: 14,
-              padding: 14,
-              border: "1px solid var(--border)",
-              borderRadius: 16,
-              background: "rgba(255,255,255,.02)",
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-                gap: 12,
-                alignItems: "end",
-              }}
-            >
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 26, fontWeight: 900 }}>{completedBoxes}</div>
-                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                  av {TOTAL_BOXES}
-                </div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 26, fontWeight: 900 }}>{completedRows}</div>
-                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>klara summor</div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 26, fontWeight: 900 }}>{weightedPercent}%</div>
-                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>färdigt (viktat)</div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <div style={{ height: 10, background: "rgba(148,163,184,.22)", borderRadius: 999 }}>
-                <div
-                  style={{
-                    height: 10,
-                    width: `${weightedPercent}%`,
-                    background: "var(--accent)",
-                    borderRadius: 999,
-                    transition: "width .2s ease",
-                  }}
-                />
-              </div>
-            </div>
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -1039,8 +1002,17 @@ export default function App() {
             </Button>
           </div>
 
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            <Button variant="ghost" onClick={() => setStep("solo")}>
+              Poängblad
+            </Button>
+          </div>
+
           <p style={{ marginTop: 14, color: "var(--muted)" }}>
             Skapa rum → dela koden → alla kan använda samma lobby.
+          </p>
+          <p style={{ marginTop: 8, color: "var(--muted)" }}>
+            Poängblad → spela utan multiplayer.
           </p>
         </Card>
       </Container>
@@ -1053,33 +1025,54 @@ export default function App() {
         <div
           style={{
             display: "flex",
-            justifyContent: "flex-end",
+            justifyContent: "space-between",
             alignItems: "center",
             gap: 8,
             flexWrap: "nowrap",
           }}
         >
-          {isHost && !gameStarted && (
-            <Button onClick={startGame} style={{ width: "auto", paddingInline: 10, fontSize: 14 }}>
-              Starta spelet
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {isSolo && (
+              <Button
+                variant="ghost"
+                style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
+                onClick={() => setStep("home")}
+              >
+                Tillbaka
+              </Button>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {!isSolo && isHost && !gameStarted && (
+              <Button onClick={startGame} style={{ width: "auto", paddingInline: 10, fontSize: 14 }}>
+                Starta spelet
+              </Button>
+            )}
+            {!isSolo && (
+              <Button
+                variant="ghost"
+                style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
+                onClick={() => {
+                  setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
+                  setShowInspect(true);
+                }}
+              >
+                Inspektera
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
+              onClick={() => setShowSettings(true)}
+            >
+              Inställningar
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
-            onClick={() => {
-              setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
-              setShowInspect(true);
-            }}
-          >
-            Inspektera
-          </Button>
-          <Button variant="ghost" style={{ width: "auto", paddingInline: 10, fontSize: 14 }} onClick={() => setShowSettings(true)}>
-            Inställningar
-          </Button>
-          <Button variant="danger" style={{ width: "auto", paddingInline: 10, fontSize: 14 }} onClick={handleLeave}>
-            Lämna
-          </Button>
+            {!isSolo && (
+              <Button variant="danger" style={{ width: "auto", paddingInline: 10, fontSize: 14 }} onClick={handleLeave}>
+                Lämna
+              </Button>
+            )}
+          </div>
         </div>
 
 
@@ -1162,42 +1155,44 @@ export default function App() {
           status={diceStatus}
         />
 
-        <div
-          style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 14,
-            border: "1px solid var(--border)",
-            background: "rgba(255,255,255,.02)",
-          }}
-        >
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Ställning</div>
-          <div style={{ display: "grid", gap: 8 }}>
-            {playerSummaries.map((p) => (
-              <div
-                key={p.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: "1px solid var(--border)",
-                  background: p.id === playerId ? "rgba(255,255,255,.03)" : "transparent",
-                }}
-              >
-                <div style={{ fontWeight: 700 }}>
-                  {p.name}
-                  {p.id === playerId ? " (du)" : ""}
+        {!isSolo && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 14,
+              border: "1px solid var(--border)",
+              background: "rgba(255,255,255,.02)",
+            }}
+          >
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Ställning</div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {playerSummaries.map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border)",
+                    background: p.id === playerId ? "rgba(255,255,255,.03)" : "transparent",
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>
+                    {p.name}
+                    {p.id === playerId ? " (du)" : ""}
+                  </div>
+                  <div style={{ fontWeight: 900 }}>{p.percent}%</div>
                 </div>
-                <div style={{ fontWeight: 900 }}>{p.percent}%</div>
-              </div>
-            ))}
-            {playerSummaries.length === 0 && (
-              <div style={{ color: "var(--muted)" }}>Inga spelare ännu.</div>
-            )}
+              ))}
+              {playerSummaries.length === 0 && (
+                <div style={{ color: "var(--muted)" }}>Inga spelare ännu.</div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div
           style={{
@@ -1209,9 +1204,12 @@ export default function App() {
             flexWrap: "wrap",
           }}
         >
-          <div style={{ color: "var(--muted)", fontWeight: 700 }}>
-            Rumskod: <b>{roomCode.toUpperCase()}</b>
-          </div>
+          {!isSolo && (
+            <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+              Rumskod: <b>{roomCode.toUpperCase()}</b>
+            </div>
+          )}
+          {isSolo && <div style={{ color: "var(--muted)", fontWeight: 700 }}>Lokalt poängblad</div>}
           <Button variant="ghost" onClick={confirmReset}>
             Återställ spel
           </Button>
@@ -1368,18 +1366,20 @@ export default function App() {
                   )}
                 </div>
 
-                <div>
-                  <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Lobby</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <div>
-                      <div style={{ color: "var(--muted)", fontWeight: 700 }}>Rumskod</div>
-                      <div style={{ fontWeight: 900, fontSize: 18 }}>{roomCode.toUpperCase()}</div>
+                {!isSolo && (
+                  <div>
+                    <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Lobby</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div>
+                        <div style={{ color: "var(--muted)", fontWeight: 700 }}>Rumskod</div>
+                        <div style={{ fontWeight: 900, fontSize: 18 }}>{roomCode.toUpperCase()}</div>
+                      </div>
+                      <Button variant="danger" onClick={handleLeave}>
+                        Lämna lobby
+                      </Button>
                     </div>
-                    <Button variant="danger" onClick={handleLeave}>
-                      Lämna lobby
-                    </Button>
                   </div>
-                </div>
+                )}
 
                 <div>
                   <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Tärningar i appen</div>
@@ -1394,7 +1394,7 @@ export default function App() {
                 </div>
 
                 <div>
-                  <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Vibration</div>
+                  <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Alert</div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <Button
                       variant={settings.vibrateOnTurn ? "primary" : "ghost"}
@@ -1410,7 +1410,7 @@ export default function App() {
         </div>
       )}
 
-      {showInspect && (
+      {!isSolo && showInspect && (
         <div
           onClick={() => setShowInspect(false)}
           style={{
@@ -1433,12 +1433,26 @@ export default function App() {
               </div>
 
               <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>Följ aktiv spelare</div>
+                  <Button
+                    variant={followActivePlayer ? "primary" : "ghost"}
+                    onClick={() => setFollowActivePlayer((v) => !v)}
+                    style={{ width: "auto", padding: "8px 10px" }}
+                  >
+                    {followActivePlayer ? "På" : "Av"}
+                  </Button>
+                </div>
+
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {players.map((p) => (
                     <Button
                       key={p.id}
                       variant={inspectPlayerId === p.id ? "primary" : "ghost"}
-                      onClick={() => setInspectPlayerId(p.id)}
+                      onClick={() => {
+                        setFollowActivePlayer(false);
+                        setInspectPlayerId(p.id);
+                      }}
                       style={{ width: "auto", padding: "8px 10px" }}
                     >
                       {p.name}
@@ -1453,6 +1467,11 @@ export default function App() {
                     const lastDice = ps?.last_dice ?? [];
                     const lastTarget = ps?.last_target;
                     const player = players.find((p) => p.id === inspectPlayerId);
+                    const hasDice = Array.isArray(lastDice) && lastDice.length === 6;
+                    const targetLocks =
+                      hasDice && lastTarget
+                        ? computeLocks(lastDice, Array(6).fill(false), lastTarget).nextLocked
+                        : Array(6).fill(false);
                     return (
                       <div style={{ display: "grid", gap: 12 }}>
                         <div style={{ fontWeight: 800 }}>
@@ -1464,6 +1483,33 @@ export default function App() {
                           Senaste kast: {lastDice.length ? lastDice.join(", ") : "—"}
                           {lastTarget ? ` | Valör: ${lastTarget}` : ""}
                         </div>
+
+                        {hasDice && (
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                              Tärningar {lastTarget ? `(markerar ${lastTarget})` : ""}
+                            </div>
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                                gap: 10,
+                                justifyItems: "center",
+                              }}
+                            >
+                              {lastDice.map((d, i) => (
+                                <DieFace
+                                  key={i}
+                                  value={d}
+                                  locked={targetLocks[i]}
+                                  isPreview={Boolean(lastTarget)}
+                                  rolling={false}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {!hasDice && <div style={{ color: "var(--muted)" }}>Inga tärningar ännu.</div>}
 
                         <ScoreSheet
                           progress={prog}

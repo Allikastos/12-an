@@ -11,7 +11,7 @@ const PIP_MAP = {
   6: [0, 2, 3, 5, 6, 8],
 };
 
-function DieFace({ value, locked, isPreview, rolling }) {
+export function DieFace({ value, locked, isPreview, rolling }) {
   const pips = PIP_MAP[value] ?? [];
   return (
     <div
