@@ -126,9 +126,19 @@ const BG_PATTERNS = {
       'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'160\' height=\'160\' viewBox=\'0 0 160 160\'><ellipse cx=\'40\' cy=\'40\' rx=\'8\' ry=\'4\' fill=\'%23fb7185\' fill-opacity=\'0.22\'/><ellipse cx=\'120\' cy=\'70\' rx=\'6\' ry=\'3\' fill=\'%23f472b6\' fill-opacity=\'0.22\'/><ellipse cx=\'80\' cy=\'120\' rx=\'7\' ry=\'3.5\' fill=\'%23fb7185\' fill-opacity=\'0.2\'/></svg>")',
     size: "180px",
   },
-  blossom: {
+  blossom-trees: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><g fill=\'%23f9a8d4\' fill-opacity=\'0.25\'><circle cx=\'40\' cy=\'40\' r=\'3\'/><circle cx=\'48\' cy=\'40\' r=\'3\'/><circle cx=\'44\' cy=\'32\' r=\'3\'/><circle cx=\'44\' cy=\'48\' r=\'3\'/></g><circle cx=\'120\' cy=\'100\' r=\'2.5\' fill=\'%23f472b6\' fill-opacity=\'0.25\'/><circle cx=\'70\' cy=\'130\' r=\'2\' fill=\'%23f9a8d4\' fill-opacity=\'0.22\'/></svg>")',
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'160\' viewBox=\'0 0 220 160\'><path d=\'M0 120 C40 80 90 80 140 110 C170 130 200 120 220 100\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.25\' stroke-width=\'3\'/><circle cx=\'40\' cy=\'80\' r=\'4\' fill=\'%23f9a8d4\' fill-opacity=\'0.32\'/><circle cx=\'60\' cy=\'70\' r=\'3\' fill=\'%23f472b6\' fill-opacity=\'0.3\'/><circle cx=\'90\' cy=\'75\' r=\'3\' fill=\'%23fbcfe8\' fill-opacity=\'0.35\'/><circle cx=\'120\' cy=\'90\' r=\'3\' fill=\'%23f9a8d4\' fill-opacity=\'0.3\'/><circle cx=\'160\' cy=\'95\' r=\'4\' fill=\'%23f472b6\' fill-opacity=\'0.28\'/></svg>")',
+    size: "240px",
+  },
+  snow: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><g stroke=\'%23e0f2fe\' stroke-opacity=\'0.5\' stroke-width=\'1\' fill=\'none\'><path d=\'M30 30 L30 45\'/><path d=\'M24 36 L36 36\'/><path d=\'M26 32 L34 40\'/><path d=\'M34 32 L26 40\'/></g><g stroke=\'%23bae6fd\' stroke-opacity=\'0.45\' stroke-width=\'1\' fill=\'none\'><path d=\'M120 60 L120 74\'/><path d=\'M113 67 L127 67\'/><path d=\'M115 63 L125 71\'/><path d=\'M125 63 L115 71\'/></g><circle cx=\'70\' cy=\'120\' r=\'1.6\' fill=\'%23e0f2fe\' fill-opacity=\'0.5\'/><circle cx=\'140\' cy=\'130\' r=\'1.2\' fill=\'%23bae6fd\' fill-opacity=\'0.5\'/></svg>")',
+    size: "220px",
+  },
+  paws: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><g fill=\'%23cbd5f5\' fill-opacity=\'0.22\'><circle cx=\'40\' cy=\'40\' r=\'6\'/><circle cx=\'55\' cy=\'35\' r=\'4\'/><circle cx=\'25\' cy=\'35\' r=\'4\'/><circle cx=\'40\' cy=\'55\' r=\'4\'/></g><g fill=\'%23e2e8f0\' fill-opacity=\'0.18\'><circle cx=\'120\' cy=\'110\' r=\'6\'/><circle cx=\'135\' cy=\'105\' r=\'4\'/><circle cx=\'105\' cy=\'105\' r=\'4\'/><circle cx=\'120\' cy=\'125\' r=\'4\'/></g></svg>")',
     size: "200px",
   },
   stars: {
@@ -212,11 +222,7 @@ export default function App() {
     root.style.setProperty("--bg-pattern", pattern.image);
     root.style.setProperty("--bg-pattern-size", pattern.size);
     root.style.setProperty("--bg-pattern-opacity", String(settings.bgPatternOpacity ?? 0.25));
-    if (patternKey === "moon") {
-      document.body.dataset.theme = "midnight";
-    } else {
-      document.body.dataset.theme = "custom";
-    }
+    document.body.dataset.theme = patternKey === "none" ? "custom" : patternKey;
   }, [settings]);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -226,11 +232,11 @@ export default function App() {
   const themes = [
     {
       name: "Midnight",
-      bgColor: "#0b1020",
-      accentColor: "#22c55e",
-      rowCompleteBg: "#1f3b2e",
-      bgGlow1: "#1d4ed8",
-      bgGlow2: "#22c55e",
+      bgColor: "#0c0b06",
+      accentColor: "#f5c542",
+      rowCompleteBg: "#3a2a12",
+      bgGlow1: "#f5c542",
+      bgGlow2: "#f59e0b",
       bgPattern: "moon",
       buttonIcon: "",
     },
@@ -281,7 +287,7 @@ export default function App() {
       rowCompleteBg: "#3a1820",
       bgGlow1: "#f9a8d4",
       bgGlow2: "#f472b6",
-      bgPattern: "blossom",
+      bgPattern: "blossom-trees",
       buttonIcon: "✿",
     },
     {
@@ -291,7 +297,7 @@ export default function App() {
       rowCompleteBg: "#1f1f1f",
       bgGlow1: "#94a3b8",
       bgGlow2: "#f8fafc",
-      bgPattern: "none",
+      bgPattern: "paws",
       buttonIcon:
         "data:image/svg+xml;utf8," +
         "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>" +
@@ -328,12 +334,12 @@ export default function App() {
     {
       name: "Ice",
       bgColor: "#0b1218",
-      accentColor: "#60a5fa",
+      accentColor: "#93c5fd",
       rowCompleteBg: "#16263a",
-      bgGlow1: "#60a5fa",
+      bgGlow1: "#93c5fd",
       bgGlow2: "#38bdf8",
-      bgPattern: "crystals",
-      buttonIcon: "✦",
+      bgPattern: "snow",
+      buttonIcon: "❄",
     },
     {
       name: "Lava",
@@ -1337,7 +1343,7 @@ export default function App() {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 100%)" }}>
-            <Card style={{ padding: 18 }}>
+            <Card style={{ padding: 18, maxHeight: "82vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <h3 style={{ margin: 0 }}>Inställningar</h3>
                 <Button variant="ghost" onClick={() => setShowSettings(false)}>
@@ -1546,8 +1552,10 @@ export default function App() {
                           <option value="forest">Forest – Skog</option>
                           <option value="embers">Amber – Glöd</option>
                           <option value="petals">Rose – Kronblad</option>
-                          <option value="blossom">Cherry Blossom – Blom</option>
+                          <option value="blossom-trees">Cherry Blossom – Träd</option>
                           <option value="stars">Stars – Stjärnor</option>
+                          <option value="snow">Ice – Snöflingor</option>
+                          <option value="paws">Otis – Tassar</option>
                           <option value="crystals">Ice – Kristaller</option>
                           <option value="lava">Lava – Sprickor</option>
                         </select>

@@ -67,11 +67,11 @@ body::after {
   opacity: 0;
 }
 
-body[data-theme="midnight"]::after {
+body[data-theme="moon"]::after {
   opacity: 0.35;
   background:
-    radial-gradient(140px 140px at 80% 12%, rgba(255,255,255,.85), transparent 60%),
-    radial-gradient(240px 240px at 80% 12%, rgba(255,255,255,.18), transparent 70%);
+    radial-gradient(120px 120px at 80% 12%, rgba(255,245,210,.95), transparent 62%),
+    radial-gradient(220px 220px at 80% 12%, rgba(255,225,150,.25), transparent 72%);
   animation: moonPulse 5s ease-in-out infinite;
 }
 
@@ -144,10 +144,104 @@ body.turn-waiting {
   animation: turnEdgePulse 1.1s ease-in-out infinite;
 }
 
+body[data-theme="waves"]::before {
+  animation: patternDriftX 12s linear infinite;
+}
+
+body[data-theme="forest"]::before {
+  animation: patternDriftY 18s linear infinite;
+}
+
+body[data-theme="embers"]::before {
+  animation: embersFloat 10s linear infinite;
+}
+
+body[data-theme="petals"]::before {
+  animation: patternFall 16s linear infinite;
+}
+
+body[data-theme="blossom-trees"]::before {
+  animation: patternSway 20s ease-in-out infinite;
+}
+
+body[data-theme="stars"]::before {
+  animation: starsTwinkle 6s ease-in-out infinite;
+}
+
+body[data-theme="crystals"]::before {
+  animation: crystalDrift 16s linear infinite;
+}
+
+body[data-theme="snow"]::before {
+  animation: snowFall 14s linear infinite;
+}
+
+body[data-theme="paws"]::before {
+  animation: pawWalk 10s linear infinite;
+}
+
+body[data-theme="lava"]::before {
+  animation: lavaPulse 5.5s ease-in-out infinite;
+}
+
 @keyframes moonPulse {
   0% { transform: scale(0.98); opacity: 0.25; }
   50% { transform: scale(1.04); opacity: 0.5; }
   100% { transform: scale(0.98); opacity: 0.25; }
+}
+
+@keyframes patternDriftX {
+  0% { background-position: 0 0; }
+  100% { background-position: 200px 0; }
+}
+
+@keyframes patternDriftY {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 220px; }
+}
+
+@keyframes patternFall {
+  0% { background-position: 0 -120px; }
+  100% { background-position: 0 220px; }
+}
+
+@keyframes embersFloat {
+  0% { background-position: 0 80px; opacity: 0.2; }
+  50% { opacity: 0.35; }
+  100% { background-position: 0 -140px; opacity: 0.2; }
+}
+
+@keyframes patternSway {
+  0% { background-position: 0 0; }
+  50% { background-position: 40px 10px; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes starsTwinkle {
+  0% { opacity: calc(var(--bg-pattern-opacity) * 0.7); }
+  50% { opacity: calc(var(--bg-pattern-opacity) * 1.2); }
+  100% { opacity: calc(var(--bg-pattern-opacity) * 0.7); }
+}
+
+@keyframes crystalDrift {
+  0% { background-position: 0 0; }
+  100% { background-position: 120px 160px; }
+}
+
+@keyframes snowFall {
+  0% { background-position: 0 -120px; }
+  100% { background-position: 0 240px; }
+}
+
+@keyframes pawWalk {
+  0% { background-position: -40px 0; }
+  100% { background-position: 180px 0; }
+}
+
+@keyframes lavaPulse {
+  0% { opacity: 0.18; transform: scale(1); }
+  50% { opacity: 0.36; transform: scale(1.02); }
+  100% { opacity: 0.18; transform: scale(1); }
 }
 
 @media (max-width: 420px) {
