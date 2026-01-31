@@ -51,3 +51,7 @@ create table if not exists public.match_players (
 create index if not exists match_players_month_key_idx on public.match_players(month_key);
 create index if not exists match_players_profile_idx on public.match_players(profile_id);
 create index if not exists match_players_match_idx on public.match_players(match_id);
+
+-- Player state theme snapshot for inspect view
+alter table public.player_state
+  add column if not exists theme_snapshot jsonb default '{}'::jsonb;

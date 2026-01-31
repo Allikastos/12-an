@@ -186,6 +186,11 @@ const BG_PATTERNS = {
       'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'240\' height=\'180\' viewBox=\'0 0 240 180\'><path d=\'M0 140 L60 120 L90 150 L140 110 L190 145 L240 120\' fill=\'none\' stroke=\'%23fb923c\' stroke-opacity=\'0.35\' stroke-width=\'10\' stroke-linecap=\'round\'/><path d=\'M-10 100 L50 90 L80 110 L130 80 L170 110 L230 90\' fill=\'none\' stroke=\'%23f97316\' stroke-opacity=\'0.28\' stroke-width=\'8\' stroke-linecap=\'round\'/><circle cx=\'40\' cy=\'40\' r=\'4\' fill=\'%23f97316\' fill-opacity=\'0.35\'/><circle cx=\'120\' cy=\'30\' r=\'3\' fill=\'%23fb923c\' fill-opacity=\'0.35\'/><circle cx=\'200\' cy=\'50\' r=\'3.5\' fill=\'%23ef4444\' fill-opacity=\'0.35\'/></svg>")',
     size: "260px",
   },
+  royal: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\' viewBox=\'0 0 200 200\'><g fill=\'none\' stroke=\'%23f5d77b\' stroke-opacity=\'0.2\' stroke-width=\'2\'><path d=\'M20 130 L40 90 L60 120 L80 80 L100 120 L120 90 L140 130 Z\'/><circle cx=\'40\' cy=\'90\' r=\'4\' fill=\'%23f5d77b\' fill-opacity=\'0.2\'/><circle cx=\'80\' cy=\'80\' r=\'4\' fill=\'%23f5d77b\' fill-opacity=\'0.2\'/><circle cx=\'120\' cy=\'90\' r=\'4\' fill=\'%23f5d77b\' fill-opacity=\'0.2\'/></g><g stroke=\'%23f59e0b\' stroke-opacity=\'0.12\' stroke-width=\'1.5\'><path d=\'M10 30 C40 10 70 10 100 30\'/><path d=\'M100 30 C130 10 160 10 190 30\'/><path d=\'M10 170 C40 150 70 150 100 170\'/><path d=\'M100 170 C130 150 160 150 190 170\'/></g></svg>")',
+    size: "220px",
+  },
   reggae: {
     image:
       'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'240\' viewBox=\'0 0 300 240\'><g fill=\'%23ef4444\' fill-opacity=\'0.24\'><circle cx=\'40\' cy=\'40\' r=\'3\'/><circle cx=\'90\' cy=\'70\' r=\'5\'/><circle cx=\'150\' cy=\'30\' r=\'3\'/><circle cx=\'230\' cy=\'90\' r=\'4\'/><circle cx=\'260\' cy=\'60\' r=\'3\'/></g><g fill=\'%23facc15\' fill-opacity=\'0.24\'><circle cx=\'60\' cy=\'120\' r=\'3\'/><circle cx=\'130\' cy=\'160\' r=\'5\'/><circle cx=\'200\' cy=\'140\' r=\'3\'/><circle cx=\'250\' cy=\'190\' r=\'4\'/><circle cx=\'30\' cy=\'200\' r=\'3\'/></g><g fill=\'%2322c55e\' fill-opacity=\'0.24\'><circle cx=\'20\' cy=\'180\' r=\'3\'/><circle cx=\'110\' cy=\'210\' r=\'5\'/><circle cx=\'180\' cy=\'200\' r=\'3\'/><circle cx=\'270\' cy=\'40\' r=\'4\'/><circle cx=\'210\' cy=\'30\' r=\'3\'/></g><g stroke-opacity=\'0.12\' stroke-width=\'6\' stroke-linecap=\'round\'><path d=\'M10 20 L120 60\' stroke=\'%23ef4444\'/><path d=\'M140 80 L240 110\' stroke=\'%23facc15\'/><path d=\'M60 160 L180 190\' stroke=\'%2322c55e\'/></g><g stroke-opacity=\'0.08\' stroke-width=\'4\' stroke-linecap=\'round\'><path d=\'M-20 140 L80 170\' stroke=\'%23ef4444\'/><path d=\'M120 10 L220 40\' stroke=\'%23facc15\'/><path d=\'M200 160 L300 190\' stroke=\'%2322c55e\'/></g></svg>")',
@@ -226,8 +231,8 @@ const BG_PATTERNS = {
       rowCompleteBg: "#3b2a12",
       bgGlow1: "#f5d77b",
       bgGlow2: "#f59e0b",
-      bgPattern: "moon",
-      bgPatternOpacity: 0.35,
+      bgPattern: "royal",
+      bgPatternOpacity: 0.4,
       diceBg: "#fff7ed",
       dicePip: "#3b2a12",
       diceBorder: "rgba(245,215,123,.4)",
@@ -237,7 +242,7 @@ const BG_PATTERNS = {
       btnPrimaryText: "#3b2a12",
       btnPrimaryBorder: "rgba(245,215,123,.4)",
       btnPrimaryShadow: "0 10px 24px rgba(245,215,123,.35)",
-      buttonIcon: "♛",
+      buttonIcon: "crown-outline",
     },
     {
       name: "Midnight",
@@ -833,6 +838,34 @@ export default function App() {
   const [showAllThemes, setShowAllThemes] = useState(false);
   const [showDiceStyles, setShowDiceStyles] = useState(false);
   const themes = THEMES;
+  const themeSnapshot = useMemo(
+    () => ({
+      boxSize: settings.boxSize,
+      rowCompleteBg: settings.rowCompleteBg,
+      checkColor: settings.checkColor,
+      ringColors: settings.ringColors,
+      buttonIcon: settings.buttonIcon,
+      diceStyle: settings.diceStyle,
+      diceBg: settings.diceBg,
+      dicePip: settings.dicePip,
+      diceBorder: settings.diceBorder,
+      diceLocked: settings.diceLocked,
+      dicePipLocked: settings.dicePipLocked,
+    }),
+    [
+      settings.boxSize,
+      settings.rowCompleteBg,
+      settings.checkColor,
+      settings.ringColors,
+      settings.buttonIcon,
+      settings.diceStyle,
+      settings.diceBg,
+      settings.dicePip,
+      settings.diceBorder,
+      settings.diceLocked,
+      settings.dicePipLocked,
+    ]
+  );
 
   function applyTheme(t) {
     setSettings((s) => ({
@@ -994,6 +1027,7 @@ export default function App() {
       progress,
       last_dice: dice,
       last_target: target,
+      theme_snapshot: themeSnapshot,
       updated_at: new Date().toISOString(),
     };
     (async () => {
@@ -1004,7 +1038,7 @@ export default function App() {
         console.error("player_state upsert failed", error);
       }
     })();
-  }, [roomId, playerId, progress, dice, target]);
+  }, [roomId, playerId, progress, dice, target, themeSnapshot]);
 
   const resetTurnState = () => {
     setDiceStatus("idle");
@@ -2537,19 +2571,20 @@ export default function App() {
                               }}
                             >
                               <option value="none">Ingen</option>
-                              <option value="moon">Midnight – Måne</option>
-                              <option value="waves">Ocean – Vågor</option>
-                              <option value="forest">Forest – Skog</option>
-                              <option value="embers">Amber – Glöd</option>
-                              <option value="petals">Rose – Kronblad</option>
-                              <option value="blossom-trees">Cherry Blossom – Träd</option>
-                              <option value="stars">Stars – Stjärnor</option>
-                              <option value="snow">Ice – Snöflingor</option>
-                              <option value="paws">Otis – Tassar</option>
-                              <option value="crystals">Ice – Kristaller</option>
-                              <option value="reggae">Reggae – Ränder</option>
-                              <option value="lava">Lava – Sprickor</option>
-                            </select>
+                          <option value="moon">Midnight – Måne</option>
+                          <option value="waves">Ocean – Vågor</option>
+                          <option value="forest">Forest – Skog</option>
+                          <option value="embers">Amber – Glöd</option>
+                          <option value="petals">Rose – Kronblad</option>
+                          <option value="blossom-trees">Cherry Blossom – Träd</option>
+                          <option value="stars">Stars – Stjärnor</option>
+                          <option value="snow">Ice – Snöflingor</option>
+                          <option value="paws">Otis – Tassar</option>
+                          <option value="crystals">Ice – Kristaller</option>
+                          <option value="reggae">Reggae – Ränder</option>
+                          <option value="royal">King – Kronor</option>
+                          <option value="lava">Lava – Sprickor</option>
+                        </select>
                           </label>
                           <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
                             Mönsterstyrka
@@ -2819,11 +2854,25 @@ export default function App() {
                     const lastDice = ps?.last_dice ?? [];
                     const lastTarget = ps?.last_target;
                     const player = players.find((p) => p.id === inspectPlayerId);
+                    const theme = ps?.theme_snapshot ?? null;
+                    const inspectSettings = theme
+                      ? { ...settings, ...theme, boxSize: "small" }
+                      : { ...settings, boxSize: "small" };
+                    const diceStyle = theme?.diceStyle ?? settings.diceStyle;
                     const hasDice = Array.isArray(lastDice) && lastDice.length === 6;
                     const targetLocks =
                       hasDice && lastTarget
                         ? computeLocks(lastDice, Array(6).fill(false), lastTarget).nextLocked
                         : Array(6).fill(false);
+                    const diceVars = theme
+                      ? {
+                          "--dice-bg": theme.diceBg ?? settings.diceBg,
+                          "--dice-pip": theme.dicePip ?? settings.dicePip,
+                          "--dice-border": theme.diceBorder ?? settings.diceBorder,
+                          "--dice-locked": theme.diceLocked ?? settings.diceLocked,
+                          "--dice-pip-locked": theme.dicePipLocked ?? settings.dicePipLocked,
+                        }
+                      : {};
                     return (
                       <div style={{ display: "grid", gap: 12 }}>
                         <div style={{ fontWeight: 800 }}>
@@ -2847,6 +2896,7 @@ export default function App() {
                                 gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
                                 gap: 10,
                                 justifyItems: "center",
+                                ...diceVars,
                               }}
                             >
                               {lastDice.map((d, i) => (
@@ -2856,7 +2906,7 @@ export default function App() {
                                   locked={targetLocks[i]}
                                   isPreview={Boolean(lastTarget)}
                                   rolling={false}
-                                  diceStyle={settings.diceStyle}
+                                  diceStyle={diceStyle}
                                 />
                               ))}
                             </div>
@@ -2871,7 +2921,7 @@ export default function App() {
                           showWin={false}
                           onCloseWin={() => {}}
                           headerRight={null}
-                          settings={{ ...settings, boxSize: "small" }}
+                          settings={inspectSettings}
                           readOnly
                           showReset={false}
                           showHeader={false}

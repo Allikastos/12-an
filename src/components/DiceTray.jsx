@@ -68,22 +68,29 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
     },
     king: {
       borderRadius: 14,
-      background: () =>
-        "linear-gradient(160deg, #fef3c7 0%, #f59e0b 60%, #b45309 100%)",
-      boxShadow: () =>
-        "inset 0 1px 0 rgba(255,255,255,.4), 0 12px 24px rgba(0,0,0,.4)",
-      border: "1px solid rgba(245,158,11,.55)",
+      background: (locked) =>
+        locked
+          ? "linear-gradient(160deg, #111827 0%, #0b0f16 60%, #050608 100%)"
+          : "linear-gradient(160deg, #111827 0%, #0b0f16 60%, #050608 100%)",
+      boxShadow: (locked) =>
+        locked
+          ? "0 0 18px rgba(245, 215, 123, .55), inset 0 1px 0 rgba(255,255,255,.2), 0 14px 26px rgba(0,0,0,.55)"
+          : "inset 0 1px 0 rgba(255,255,255,.12), 0 12px 24px rgba(0,0,0,.6)",
+      border: (locked) =>
+        locked ? "1px solid rgba(245,215,123,.9)" : "1px solid rgba(245,158,11,.35)",
     },
   };
 
   const stylePreset = styleMap[diceStyle] ?? styleMap.classic;
+  const resolvedBorder =
+    typeof stylePreset.border === "function" ? stylePreset.border(locked, isPreview) : stylePreset.border;
   const pipColorMap = {
     classic: "var(--dice-pip)",
     glass: "color-mix(in srgb, var(--dice-pip) 70%, white)",
     neon: "color-mix(in srgb, var(--accent) 85%, white)",
     etched: "#111827",
     wood: "#2d1b0f",
-    king: "#3b2a12",
+    king: "#f5d77b",
   };
   const pipShadowMap = {
     classic: "inset 0 -1px 0 rgba(0,0,0,.3)",
@@ -91,7 +98,7 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
     neon: "0 0 10px color-mix(in srgb, var(--accent) 80%, transparent)",
     etched: "inset 0 1px 0 rgba(255,255,255,.25)",
     wood: "inset 0 1px 0 rgba(255,255,255,.2)",
-    king: "inset 0 1px 0 rgba(255,255,255,.35)",
+    king: "0 0 10px rgba(245, 215, 123, .7)",
   };
   const pipColor = pipColorMap[diceStyle] ?? pipColorMap.classic;
   const pipShadow = pipShadowMap[diceStyle] ?? pipShadowMap.classic;
@@ -102,7 +109,7 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
         width: 52,
         height: 52,
         borderRadius: stylePreset.borderRadius,
-        border: stylePreset.border ?? "1px solid var(--dice-border)",
+        border: resolvedBorder ?? "1px solid var(--dice-border)",
         background: stylePreset.background(locked, isPreview),
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",

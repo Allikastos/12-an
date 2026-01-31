@@ -69,7 +69,12 @@ export default function ScoreSheet({
   const checkIcon = settings?.buttonIcon ?? "";
   const ringColors = Array.isArray(settings?.ringColors) ? settings.ringColors : null;
   const isSnowflake = checkIcon === "snowflake";
+  const isCrownOutline = checkIcon === "crown-outline";
   const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
+  const crownOutlineData = (color) => {
+    const stroke = String(color ?? "#f5d77b").replace("#", "%23");
+    return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><path d='M8 46 L14 24 L26 38 L32 18 L38 38 L50 24 L56 46 Z' fill='none' stroke='${stroke}' stroke-width='3.2' stroke-linejoin='round'/><circle cx='14' cy='24' r='2.6' fill='${stroke}'/><circle cx='32' cy='18' r='2.8' fill='${stroke}'/><circle cx='50' cy='24' r='2.6' fill='${stroke}'/></svg>")`;
+  };
 
   return (
     <div>
@@ -152,6 +157,7 @@ export default function ScoreSheet({
                     ringColors && ringColors.length
                       ? ringColors[(row + i) % ringColors.length]
                       : null;
+                  const crownStroke = ringColor ?? (checked ? checkColor : "rgba(148,163,184,.7)");
                   return (
                     <button
                       key={i}
@@ -159,18 +165,27 @@ export default function ScoreSheet({
                       style={{
                         width: "var(--box)",
                         height: "var(--box)",
-                        borderRadius: 999,
-                        border: `2px solid ${ringColor ?? (checked ? checkColor : "rgba(148,163,184,.7)")}`,
+                        borderRadius: isCrownOutline ? 10 : 999,
+                        border: isCrownOutline
+                          ? "none"
+                          : `2px solid ${ringColor ?? (checked ? checkColor : "rgba(148,163,184,.7)")}`,
                         background: "transparent",
+                        backgroundImage: isCrownOutline ? crownOutlineData(crownStroke) : "none",
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "85% 85%",
                         cursor: readOnly ? "default" : "pointer",
                         position: "relative",
                         outline: "none",
+                        boxShadow: isCrownOutline && checked
+                          ? "0 0 10px color-mix(in srgb, var(--accent) 40%, transparent)"
+                          : "none",
                       }}
                       aria-label={`Rad ${row}, ruta ${i + 1}`}
                       type="button"
                       disabled={readOnly}
                     >
-                      {checked && (checkIcon || isSnowflake) && (
+                      {checked && !isCrownOutline && (checkIcon || isSnowflake) && (
                         <span
                           style={{
                             position: "absolute",
