@@ -104,8 +104,8 @@ function countCompletedRows(progressObj) {
 }
 
 const BG_PATTERNS = {
-  none: { image: "none", size: "160px" },
-  moon: { image: "none", size: "160px" },
+  none: { image: "none", size: "160px", repeat: "repeat", position: "0 0" },
+  moon: { image: "none", size: "160px", repeat: "repeat", position: "0 0" },
   waves: {
     image:
       'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' viewBox=\'0 0 200 120\'><path d=\'M0 40 Q25 20 50 40 T100 40 T150 40 T200 40\' fill=\'none\' stroke=\'%23a5f3fc\' stroke-opacity=\'0.35\' stroke-width=\'2\'/><path d=\'M0 80 Q25 60 50 80 T100 80 T150 80 T200 80\' fill=\'none\' stroke=\'%2393c5fd\' stroke-opacity=\'0.35\' stroke-width=\'2\'/></svg>")',
@@ -128,8 +128,10 @@ const BG_PATTERNS = {
   },
   "blossom-trees": {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'260\' height=\'180\' viewBox=\'0 0 260 180\'><defs><linearGradient id=\'sky\' x1=\'0\' y1=\'0\' x2=\'0\' y2=\'1\'><stop offset=\'0\' stop-color=\'%23fbcfe8\'/><stop offset=\'1\' stop-color=\'%23f9a8d4\'/></linearGradient></defs><rect width=\'260\' height=\'180\' fill=\'url(%23sky)\' fill-opacity=\'0.45\'/><circle cx=\'190\' cy=\'60\' r=\'26\' fill=\'%23fff7ed\' fill-opacity=\'0.6\'/><path d=\'M0 120 C50 80 90 90 140 115 C180 135 220 130 260 110\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.35\' stroke-width=\'4\'/><path d=\'M10 90 C40 70 70 70 100 88\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.3\' stroke-width=\'3\'/><g fill=\'%23f9a8d4\' fill-opacity=\'0.35\'><circle cx=\'40\' cy=\'90\' r=\'4\'/><circle cx=\'60\' cy=\'82\' r=\'3\'/><circle cx=\'92\' cy=\'88\' r=\'3\'/><circle cx=\'120\' cy=\'100\' r=\'3\'/><circle cx=\'160\' cy=\'105\' r=\'4\'/><circle cx=\'200\' cy=\'112\' r=\'3\'/></g><g fill=\'%23f472b6\' fill-opacity=\'0.28\'><circle cx=\'30\' cy=\'130\' r=\'2.5\'/><circle cx=\'80\' cy=\'140\' r=\'2.2\'/><circle cx=\'150\' cy=\'150\' r=\'2.2\'/><circle cx=\'210\' cy=\'145\' r=\'2.5\'/></g></svg>")',
-    size: "260px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'800\' height=\'500\' viewBox=\'0 0 800 500\'><defs><linearGradient id=\'sky\' x1=\'0\' y1=\'0\' x2=\'0\' y2=\'1\'><stop offset=\'0\' stop-color=\'%23fbcfe8\'/><stop offset=\'1\' stop-color=\'%23f9a8d4\'/></linearGradient></defs><rect width=\'800\' height=\'500\' fill=\'url(%23sky)\' fill-opacity=\'0.45\'/><circle cx=\'400\' cy=\'90\' r=\'52\' fill=\'%23fff7ed\' fill-opacity=\'0.65\'/><path d=\'M-40 140 C120 60 220 80 320 120\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.35\' stroke-width=\'10\'/><path d=\'M-20 220 C140 140 250 160 340 210\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.3\' stroke-width=\'8\'/><path d=\'M840 160 C680 80 560 90 460 130\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.35\' stroke-width=\'10\'/><path d=\'M820 240 C660 160 560 180 480 230\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.3\' stroke-width=\'8\'/><g fill=\'%23f9a8d4\' fill-opacity=\'0.35\'><circle cx=\'120\' cy=\'140\' r=\'6\'/><circle cx=\'160\' cy=\'120\' r=\'5\'/><circle cx=\'210\' cy=\'150\' r=\'5\'/><circle cx=\'580\' cy=\'150\' r=\'6\'/><circle cx=\'630\' cy=\'130\' r=\'5\'/><circle cx=\'680\' cy=\'160\' r=\'5\'/></g><g fill=\'%23f472b6\' fill-opacity=\'0.28\'><circle cx=\'180\' cy=\'220\' r=\'4\'/><circle cx=\'260\' cy=\'240\' r=\'4\'/><circle cx=\'540\' cy=\'230\' r=\'4\'/><circle cx=\'620\' cy=\'250\' r=\'4\'/></g></svg>")',
+    size: "cover",
+    repeat: "no-repeat",
+    position: "center top",
   },
   snow: {
     image:
@@ -143,8 +145,11 @@ const BG_PATTERNS = {
   },
   stars: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'260\' height=\'200\' viewBox=\'0 0 260 200\'><g stroke=\'%23c4b5fd\' stroke-opacity=\'0.25\' stroke-width=\'1\' fill=\'none\'><polyline points=\'30,60 60,50 90,60 120,55\'/><polyline points=\'160,120 175,100 190,85 210,70\'/><polyline points=\'200,150 210,140 225,130\'/></g><g fill=\'%23ddd6fe\' fill-opacity=\'0.7\'><circle cx=\'30\' cy=\'60\' r=\'2\'/><circle cx=\'60\' cy=\'50\' r=\'2\'/><circle cx=\'90\' cy=\'60\' r=\'2\'/><circle cx=\'120\' cy=\'55\' r=\'2\'/><circle cx=\'160\' cy=\'120\' r=\'2\'/><circle cx=\'175\' cy=\'100\' r=\'2\'/><circle cx=\'190\' cy=\'85\' r=\'2\'/><circle cx=\'210\' cy=\'70\' r=\'2\'/><circle cx=\'200\' cy=\'150\' r=\'2\'/><circle cx=\'210\' cy=\'140\' r=\'2\'/><circle cx=\'225\' cy=\'130\' r=\'2\'/></g></svg>")',
-    size: "260px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'900\' height=\'1600\' viewBox=\'0 0 900 1600\'><g stroke=\'%23c4b5fd\' stroke-opacity=\'0.25\' stroke-width=\'1\' fill=\'none\'><polyline points=\'120,220 180,205 250,225 320,215 380,235\'/><polyline points=\'520,360 560,330 610,300 670,275 740,255\'/><polyline points=\'240,520 270,500 320,485 360,470\'/><polyline points=\'480,720 520,700 580,675 640,655 700,635\'/><polyline points=\'200,980 250,950 300,930 360,910\'/><polyline points=\'640,980 680,950 720,920\'/><polyline points=\'140,1260 190,1240 240,1220 300,1210\'/><polyline points=\'520,1320 560,1290 610,1260 670,1240\'/></g><g fill=\'%23ddd6fe\' fill-opacity=\'0.7\'><circle cx=\'120\' cy=\'220\' r=\'3\'/><circle cx=\'180\' cy=\'205\' r=\'3\'/><circle cx=\'250\' cy=\'225\' r=\'3\'/><circle cx=\'320\' cy=\'215\' r=\'3\'/><circle cx=\'380\' cy=\'235\' r=\'3\'/><circle cx=\'520\' cy=\'360\' r=\'3\'/><circle cx=\'560\' cy=\'330\' r=\'3\'/><circle cx=\'610\' cy=\'300\' r=\'3\'/><circle cx=\'670\' cy=\'275\' r=\'3\'/><circle cx=\'740\' cy=\'255\' r=\'3\'/><circle cx=\'240\' cy=\'520\' r=\'3\'/><circle cx=\'270\' cy=\'500\' r=\'3\'/><circle cx=\'320\' cy=\'485\' r=\'3\'/><circle cx=\'360\' cy=\'470\' r=\'3\'/><circle cx=\'480\' cy=\'720\' r=\'3\'/><circle cx=\'520\' cy=\'700\' r=\'3\'/><circle cx=\'580\' cy=\'675\' r=\'3\'/><circle cx=\'640\' cy=\'655\' r=\'3\'/><circle cx=\'700\' cy=\'635\' r=\'3\'/><circle cx=\'200\' cy=\'980\' r=\'3\'/><circle cx=\'250\' cy=\'950\' r=\'3\'/><circle cx=\'300\' cy=\'930\' r=\'3\'/><circle cx=\'360\' cy=\'910\' r=\'3\'/><circle cx=\'640\' cy=\'980\' r=\'3\'/><circle cx=\'680\' cy=\'950\' r=\'3\'/><circle cx=\'720\' cy=\'920\' r=\'3\'/><circle cx=\'140\' cy=\'1260\' r=\'3\'/><circle cx=\'190\' cy=\'1240\' r=\'3\'/><circle cx=\'240\' cy=\'1220\' r=\'3\'/><circle cx=\'300\' cy=\'1210\' r=\'3\'/><circle cx=\'520\' cy=\'1320\' r=\'3\'/><circle cx=\'560\' cy=\'1290\' r=\'3\'/><circle cx=\'610\' cy=\'1260\' r=\'3\'/><circle cx=\'670\' cy=\'1240\' r=\'3\'/></g><g fill=\'%23c4b5fd\' fill-opacity=\'0.35\'><circle cx=\'80\' cy=\'120\' r=\'2\'/><circle cx=\'360\' cy=\'120\' r=\'2\'/><circle cx=\'780\' cy=\'140\' r=\'2\'/><circle cx=\'100\' cy=\'620\' r=\'2\'/><circle cx=\'760\' cy=\'660\' r=\'2\'/><circle cx=\'300\' cy=\'1500\' r=\'2\'/><circle cx=\'780\' cy=\'1500\' r=\'2\'/></g></svg>")',
+    size: "cover",
+    repeat: "no-repeat",
+    position: "center top",
+    position: "center top",
   },
   crystals: {
     image:
@@ -158,8 +163,8 @@ const BG_PATTERNS = {
   },
   reggae: {
     image:
-      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'220\' viewBox=\'0 0 220 220\'><g fill=\'%23ef4444\' fill-opacity=\'0.22\'><circle cx=\'30\' cy=\'40\' r=\'3\'/><circle cx=\'80\' cy=\'70\' r=\'4\'/><circle cx=\'140\' cy=\'30\' r=\'3\'/><circle cx=\'190\' cy=\'90\' r=\'4\'/></g><g fill=\'%23facc15\' fill-opacity=\'0.22\'><circle cx=\'50\' cy=\'120\' r=\'3\'/><circle cx=\'110\' cy=\'160\' r=\'4\'/><circle cx=\'170\' cy=\'140\' r=\'3\'/><circle cx=\'200\' cy=\'190\' r=\'4\'/></g><g fill=\'%2322c55e\' fill-opacity=\'0.22\'><circle cx=\'20\' cy=\'180\' r=\'3\'/><circle cx=\'90\' cy=\'200\' r=\'4\'/><circle cx=\'150\' cy=\'190\' r=\'3\'/><circle cx=\'210\' cy=\'40\' r=\'4\'/></g><path d=\'M0 0 L220 220\' stroke=\'%23ef4444\' stroke-opacity=\'0.08\' stroke-width=\'6\'/><path d=\'M-10 60 L200 260\' stroke=\'%23facc15\' stroke-opacity=\'0.08\' stroke-width=\'6\'/><path d=\'M-20 120 L160 260\' stroke=\'%2322c55e\' stroke-opacity=\'0.08\' stroke-width=\'6\'/></svg>")',
-    size: "240px",
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'240\' viewBox=\'0 0 300 240\'><g fill=\'%23ef4444\' fill-opacity=\'0.24\'><circle cx=\'40\' cy=\'40\' r=\'3\'/><circle cx=\'90\' cy=\'70\' r=\'5\'/><circle cx=\'150\' cy=\'30\' r=\'3\'/><circle cx=\'230\' cy=\'90\' r=\'4\'/><circle cx=\'260\' cy=\'60\' r=\'3\'/></g><g fill=\'%23facc15\' fill-opacity=\'0.24\'><circle cx=\'60\' cy=\'120\' r=\'3\'/><circle cx=\'130\' cy=\'160\' r=\'5\'/><circle cx=\'200\' cy=\'140\' r=\'3\'/><circle cx=\'250\' cy=\'190\' r=\'4\'/><circle cx=\'30\' cy=\'200\' r=\'3\'/></g><g fill=\'%2322c55e\' fill-opacity=\'0.24\'><circle cx=\'20\' cy=\'180\' r=\'3\'/><circle cx=\'110\' cy=\'210\' r=\'5\'/><circle cx=\'180\' cy=\'200\' r=\'3\'/><circle cx=\'270\' cy=\'40\' r=\'4\'/><circle cx=\'210\' cy=\'30\' r=\'3\'/></g><g stroke-opacity=\'0.12\' stroke-width=\'6\' stroke-linecap=\'round\'><path d=\'M10 20 L120 60\' stroke=\'%23ef4444\'/><path d=\'M140 80 L240 110\' stroke=\'%23facc15\'/><path d=\'M60 160 L180 190\' stroke=\'%2322c55e\'/></g><g stroke-opacity=\'0.08\' stroke-width=\'4\' stroke-linecap=\'round\'><path d=\'M-20 140 L80 170\' stroke=\'%23ef4444\'/><path d=\'M120 10 L220 40\' stroke=\'%23facc15\'/><path d=\'M200 160 L300 190\' stroke=\'%2322c55e\'/></g></svg>")',
+    size: "300px",
   },
 };
 
@@ -211,6 +216,8 @@ export default function App() {
             btnPrimaryText: "#07110b",
             btnPrimaryBorder: "rgba(0,0,0,.12)",
             btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
+            ringColorMode: "none",
+            ringColors: null,
             buttonIcon: "",
             showDice: false,
             vibrateOnTurn: false,
@@ -235,6 +242,8 @@ export default function App() {
         btnPrimaryText: "#07110b",
         btnPrimaryBorder: "rgba(0,0,0,.12)",
         btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
+        ringColorMode: "none",
+        ringColors: null,
         buttonIcon: "",
         showDice: false,
         vibrateOnTurn: false,
@@ -257,6 +266,8 @@ export default function App() {
     const pattern = BG_PATTERNS[patternKey] ?? BG_PATTERNS.none;
     root.style.setProperty("--bg-pattern", pattern.image);
     root.style.setProperty("--bg-pattern-size", pattern.size);
+    root.style.setProperty("--bg-pattern-repeat", pattern.repeat ?? "repeat");
+    root.style.setProperty("--bg-pattern-position", pattern.position ?? "0 0");
     root.style.setProperty("--bg-pattern-opacity", String(settings.bgPatternOpacity ?? 0.25));
     document.body.dataset.theme = patternKey === "none" ? "custom" : patternKey;
     if (settings.diceBg) root.style.setProperty("--dice-bg", settings.diceBg);
@@ -405,10 +416,12 @@ export default function App() {
       diceBorder: "rgba(250,204,21,.35)",
       diceLocked: "rgba(34,197,94,.22)",
       dicePipLocked: "#22c55e",
-      btnPrimaryBg: "linear-gradient(90deg, #ef4444 0%, #facc15 50%, #22c55e 100%)",
-      btnPrimaryText: "#0b0f0b",
-      btnPrimaryBorder: "rgba(250,204,21,.35)",
-      btnPrimaryShadow: "0 10px 24px rgba(250,204,21,.25)",
+      btnPrimaryBg: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
+      btnPrimaryText: "#07110b",
+      btnPrimaryBorder: "rgba(0,0,0,.12)",
+      btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
+      ringColorMode: "cycle",
+      ringColors: ["#ef4444", "#facc15", "#22c55e"],
       buttonIcon: "✶",
     },
     {
@@ -478,7 +491,7 @@ export default function App() {
       diceBorder: "rgba(147,197,253,.35)",
       diceLocked: "rgba(147,197,253,.22)",
       dicePipLocked: "#93c5fd",
-      buttonIcon: "❄",
+      buttonIcon: "snowflake",
     },
     {
       name: "Lava",
@@ -1555,6 +1568,8 @@ export default function App() {
                             btnPrimaryText: t.btnPrimaryText,
                             btnPrimaryBorder: t.btnPrimaryBorder,
                             btnPrimaryShadow: t.btnPrimaryShadow,
+                            ringColorMode: t.ringColorMode ?? "none",
+                            ringColors: t.ringColors ?? null,
                             buttonIcon: t.buttonIcon ?? "",
                           }))
                         }

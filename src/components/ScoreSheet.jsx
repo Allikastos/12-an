@@ -67,6 +67,8 @@ export default function ScoreSheet({
   const rowDoneBg = settings?.rowCompleteBg ?? "rgba(34,197,94,.10)";
   const checkColor = settings?.checkColor ?? "var(--accent)";
   const checkIcon = settings?.buttonIcon ?? "";
+  const ringColors = Array.isArray(settings?.ringColors) ? settings.ringColors : null;
+  const isSnowflake = checkIcon === "snowflake";
   const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
 
   return (
@@ -146,6 +148,10 @@ export default function ScoreSheet({
 
                 {Array.from({ length: REQUIRED_PER_ROW }, (_, i) => {
                   const checked = Boolean(rowArr[i]);
+                  const ringColor =
+                    ringColors && ringColors.length
+                      ? ringColors[(row + i) % ringColors.length]
+                      : null;
                   return (
                     <button
                       key={i}
@@ -154,7 +160,7 @@ export default function ScoreSheet({
                         width: "var(--box)",
                         height: "var(--box)",
                         borderRadius: 999,
-                        border: checked ? `2px solid ${checkColor}` : "2px solid rgba(148,163,184,.7)",
+                        border: `2px solid ${ringColor ?? (checked ? checkColor : "rgba(148,163,184,.7)")}`,
                         background: "transparent",
                         cursor: readOnly ? "default" : "pointer",
                         position: "relative",
@@ -164,7 +170,7 @@ export default function ScoreSheet({
                       type="button"
                       disabled={readOnly}
                     >
-                      {checkIcon && checked && (
+                      {checked && (checkIcon || isSnowflake) && (
                         <span
                           style={{
                             position: "absolute",
@@ -180,7 +186,35 @@ export default function ScoreSheet({
                             textAlign: "center",
                           }}
                         >
-                          {!isSvgIcon ? checkIcon : ""}
+                          {isSnowflake ? (
+                            <svg
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              focusable="false"
+                              style={{ width: "100%", height: "100%" }}
+                            >
+                              <g
+                                fill="none"
+                                stroke={checkColor}
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <line x1="12" y1="3" x2="12" y2="21" />
+                                <line x1="3" y1="12" x2="21" y2="12" />
+                                <line x1="5.5" y1="5.5" x2="18.5" y2="18.5" />
+                                <line x1="18.5" y1="5.5" x2="5.5" y2="18.5" />
+                                <line x1="12" y1="3" x2="9.8" y2="5.2" />
+                                <line x1="12" y1="3" x2="14.2" y2="5.2" />
+                                <line x1="12" y1="21" x2="9.8" y2="18.8" />
+                                <line x1="12" y1="21" x2="14.2" y2="18.8" />
+                              </g>
+                            </svg>
+                          ) : !isSvgIcon ? (
+                            checkIcon
+                          ) : (
+                            ""
+                          )}
                         </span>
                       )}
                     </button>
@@ -226,6 +260,27 @@ export default function ScoreSheet({
             zIndex: 50,
           }}
         >
+          <div className="confetti" aria-hidden="true">
+            {Array.from({ length: 28 }).map((_, i) => {
+              const left = (i * 17) % 100;
+              const delay = (i % 7) * 0.18;
+              const dur = 3.2 + (i % 5) * 0.35;
+              const rot = (i * 37) % 360;
+              const hue = (i * 43) % 360;
+              return (
+                <span
+                  key={i}
+                  style={{
+                    "--x": `${left}%`,
+                    "--delay": `${delay}s`,
+                    "--dur": `${dur}s`,
+                    "--rot": `${rot}deg`,
+                    "--hue": hue,
+                  }}
+                />
+              );
+            })}
+          </div>
           <div
             style={{
               width: "min(520px, 100%)",
