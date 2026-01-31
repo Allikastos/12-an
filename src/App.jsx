@@ -879,6 +879,12 @@ export default function App() {
   const [turnFlash, setTurnFlash] = useState(false);
 
   const isSolo = step === "solo";
+  const isHost = roomState?.host_player_id && roomState.host_player_id === playerId;
+  const gameStarted = isSolo ? true : Boolean(roomState?.started);
+  const isMyTurn = isSolo
+    ? true
+    : gameStarted &&
+      String(roomState?.turn_player_id ?? "") === String(playerId ?? "");
 
   useEffect(() => {
     try {
@@ -989,13 +995,6 @@ export default function App() {
       setLastGain(0);
     }
   }, [diceStatus, targetLocked, availableTargets.length]);
-
-  const isHost = roomState?.host_player_id && roomState.host_player_id === playerId;
-  const gameStarted = isSolo ? true : Boolean(roomState?.started);
-  const isMyTurn = isSolo
-    ? true
-    : gameStarted &&
-      String(roomState?.turn_player_id ?? "") === String(playerId ?? "");
 
   const leader = useMemo(() => {
     if (!playerStates?.length || !players?.length) return null;
