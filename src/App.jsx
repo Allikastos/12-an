@@ -103,6 +103,51 @@ function countCompletedRows(progressObj) {
   return rows;
 }
 
+const BG_PATTERNS = {
+  none: { image: "none", size: "160px" },
+  moon: { image: "none", size: "160px" },
+  waves: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' viewBox=\'0 0 200 120\'><path d=\'M0 40 Q25 20 50 40 T100 40 T150 40 T200 40\' fill=\'none\' stroke=\'%23a5f3fc\' stroke-opacity=\'0.35\' stroke-width=\'2\'/><path d=\'M0 80 Q25 60 50 80 T100 80 T150 80 T200 80\' fill=\'none\' stroke=\'%2393c5fd\' stroke-opacity=\'0.35\' stroke-width=\'2\'/></svg>")',
+    size: "220px",
+  },
+  forest: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'160\' height=\'160\' viewBox=\'0 0 160 160\'><path d=\'M20 130 L40 80 L60 130 Z\' fill=\'%2316a34a\' fill-opacity=\'0.22\'/><path d=\'M80 130 L100 70 L120 130 Z\' fill=\'%2322c55e\' fill-opacity=\'0.20\'/><circle cx=\'40\' cy=\'50\' r=\'2\' fill=\'%2384cc16\' fill-opacity=\'0.4\'/></svg>")',
+    size: "180px",
+  },
+  embers: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\' viewBox=\'0 0 140 140\'><circle cx=\'30\' cy=\'30\' r=\'2\' fill=\'%23f97316\' fill-opacity=\'0.45\'/><circle cx=\'90\' cy=\'50\' r=\'1.5\' fill=\'%23f59e0b\' fill-opacity=\'0.45\'/><circle cx=\'60\' cy=\'100\' r=\'2\' fill=\'%23f97316\' fill-opacity=\'0.35\'/></svg>")',
+    size: "160px",
+  },
+  petals: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'160\' height=\'160\' viewBox=\'0 0 160 160\'><ellipse cx=\'40\' cy=\'40\' rx=\'8\' ry=\'4\' fill=\'%23fb7185\' fill-opacity=\'0.22\'/><ellipse cx=\'120\' cy=\'70\' rx=\'6\' ry=\'3\' fill=\'%23f472b6\' fill-opacity=\'0.22\'/><ellipse cx=\'80\' cy=\'120\' rx=\'7\' ry=\'3.5\' fill=\'%23fb7185\' fill-opacity=\'0.2\'/></svg>")',
+    size: "180px",
+  },
+  blossom: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><g fill=\'%23f9a8d4\' fill-opacity=\'0.25\'><circle cx=\'40\' cy=\'40\' r=\'3\'/><circle cx=\'48\' cy=\'40\' r=\'3\'/><circle cx=\'44\' cy=\'32\' r=\'3\'/><circle cx=\'44\' cy=\'48\' r=\'3\'/></g><circle cx=\'120\' cy=\'100\' r=\'2.5\' fill=\'%23f472b6\' fill-opacity=\'0.25\'/><circle cx=\'70\' cy=\'130\' r=\'2\' fill=\'%23f9a8d4\' fill-opacity=\'0.22\'/></svg>")',
+    size: "200px",
+  },
+  stars: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\' viewBox=\'0 0 200 200\'><circle cx=\'30\' cy=\'40\' r=\'1.5\' fill=\'%23c4b5fd\' fill-opacity=\'0.6\'/><circle cx=\'160\' cy=\'60\' r=\'1.2\' fill=\'%23ddd6fe\' fill-opacity=\'0.5\'/><circle cx=\'120\' cy=\'140\' r=\'1.4\' fill=\'%23c4b5fd\' fill-opacity=\'0.5\'/></svg>")',
+    size: "220px",
+  },
+  crystals: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><path d=\'M40 140 L60 90 L80 140 Z\' fill=\'%2393c5fd\' fill-opacity=\'0.22\'/><path d=\'M100 140 L120 80 L140 140 Z\' fill=\'%2360a5fa\' fill-opacity=\'0.2\'/></svg>")',
+    size: "200px",
+  },
+  lava: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'140\' viewBox=\'0 0 200 140\'><path d=\'M0 100 L40 80 L80 100 L120 70 L160 100 L200 80\' fill=\'none\' stroke=\'%23fb923c\' stroke-opacity=\'0.35\' stroke-width=\'2\'/><path d=\'M0 120 L50 110 L90 120 L130 95 L170 120 L200 110\' fill=\'none\' stroke=\'%23f97316\' stroke-opacity=\'0.3\' stroke-width=\'2\'/></svg>")',
+    size: "220px",
+  },
+};
+
 
 export default function App() {
   const [deviceId] = useState(() => getOrCreateDeviceId());
@@ -129,6 +174,10 @@ export default function App() {
             rowCompleteBg: "#1f3b2e",
             accentColor: "#22c55e",
             bgColor: "#0b1020",
+            bgGlow1: "#38bdf8",
+            bgGlow2: "#22c55e",
+            bgPattern: "none",
+            bgPatternOpacity: 0.25,
             buttonIcon: "",
             showDice: false,
             vibrateOnTurn: false,
@@ -140,6 +189,10 @@ export default function App() {
         rowCompleteBg: "#1f3b2e",
         accentColor: "#22c55e",
         bgColor: "#0b1020",
+        bgGlow1: "#38bdf8",
+        bgGlow2: "#22c55e",
+        bgPattern: "none",
+        bgPatternOpacity: 0.25,
         buttonIcon: "",
         showDice: false,
         vibrateOnTurn: false,
@@ -152,6 +205,18 @@ export default function App() {
     const root = document.documentElement;
     if (settings.bgColor) root.style.setProperty("--bg", settings.bgColor);
     if (settings.accentColor) root.style.setProperty("--accent", settings.accentColor);
+    if (settings.bgGlow1) root.style.setProperty("--bg-glow-1", settings.bgGlow1);
+    if (settings.bgGlow2) root.style.setProperty("--bg-glow-2", settings.bgGlow2);
+    const patternKey = settings.bgPattern || "none";
+    const pattern = BG_PATTERNS[patternKey] ?? BG_PATTERNS.none;
+    root.style.setProperty("--bg-pattern", pattern.image);
+    root.style.setProperty("--bg-pattern-size", pattern.size);
+    root.style.setProperty("--bg-pattern-opacity", String(settings.bgPatternOpacity ?? 0.25));
+    if (patternKey === "moon") {
+      document.body.dataset.theme = "midnight";
+    } else {
+      document.body.dataset.theme = "custom";
+    }
   }, [settings]);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -164,6 +229,9 @@ export default function App() {
       bgColor: "#0b1020",
       accentColor: "#22c55e",
       rowCompleteBg: "#1f3b2e",
+      bgGlow1: "#1d4ed8",
+      bgGlow2: "#22c55e",
+      bgPattern: "moon",
       buttonIcon: "",
     },
     {
@@ -171,6 +239,9 @@ export default function App() {
       bgColor: "#0b1220",
       accentColor: "#38bdf8",
       rowCompleteBg: "#0f2b3a",
+      bgGlow1: "#0ea5e9",
+      bgGlow2: "#14b8a6",
+      bgPattern: "waves",
       buttonIcon: "",
     },
     {
@@ -178,6 +249,9 @@ export default function App() {
       bgColor: "#0b1110",
       accentColor: "#34d399",
       rowCompleteBg: "#123326",
+      bgGlow1: "#14532d",
+      bgGlow2: "#22c55e",
+      bgPattern: "forest",
       buttonIcon: "",
     },
     {
@@ -185,6 +259,9 @@ export default function App() {
       bgColor: "#15100a",
       accentColor: "#f59e0b",
       rowCompleteBg: "#3a250f",
+      bgGlow1: "#f97316",
+      bgGlow2: "#f59e0b",
+      bgPattern: "embers",
       buttonIcon: "",
     },
     {
@@ -192,13 +269,29 @@ export default function App() {
       bgColor: "#160b12",
       accentColor: "#fb7185",
       rowCompleteBg: "#3a1a24",
+      bgGlow1: "#fb7185",
+      bgGlow2: "#f472b6",
+      bgPattern: "petals",
       buttonIcon: "♥",
+    },
+    {
+      name: "Cherry Blossom",
+      bgColor: "#160c10",
+      accentColor: "#f9a8d4",
+      rowCompleteBg: "#3a1820",
+      bgGlow1: "#f9a8d4",
+      bgGlow2: "#f472b6",
+      bgPattern: "blossom",
+      buttonIcon: "✿",
     },
     {
       name: "Otis",
       bgColor: "#0b0b0b",
       accentColor: "#f8fafc",
       rowCompleteBg: "#1f1f1f",
+      bgGlow1: "#94a3b8",
+      bgGlow2: "#f8fafc",
+      bgPattern: "none",
       buttonIcon:
         "data:image/svg+xml;utf8," +
         "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>" +
@@ -227,6 +320,9 @@ export default function App() {
       bgColor: "#0a0f1a",
       accentColor: "#a78bfa",
       rowCompleteBg: "#1f1b3a",
+      bgGlow1: "#7c3aed",
+      bgGlow2: "#a78bfa",
+      bgPattern: "stars",
       buttonIcon: "★",
     },
     {
@@ -234,6 +330,9 @@ export default function App() {
       bgColor: "#0b1218",
       accentColor: "#60a5fa",
       rowCompleteBg: "#16263a",
+      bgGlow1: "#60a5fa",
+      bgGlow2: "#38bdf8",
+      bgPattern: "crystals",
       buttonIcon: "✦",
     },
     {
@@ -241,6 +340,9 @@ export default function App() {
       bgColor: "#150b0b",
       accentColor: "#f97316",
       rowCompleteBg: "#3a1a0f",
+      bgGlow1: "#f97316",
+      bgGlow2: "#ef4444",
+      bgPattern: "lava",
       buttonIcon: "✹",
     },
   ];
@@ -1151,6 +1253,11 @@ export default function App() {
           onRoll={rollOnce}
           onReroll={rerollAll}
           onEndRound={endRound}
+          onInspect={() => {
+            setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
+            setShowInspect(true);
+          }}
+          showInspect={!isSolo}
           lastGain={lastGain}
           status={diceStatus}
         />
@@ -1284,11 +1391,38 @@ export default function App() {
                             accentColor: t.accentColor,
                             checkColor: t.accentColor,
                             rowCompleteBg: t.rowCompleteBg,
+                            bgGlow1: t.bgGlow1,
+                            bgGlow2: t.bgGlow2,
+                            bgPattern: t.bgPattern ?? "none",
+                            bgPatternOpacity: t.bgPatternOpacity ?? 0.25,
                             buttonIcon: t.buttonIcon ?? "",
                           }))
                         }
+                        style={{ display: "grid", gap: 8, justifyItems: "center" }}
                       >
-                        {t.name}
+                        <div
+                          style={{
+                            width: "100%",
+                            height: 46,
+                            borderRadius: 10,
+                            border: "1px solid rgba(148,163,184,.25)",
+                            backgroundImage: [
+                              `radial-gradient(120px 60px at 15% 20%, color-mix(in srgb, ${t.bgGlow1} 28%, transparent), transparent 70%)`,
+                              `radial-gradient(120px 60px at 85% 10%, color-mix(in srgb, ${t.bgGlow2} 24%, transparent), transparent 70%)`,
+                              `linear-gradient(180deg, #0a0f1b, ${t.bgColor})`,
+                              (BG_PATTERNS[t.bgPattern ?? "none"] ?? BG_PATTERNS.none).image,
+                            ].join(", "),
+                            backgroundSize: [
+                              "100% 100%",
+                              "100% 100%",
+                              "100% 100%",
+                              `${(BG_PATTERNS[t.bgPattern ?? "none"] ?? BG_PATTERNS.none).size} ${(BG_PATTERNS[t.bgPattern ?? "none"] ?? BG_PATTERNS.none).size}`,
+                            ].join(", "),
+                            backgroundBlendMode: "screen, screen, normal, screen",
+                            opacity: 0.9,
+                          }}
+                        />
+                        <div style={{ fontWeight: 800, fontSize: 12 }}>{t.name}</div>
                       </Button>
                     ))}
                   </div>
@@ -1327,6 +1461,21 @@ export default function App() {
                         />
                       </label>
                       <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                        Bakgrund (glow 1)
+                        <input
+                          type="color"
+                          value={settings.bgGlow1 ?? "#38bdf8"}
+                          onChange={(e) => setSettings((s) => ({ ...s, bgGlow1: e.target.value }))}
+                          style={{
+                            width: "100%",
+                            height: 36,
+                            border: "1px solid var(--border)",
+                            borderRadius: 10,
+                            background: "transparent",
+                          }}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
                         Knappar
                         <input
                           type="color"
@@ -1338,6 +1487,21 @@ export default function App() {
                               checkColor: e.target.value,
                             }))
                           }
+                          style={{
+                            width: "100%",
+                            height: 36,
+                            border: "1px solid var(--border)",
+                            borderRadius: 10,
+                            background: "transparent",
+                          }}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                        Bakgrund (glow 2)
+                        <input
+                          type="color"
+                          value={settings.bgGlow2 ?? "#22c55e"}
+                          onChange={(e) => setSettings((s) => ({ ...s, bgGlow2: e.target.value }))}
                           style={{
                             width: "100%",
                             height: 36,
@@ -1360,6 +1524,46 @@ export default function App() {
                             borderRadius: 10,
                             background: "transparent",
                           }}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                        Mönster
+                        <select
+                          value={settings.bgPattern ?? "none"}
+                          onChange={(e) => setSettings((s) => ({ ...s, bgPattern: e.target.value }))}
+                          style={{
+                            width: "100%",
+                            height: 36,
+                            border: "1px solid var(--border)",
+                            borderRadius: 10,
+                            background: "transparent",
+                            color: "var(--text)",
+                          }}
+                        >
+                          <option value="none">Ingen</option>
+                          <option value="moon">Midnight – Måne</option>
+                          <option value="waves">Ocean – Vågor</option>
+                          <option value="forest">Forest – Skog</option>
+                          <option value="embers">Amber – Glöd</option>
+                          <option value="petals">Rose – Kronblad</option>
+                          <option value="blossom">Cherry Blossom – Blom</option>
+                          <option value="stars">Stars – Stjärnor</option>
+                          <option value="crystals">Ice – Kristaller</option>
+                          <option value="lava">Lava – Sprickor</option>
+                        </select>
+                      </label>
+                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                        Mönsterstyrka
+                        <input
+                          type="range"
+                          min="0"
+                          max="0.6"
+                          step="0.05"
+                          value={settings.bgPatternOpacity ?? 0.25}
+                          onChange={(e) =>
+                            setSettings((s) => ({ ...s, bgPatternOpacity: Number(e.target.value) }))
+                          }
+                          style={{ width: "100%" }}
                         />
                       </label>
                     </div>

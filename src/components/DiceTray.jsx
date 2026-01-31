@@ -88,6 +88,8 @@ export default function DiceTray({
   onRoll,
   onReroll,
   onEndRound,
+  onInspect,
+  showInspect = false,
   lastGain,
   status,
 }) {
@@ -163,7 +165,14 @@ export default function DiceTray({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10 }}>
+        <div
+          style={{
+            display: "grid",
+            gap: 8,
+            alignItems: "stretch",
+            gridTemplateColumns: showInspect ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))",
+          }}
+        >
           <Button
             onClick={onRoll}
             disabled={
@@ -172,23 +181,24 @@ export default function DiceTray({
               status === "stopped" ||
               status === "all"
             }
-            style={{ flex: 1 }}
+            style={{ minWidth: 0, paddingInline: 6, fontSize: 13 }}
           >
             {status === "idle" ? "Slå" : "Slå igen"}
           </Button>
-          <Button
-            variant="ghost"
-            onClick={onReroll}
-            disabled={!canAct || status !== "all"}
-            style={{ flex: 1 }}
-          >
-            Slå om
-          </Button>
+          {showInspect && (
+            <Button
+              variant="ghost"
+              onClick={onInspect}
+              style={{ minWidth: 0, paddingInline: 6, fontSize: 13 }}
+            >
+              Inspektera
+            </Button>
+          )}
           <Button
             variant="danger"
             onClick={onEndRound}
             disabled={!canAct || status !== "stopped"}
-            style={{ flex: 1 }}
+            style={{ minWidth: 0, paddingInline: 6, fontSize: 13 }}
           >
             Avsluta runda
           </Button>
