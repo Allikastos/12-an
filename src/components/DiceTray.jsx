@@ -32,26 +32,39 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
       borderRadius: 14,
       background: (locked, isPreview) =>
         locked
-          ? "linear-gradient(160deg, color-mix(in srgb, var(--dice-locked) 70%, transparent), rgba(255,255,255,.08))"
-          : "linear-gradient(160deg, rgba(255,255,255,.18), color-mix(in srgb, var(--dice-bg) 75%, transparent))",
-      boxShadow: () => "inset 0 1px 0 rgba(255,255,255,.25), 0 12px 24px rgba(0,0,0,.35)",
+          ? "linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.05)), linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 60%, transparent), color-mix(in srgb, var(--dice-locked) 20%, transparent))"
+          : "linear-gradient(145deg, rgba(255,255,255,.45), rgba(255,255,255,.08)), linear-gradient(180deg, color-mix(in srgb, var(--dice-bg) 60%, transparent), color-mix(in srgb, var(--dice-bg) 20%, transparent))",
+      boxShadow: () =>
+        "inset 0 1px 0 rgba(255,255,255,.45), inset 0 -12px 18px rgba(0,0,0,.22), 0 12px 26px rgba(0,0,0,.35)",
+      border: "1px solid rgba(255,255,255,.35)",
     },
     neon: {
       borderRadius: 10,
       background: (locked, isPreview) =>
         locked
-          ? "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 80%, transparent), rgba(0,0,0,.25))"
-          : "linear-gradient(180deg, rgba(255,255,255,.12), color-mix(in srgb, var(--dice-bg) 65%, transparent))",
+          ? "linear-gradient(180deg, rgba(10,10,14,.8), color-mix(in srgb, var(--dice-locked) 35%, transparent))"
+          : "linear-gradient(180deg, rgba(10,10,14,.9), color-mix(in srgb, var(--dice-bg) 35%, transparent))",
       boxShadow: () =>
-        "0 0 12px color-mix(in srgb, var(--dice-pip) 55%, transparent), 0 10px 20px rgba(0,0,0,.35)",
+        "0 0 16px color-mix(in srgb, var(--accent) 75%, transparent), 0 12px 24px rgba(0,0,0,.45)",
+      border: "1px solid color-mix(in srgb, var(--accent) 55%, transparent)",
     },
     etched: {
       borderRadius: 8,
       background: (locked, isPreview) =>
         locked
-          ? "linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 85%, transparent), rgba(0,0,0,.2))"
-          : "linear-gradient(180deg, rgba(255,255,255,.14), color-mix(in srgb, var(--dice-bg) 70%, transparent))",
-      boxShadow: () => "inset 0 0 0 1px rgba(255,255,255,.12), 0 10px 20px rgba(0,0,0,.35)",
+          ? "linear-gradient(180deg, #6b7280, #374151)"
+          : "linear-gradient(180deg, #9ca3af, #4b5563)",
+      boxShadow: () =>
+        "inset 0 2px 6px rgba(0,0,0,.45), inset 0 -2px 4px rgba(255,255,255,.2), 0 10px 20px rgba(0,0,0,.45)",
+      border: "1px solid rgba(0,0,0,.5)",
+    },
+    wood: {
+      borderRadius: 10,
+      background: () =>
+        "repeating-linear-gradient(90deg, #7c4a22 0 6px, #8b572a 6px 12px, #6e3f1c 12px 18px), linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.25))",
+      boxShadow: () =>
+        "inset 0 1px 0 rgba(255,255,255,.2), inset 0 -4px 8px rgba(0,0,0,.35), 0 10px 20px rgba(0,0,0,.4)",
+      border: "1px solid rgba(58,31,12,.7)",
     },
     king: {
       borderRadius: 14,
@@ -59,10 +72,29 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
         "linear-gradient(160deg, #fef3c7 0%, #f59e0b 60%, #b45309 100%)",
       boxShadow: () =>
         "inset 0 1px 0 rgba(255,255,255,.4), 0 12px 24px rgba(0,0,0,.4)",
+      border: "1px solid rgba(245,158,11,.55)",
     },
   };
 
   const stylePreset = styleMap[diceStyle] ?? styleMap.classic;
+  const pipColorMap = {
+    classic: "var(--dice-pip)",
+    glass: "color-mix(in srgb, var(--dice-pip) 70%, white)",
+    neon: "color-mix(in srgb, var(--accent) 85%, white)",
+    etched: "#111827",
+    wood: "#2d1b0f",
+    king: "#3b2a12",
+  };
+  const pipShadowMap = {
+    classic: "inset 0 -1px 0 rgba(0,0,0,.3)",
+    glass: "0 0 6px rgba(255,255,255,.35)",
+    neon: "0 0 10px color-mix(in srgb, var(--accent) 80%, transparent)",
+    etched: "inset 0 1px 0 rgba(255,255,255,.25)",
+    wood: "inset 0 1px 0 rgba(255,255,255,.2)",
+    king: "inset 0 1px 0 rgba(255,255,255,.35)",
+  };
+  const pipColor = pipColorMap[diceStyle] ?? pipColorMap.classic;
+  const pipShadow = pipShadowMap[diceStyle] ?? pipShadowMap.classic;
   const pips = PIP_MAP[value] ?? [];
   return (
     <div
@@ -70,9 +102,7 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
         width: 52,
         height: 52,
         borderRadius: stylePreset.borderRadius,
-        border: locked
-          ? "1px solid var(--dice-border)"
-          : "1px solid var(--dice-border)",
+        border: stylePreset.border ?? "1px solid var(--dice-border)",
         background: stylePreset.background(locked, isPreview),
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
@@ -97,9 +127,9 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
                 ? isPreview
                   ? "color-mix(in srgb, var(--dice-pip-locked) 70%, transparent)"
                   : "var(--dice-pip-locked)"
-                : "var(--dice-pip)"
+                : pipColor
               : "transparent",
-            boxShadow: pips.includes(i) ? "inset 0 -1px 0 rgba(0,0,0,.3)" : "none",
+            boxShadow: pips.includes(i) ? pipShadow : "none",
             opacity: pips.includes(i) ? 0.95 : 0,
           }}
         />

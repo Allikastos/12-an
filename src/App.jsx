@@ -120,6 +120,7 @@ function ceilToHalf(value) {
 
 const BONUS_ROUNDS_TIER_1 = 37; // ~45% probability threshold (simulation, rounds)
 const BONUS_ROUNDS_TIER_2 = 33; // ~20% probability threshold (simulation, rounds)
+const UNLOCK_KING_FOR_PREVIEW = true;
 
 function calcWinBonuses(roundsUsed) {
   let bonus = 0;
@@ -883,7 +884,10 @@ export default function App() {
       bgGlow1: settings.bgGlow1,
       bgGlow2: settings.bgGlow2,
       accentColor: settings.accentColor,
+      checkColor: settings.checkColor,
       rowCompleteBg: settings.rowCompleteBg,
+      bgPattern: settings.bgPattern,
+      bgPatternOpacity: settings.bgPatternOpacity,
       diceBg: settings.diceBg,
       dicePip: settings.dicePip,
       diceBorder: settings.diceBorder,
@@ -893,6 +897,9 @@ export default function App() {
       btnPrimaryText: settings.btnPrimaryText,
       btnPrimaryBorder: settings.btnPrimaryBorder,
       btnPrimaryShadow: settings.btnPrimaryShadow,
+      ringColorMode: settings.ringColorMode,
+      ringColors: settings.ringColors,
+      buttonIcon: settings.buttonIcon,
     };
 
     setSettings((s) => ({
@@ -915,7 +922,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (settings.themeKey === "King" && !isKing) {
+    if (settings.themeKey === "King" && !isKing && !UNLOCK_KING_FOR_PREVIEW) {
       const fallback = themes.find((t) => t.key === "Standard");
       if (fallback) applyTheme(fallback);
     }
@@ -1833,24 +1840,26 @@ export default function App() {
               zIndex: 10,
             }}
           >
-            <div
-              style={{
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid var(--border)",
-                background: "rgba(0,0,0,.25)",
-                fontWeight: 700,
-                fontSize: 12,
-              }}
-            >
-              {user ? `Inloggad: ${profile?.display_name ?? "Spelare"}` : "Gäst"}
-            </div>
             <Button
               variant="ghost"
               onClick={() => setShowAuthPanel((v) => !v)}
               style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
+              aria-label="Konto"
             >
-              {user ? "Konto" : "Logga in"}
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 999,
+                  border: "1px solid var(--border)",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 14,
+                }}
+              >
+                👤
+              </span>
             </Button>
           </div>
 
@@ -1893,6 +1902,46 @@ export default function App() {
                     {profile?.display_name ?? "Spelare"}
                     <div style={{ color: "var(--muted)", fontWeight: 600 }}>{user.email}</div>
                   </div>
+                  {stats && (
+                    <div
+                      style={{
+                        padding: 10,
+                        borderRadius: 12,
+                        border: "1px solid var(--border)",
+                        background: "rgba(255,255,255,.02)",
+                        display: "grid",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ fontWeight: 800 }}>Din statistik</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div>
+                          <div style={{ fontWeight: 900 }}>{stats.wins}</div>
+                          <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 900 }}>
+                            {stats.winRatio != null ? stats.winRatio.toFixed(2) : "—"}
+                          </div>
+                          <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster / match</div>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 900 }}>
+                            {stats.avgRoundsToWin ? stats.avgRoundsToWin.toFixed(1) : "—"}
+                          </div>
+                          <div style={{ color: "var(--muted)", fontWeight: 700 }}>rundor per vinst</div>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 900 }}>{stats.kingCount}</div>
+                          <div style={{ color: "var(--muted)", fontWeight: 700 }}>king‑titlar</div>
+                        </div>
+                      </div>
+                      <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                        Vinner mest mot:{" "}
+                        {stats.mostBeaten ? `${stats.mostBeaten.name} (${stats.mostBeaten.wins})` : "—"}
+                      </div>
+                    </div>
+                  )}
                   <Button variant="ghost" onClick={handleSignOut}>
                     Logga ut
                   </Button>
@@ -2035,45 +2084,6 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {user && stats && (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 12,
-                borderRadius: 14,
-                border: "1px solid var(--border)",
-                background: "rgba(255,255,255,.02)",
-                display: "grid",
-                gap: 8,
-              }}
-            >
-              <div style={{ fontWeight: 800 }}>Din statistik</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <div style={{ fontWeight: 900 }}>{stats.wins}</div>
-                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
-                </div>
-                <div>
-                  <div style={{ fontWeight: 900 }}>{stats.winRatio != null ? stats.winRatio.toFixed(2) : "—"}</div>
-                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster / match</div>
-                </div>
-                <div>
-                  <div style={{ fontWeight: 900 }}>
-                    {stats.avgRoundsToWin ? stats.avgRoundsToWin.toFixed(1) : "—"}
-                  </div>
-                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>rundor per vinst</div>
-                </div>
-                <div>
-                  <div style={{ fontWeight: 900 }}>{stats.kingCount}</div>
-                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>king‑titlar</div>
-                </div>
-              </div>
-              <div style={{ color: "var(--muted)", fontWeight: 700 }}>
-                Vinner mest mot: {stats.mostBeaten ? `${stats.mostBeaten.name} (${stats.mostBeaten.wins})` : "—"}
-              </div>
-            </div>
-          )}
 
           <p style={{ marginTop: 14, color: "var(--muted)" }}>
             Skapa rum → dela koden → alla kan använda samma lobby.
@@ -2344,7 +2354,7 @@ export default function App() {
                         key={t.name}
                         variant={settings.themeKey === (t.key ?? t.name) ? "primary" : "ghost"}
                         onClick={() => applyTheme(t)}
-                        disabled={Boolean(t.requiresKing && !isKing)}
+                        disabled={Boolean(t.requiresKing && !isKing && !UNLOCK_KING_FOR_PREVIEW)}
                         style={{ display: "grid", gap: 8, justifyItems: "center" }}
                       >
                         <div
@@ -2371,7 +2381,7 @@ export default function App() {
                         />
                         <div style={{ fontWeight: 800, fontSize: 12 }}>
                           {t.name}
-                          {t.requiresKing && !isKing ? " 🔒" : ""}
+                          {t.requiresKing && !isKing && !UNLOCK_KING_FOR_PREVIEW ? " 🔒" : ""}
                         </div>
                       </Button>
                     ))}
@@ -2701,6 +2711,7 @@ export default function App() {
                         { key: "glass", label: "Glas" },
                         { key: "neon", label: "Neon" },
                         { key: "etched", label: "Graverad" },
+                        { key: "wood", label: "Trä" },
                         { key: "king", label: "King (guld)", kingOnly: true },
                       ].map((opt) => (
                         <div
@@ -2723,7 +2734,7 @@ export default function App() {
                           <Button
                             variant={settings.diceStyle === opt.key ? "primary" : "ghost"}
                             onClick={() => setSettings((s) => ({ ...s, diceStyle: opt.key }))}
-                            disabled={Boolean(opt.kingOnly && !isKing)}
+                            disabled={Boolean(opt.kingOnly && !isKing && !UNLOCK_KING_FOR_PREVIEW)}
                             style={{ width: "auto", padding: "8px 10px" }}
                           >
                             Välj
