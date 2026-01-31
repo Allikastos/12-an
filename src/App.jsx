@@ -103,6 +103,31 @@ function countCompletedRows(progressObj) {
   return rows;
 }
 
+function getMonthKeySweden(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  return `${year}-${month}`;
+}
+
+function ceilToHalf(value) {
+  return Math.ceil(value * 2) / 2;
+}
+
+const BONUS_ROUNDS_TIER_1 = 37; // ~45% probability threshold (simulation, rounds)
+const BONUS_ROUNDS_TIER_2 = 33; // ~20% probability threshold (simulation, rounds)
+
+function calcWinBonuses(roundsUsed) {
+  let bonus = 0;
+  if (roundsUsed <= BONUS_ROUNDS_TIER_1) bonus += 1;
+  if (roundsUsed <= BONUS_ROUNDS_TIER_2) bonus += 1;
+  return bonus;
+}
+
 const BG_PATTERNS = {
   none: { image: "none", size: "160px", repeat: "repeat", position: "0 0" },
   moon: { image: "none", size: "160px", repeat: "repeat", position: "0 0" },
@@ -181,6 +206,21 @@ function normalizePatternKey(key) {
 export default function App() {
   const [deviceId] = useState(() => getOrCreateDeviceId());
 
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [kingHistory, setKingHistory] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [isKing, setIsKing] = useState(false);
+  const [showKingHistory, setShowKingHistory] = useState(false);
+
   const [step, setStep] = useState("home"); // home | room | solo
   const [roomCode, setRoomCode] = useState("");
   const [name, setName] = useState("");
@@ -218,6 +258,7 @@ export default function App() {
             btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
             ringColorMode: "none",
             ringColors: null,
+            themeKey: "Standard",
             buttonIcon: "",
             showDice: false,
             vibrateOnTurn: false,
@@ -244,6 +285,7 @@ export default function App() {
         btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
         ringColorMode: "none",
         ringColors: null,
+        themeKey: "Standard",
         buttonIcon: "",
         showDice: false,
         vibrateOnTurn: false,
@@ -281,6 +323,240 @@ export default function App() {
     if (settings.btnPrimaryShadow) root.style.setProperty("--btn-primary-shadow", settings.btnPrimaryShadow);
   }, [settings]);
 
+  useEffect(() => {
+    if (!settings.themeKey) {
+      setSettings((s) => ({ ...s, themeKey: "Standard" }));
+    }
+  }, [settings.themeKey]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function initAuth() {
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+      const sess = data?.session ?? null;
+      setSession(sess);
+      setUser(sess?.user ?? null);
+    }
+
+    initAuth();
+    const { data } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+      setUser(sess?.user ?? null);
+    });
+
+    return () => {
+      active = false;
+      data?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  async function loadProfile(userId) {
+    if (!userId) return null;
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (data) {
+      setProfile(data);
+      if (!name && data.display_name) setName(data.display_name);
+      return data;
+    }
+    const fallbackName = name || authName || "Spelare";
+    const { data: created } = await supabase
+      .from("profiles")
+      .upsert({ id: userId, display_name: fallbackName })
+      .select("*")
+      .single();
+    if (created) {
+      setProfile(created);
+      if (!name && created.display_name) setName(created.display_name);
+      return created;
+    }
+    return null;
+  }
+
+  useEffect(() => {
+    if (!user?.id) {
+      setProfile(null);
+      return;
+    }
+    loadProfile(user.id);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id && roomId && playerId) {
+      supabase.from("players").update({ profile_id: user.id }).eq("id", playerId);
+    }
+  }, [user?.id, roomId, playerId]);
+
+  async function handleSignUp() {
+    setAuthError("");
+    if (!authEmail || !authPassword || !authName) {
+      setAuthError("Fyll i e-post, lösenord och namn.");
+      return;
+    }
+    setAuthLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: authEmail,
+      password: authPassword,
+    });
+    if (error) {
+      setAuthError(error.message);
+      setAuthLoading(false);
+      return;
+    }
+    const uid = data?.user?.id;
+    if (uid) {
+      await supabase.from("profiles").upsert({ id: uid, display_name: authName });
+      setProfile({ id: uid, display_name: authName });
+      if (!name) setName(authName);
+    }
+    setAuthLoading(false);
+  }
+
+  async function handleSignIn() {
+    setAuthError("");
+    if (!authEmail || !authPassword) {
+      setAuthError("Fyll i e-post och lösenord.");
+      return;
+    }
+    setAuthLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: authEmail,
+      password: authPassword,
+    });
+    if (error) setAuthError(error.message);
+    setAuthLoading(false);
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setProfile(null);
+  }
+
+  async function loadLeaderboardData(currentUserId) {
+    const monthKey = getMonthKeySweden();
+    const { data: rows } = await supabase
+      .from("match_players")
+      .select("profile_id, display_name, points_awarded, month_key")
+      .eq("month_key", monthKey)
+      .not("profile_id", "is", null);
+
+    const totals = new Map();
+    (rows ?? []).forEach((r) => {
+      const id = r.profile_id;
+      if (!id) return;
+      const existing = totals.get(id) ?? { id, name: r.display_name ?? "Spelare", points: 0 };
+      existing.points += r.points_awarded ?? 0;
+      totals.set(id, existing);
+    });
+
+    const list = Array.from(totals.values()).sort((a, b) => b.points - a.points);
+    setLeaderboard(list);
+    setIsKing(Boolean(currentUserId && list[0]?.id === currentUserId));
+
+    const { data: historyRows } = await supabase
+      .from("match_players")
+      .select("profile_id, display_name, points_awarded, month_key")
+      .not("profile_id", "is", null)
+      .order("month_key", { ascending: false })
+      .limit(2000);
+
+    const byMonth = new Map();
+    (historyRows ?? []).forEach((r) => {
+      if (!r.month_key || !r.profile_id) return;
+      const key = r.month_key;
+      const entry = byMonth.get(key) ?? new Map();
+      const prev = entry.get(r.profile_id) ?? { id: r.profile_id, name: r.display_name ?? "Spelare", points: 0 };
+      prev.points += r.points_awarded ?? 0;
+      entry.set(r.profile_id, prev);
+      byMonth.set(key, entry);
+    });
+
+    const history = Array.from(byMonth.entries())
+      .map(([month, map]) => {
+        const top = Array.from(map.values()).sort((a, b) => b.points - a.points)[0];
+        return { month, winner: top };
+      })
+      .filter((item) => item.winner)
+      .sort((a, b) => (a.month < b.month ? 1 : -1));
+
+    setKingHistory(history);
+  }
+
+  async function loadStats(userId) {
+    if (!userId) {
+      setStats(null);
+      return;
+    }
+    const { data: myRows } = await supabase
+      .from("match_players")
+      .select("match_id, is_winner, rounds, points_awarded, display_name, month_key")
+      .eq("profile_id", userId);
+
+    const matches = new Set();
+    let wins = 0;
+    let totalRounds = 0;
+    let winRoundsCount = 0;
+
+    (myRows ?? []).forEach((r) => {
+      if (r.match_id) matches.add(r.match_id);
+      if (r.is_winner) {
+        wins += 1;
+        if (typeof r.rounds === "number") {
+          totalRounds += r.rounds;
+          winRoundsCount += 1;
+        }
+      }
+    });
+
+    const matchCount = matches.size;
+    const avgRoundsToWin = winRoundsCount ? totalRounds / winRoundsCount : null;
+    const matchesPerWin = wins ? matchCount / wins : null;
+
+    let mostBeaten = null;
+    if (wins > 0) {
+      const winMatchIds = (myRows ?? []).filter((r) => r.is_winner).map((r) => r.match_id);
+      if (winMatchIds.length) {
+        const { data: opponentRows } = await supabase
+          .from("match_players")
+          .select("display_name, match_id, profile_id")
+          .in("match_id", winMatchIds)
+          .neq("profile_id", userId);
+        const counts = new Map();
+        (opponentRows ?? []).forEach((r) => {
+          const key = r.display_name ?? "Spelare";
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        });
+        const best = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
+        if (best) mostBeaten = { name: best[0], wins: best[1] };
+      }
+    }
+
+    const kingCount = kingHistory.filter((k) => k.winner?.id === userId).length;
+
+    setStats({
+      wins,
+      matchCount,
+      winRatio: matchCount ? wins / matchCount : null,
+      matchesPerWin,
+      avgRoundsToWin,
+      mostBeaten,
+      kingCount,
+    });
+  }
+
+  useEffect(() => {
+    loadLeaderboardData(user?.id ?? null);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setStats(null);
+      return;
+    }
+    loadStats(user.id);
+  }, [user?.id, kingHistory.length]);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
@@ -288,6 +564,7 @@ export default function App() {
   const themes = [
     {
       name: "Standard",
+      key: "Standard",
       bgColor: "#0b1020",
       accentColor: "#22c55e",
       rowCompleteBg: "#1f3b2e",
@@ -307,7 +584,30 @@ export default function App() {
       buttonIcon: "",
     },
     {
+      name: "King of the Month",
+      key: "King",
+      requiresKing: true,
+      bgColor: "#0e0a04",
+      accentColor: "#f5d77b",
+      rowCompleteBg: "#3b2a12",
+      bgGlow1: "#f5d77b",
+      bgGlow2: "#f59e0b",
+      bgPattern: "moon",
+      bgPatternOpacity: 0.35,
+      diceBg: "#fff7ed",
+      dicePip: "#3b2a12",
+      diceBorder: "rgba(245,215,123,.4)",
+      diceLocked: "rgba(245,215,123,.28)",
+      dicePipLocked: "#f5d77b",
+      btnPrimaryBg: "linear-gradient(180deg, #f5d77b 0%, #f59e0b 100%)",
+      btnPrimaryText: "#3b2a12",
+      btnPrimaryBorder: "rgba(245,215,123,.4)",
+      btnPrimaryShadow: "0 10px 24px rgba(245,215,123,.35)",
+      buttonIcon: "♛",
+    },
+    {
       name: "Midnight",
+      key: "Midnight",
       bgColor: "#0c0b06",
       accentColor: "#f5c542",
       rowCompleteBg: "#3a2a12",
@@ -324,6 +624,7 @@ export default function App() {
     },
     {
       name: "Ocean",
+      key: "Ocean",
       bgColor: "#0b1220",
       accentColor: "#38bdf8",
       rowCompleteBg: "#0f2b3a",
@@ -340,6 +641,7 @@ export default function App() {
     },
     {
       name: "Forest",
+      key: "Forest",
       bgColor: "#0b1110",
       accentColor: "#34d399",
       rowCompleteBg: "#123326",
@@ -356,6 +658,7 @@ export default function App() {
     },
     {
       name: "Amber",
+      key: "Amber",
       bgColor: "#15100a",
       accentColor: "#f59e0b",
       rowCompleteBg: "#3a250f",
@@ -372,6 +675,7 @@ export default function App() {
     },
     {
       name: "Rose",
+      key: "Rose",
       bgColor: "#160b12",
       accentColor: "#fb7185",
       rowCompleteBg: "#3a1a24",
@@ -388,6 +692,7 @@ export default function App() {
     },
     {
       name: "Cherry Blossom",
+      key: "Cherry Blossom",
       bgColor: "#160c10",
       accentColor: "#f9a8d4",
       rowCompleteBg: "#3a1820",
@@ -404,6 +709,7 @@ export default function App() {
     },
     {
       name: "Reggae",
+      key: "Reggae",
       bgColor: "#0b0f0b",
       accentColor: "#22c55e",
       rowCompleteBg: "#1f3b2e",
@@ -426,6 +732,7 @@ export default function App() {
     },
     {
       name: "Otis",
+      key: "Otis",
       bgColor: "#0b0b0b",
       accentColor: "#f8fafc",
       rowCompleteBg: "#1f1f1f",
@@ -463,6 +770,7 @@ export default function App() {
     },
     {
       name: "Stars",
+      key: "Stars",
       bgColor: "#0a0f1a",
       accentColor: "#a78bfa",
       rowCompleteBg: "#1f1b3a",
@@ -479,6 +787,7 @@ export default function App() {
     },
     {
       name: "Ice",
+      key: "Ice",
       bgColor: "#0b1218",
       accentColor: "#93c5fd",
       rowCompleteBg: "#16263a",
@@ -495,6 +804,7 @@ export default function App() {
     },
     {
       name: "Lava",
+      key: "Lava",
       bgColor: "#150b0b",
       accentColor: "#f97316",
       rowCompleteBg: "#3a1a0f",
@@ -511,6 +821,40 @@ export default function App() {
     },
   ];
 
+  function applyTheme(t) {
+    setSettings((s) => ({
+      ...s,
+      themeKey: t.key ?? t.name,
+      bgColor: t.bgColor,
+      accentColor: t.accentColor,
+      checkColor: t.accentColor,
+      rowCompleteBg: t.rowCompleteBg,
+      bgGlow1: t.bgGlow1,
+      bgGlow2: t.bgGlow2,
+      bgPattern: t.bgPattern ?? "none",
+      bgPatternOpacity: t.bgPatternOpacity ?? 0.25,
+      diceBg: t.diceBg,
+      dicePip: t.dicePip,
+      diceBorder: t.diceBorder,
+      diceLocked: t.diceLocked,
+      dicePipLocked: t.dicePipLocked,
+      btnPrimaryBg: t.btnPrimaryBg,
+      btnPrimaryText: t.btnPrimaryText,
+      btnPrimaryBorder: t.btnPrimaryBorder,
+      btnPrimaryShadow: t.btnPrimaryShadow,
+      ringColorMode: t.ringColorMode ?? "none",
+      ringColors: t.ringColors ?? null,
+      buttonIcon: t.buttonIcon ?? "",
+    }));
+  }
+
+  useEffect(() => {
+    if (settings.themeKey === "King" && !isKing) {
+      const fallback = themes.find((t) => t.key === "Standard");
+      if (fallback) applyTheme(fallback);
+    }
+  }, [isKing]);
+
   const progressStorageKey = useMemo(() => {
     if (roomId && playerId) return `t12_progress_${roomId}_${playerId}`;
     return "t12_progress_local";
@@ -518,6 +862,7 @@ export default function App() {
 
   const [progress, setProgress] = useState(() => emptyProgress());
   const [showWin, setShowWin] = useState(false);
+  const [hasSignaledWin, setHasSignaledWin] = useState(false);
 
   // Dice state (optional)
   const [dice, setDice] = useState(() => Array(6).fill(1));
@@ -549,6 +894,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(progressStorageKey, JSON.stringify(progress));
   }, [progress, progressStorageKey]);
+
+  useEffect(() => {
+    if (isSolo || !gameStarted) return;
+    if (!hasSignaledWin && isProgressWin(progress)) {
+      setHasSignaledWin(true);
+      signalWin();
+    }
+  }, [progress, isSolo, gameStarted, hasSignaledWin]);
+
+  useEffect(() => {
+    if (!gameStarted) setHasSignaledWin(false);
+  }, [gameStarted]);
 
   useEffect(() => {
     if (!roomId || !playerId) return;
@@ -849,10 +1206,10 @@ export default function App() {
     };
   }, [roomId]);
 
-  const canJoin = useMemo(
-    () => roomCode.trim().length >= 4 && name.trim().length >= 2,
-    [roomCode, name]
-  );
+  const canJoin = useMemo(() => {
+    const hasName = name.trim().length >= 2 || Boolean(profile?.display_name || authName);
+    return roomCode.trim().length >= 4 && hasName;
+  }, [roomCode, name, profile?.display_name, authName]);
 
   async function createRoom() {
     const code = makeCode(6);
@@ -865,7 +1222,7 @@ export default function App() {
 
   async function joinRoom(codeParam) {
     const code = (codeParam ?? roomCode).trim().toUpperCase();
-    const playerName = name.trim();
+    const playerName = (name.trim() || profile?.display_name || authName || "").trim();
 
     const { data: room, error: roomErr } = await getRoomByCode(code);
     if (roomErr || !room) return alert("Rummet hittades inte. Kontrollera koden.");
@@ -879,8 +1236,17 @@ export default function App() {
         await supabase.from("players").update({ name: playerName }).eq("id", player.id);
         player = { ...player, name: playerName };
       }
+      if (user?.id && !player.profile_id) {
+        await supabase.from("players").update({ profile_id: user.id }).eq("id", player.id);
+        player = { ...player, profile_id: user.id };
+      }
     } else {
-      const { data: created, error: playerErr } = await createPlayer(room.id, playerName, deviceId);
+      const { data: created, error: playerErr } = await createPlayer(
+        room.id,
+        playerName,
+        deviceId,
+        user?.id ?? null
+      );
       if (playerErr) return alert(playerErr.message);
       player = created;
     }
@@ -946,6 +1312,10 @@ export default function App() {
     if (!roomId || !playerId || !players.length) return;
     const order = shuffleArray(players.map((p) => p.id));
     const first = order[0] ?? playerId;
+    const roundCounts = order.reduce((acc, id) => {
+      acc[id] = 0;
+      return acc;
+    }, {});
 
     const { data: updated } = await supabase
       .from("room_state")
@@ -956,6 +1326,13 @@ export default function App() {
           started: true,
           turn_player_id: first,
           turn_order: order,
+          round_counts: roundCounts,
+          finish_triggered: false,
+          finish_until_player_id: null,
+          finish_winner_ids: [],
+          match_id: null,
+          finalized_at: null,
+          started_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "room_id" }
@@ -1037,6 +1414,12 @@ export default function App() {
               started: false,
               turn_player_id: null,
               turn_order: [],
+              round_counts: {},
+              finish_triggered: false,
+              finish_until_player_id: null,
+              finish_winner_ids: [],
+              match_id: null,
+              finalized_at: null,
               updated_at: new Date().toISOString(),
             },
           ])
@@ -1229,9 +1612,141 @@ export default function App() {
     }
   }
 
+  async function incrementRoundCount() {
+    if (!roomId || !playerId) return null;
+    const base = roomState?.round_counts ?? {};
+    const next = { ...base, [playerId]: (base[playerId] ?? 0) + 1 };
+    const { data: updated } = await supabase
+      .from("room_state")
+      .update({
+        round_counts: next,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("room_id", roomId)
+      .select("*")
+      .single();
+    if (updated) setRoomState(updated);
+    return next;
+  }
+
+  async function signalWin() {
+    if (!roomId || !playerId || !roomState?.started) return;
+    const order = roomState.turn_order ?? [];
+    const finishUntil = roomState.finish_until_player_id ?? order[order.length - 1] ?? playerId;
+    const winners = new Set(roomState.finish_winner_ids ?? []);
+    winners.add(playerId);
+
+    const { data: updated } = await supabase
+      .from("room_state")
+      .update({
+        finish_triggered: true,
+        finish_until_player_id: finishUntil,
+        finish_winner_ids: Array.from(winners),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("room_id", roomId)
+      .select("*")
+      .single();
+    if (updated) setRoomState(updated);
+  }
+
+  async function finalizeMatch(roundCountsOverride) {
+    if (!roomId || !roomState || roomState.finalized_at) return;
+    const order = roomState.turn_order ?? [];
+    if (!order.length) return;
+    const winners = roomState.finish_winner_ids ?? [];
+    if (!winners.length) return;
+
+    const totalPlayers = order.length;
+    const totalPoints = Math.max(1, 1 + 0.5 * Math.max(0, totalPlayers - 2));
+    const pointsPerWinner = ceilToHalf(totalPoints / winners.length);
+    const monthKey = getMonthKeySweden();
+    const endedAt = new Date().toISOString();
+
+    const { data: match, error } = await supabase
+      .from("matches")
+      .insert([
+        {
+          room_id: roomId,
+          ended_at: endedAt,
+          month_key: monthKey,
+          total_players: totalPlayers,
+          winners_count: winners.length,
+        },
+      ])
+      .select("*")
+      .single();
+
+    if (error || !match) {
+      console.error("match insert failed", error);
+      await supabase
+        .from("room_state")
+        .update({
+          started: false,
+          turn_player_id: null,
+          finalized_at: endedAt,
+          updated_at: endedAt,
+        })
+        .eq("room_id", roomId);
+      return;
+    }
+
+    const roundCounts = roundCountsOverride ?? roomState.round_counts ?? {};
+    const playersById = new Map(players.map((p) => [p.id, p]));
+
+    const rows = order.map((id) => {
+      const p = playersById.get(id);
+      const isWinner = winners.includes(id);
+      const roundsUsed = typeof roundCounts[id] === "number" ? roundCounts[id] : null;
+      const bonus = isWinner && roundsUsed != null ? calcWinBonuses(roundsUsed) : 0;
+      const basePoints = isWinner ? pointsPerWinner : 0;
+      const pointsAwarded = (p?.profile_id ? basePoints + bonus : 0);
+
+      return {
+        match_id: match.id,
+        room_id: roomId,
+        profile_id: p?.profile_id ?? null,
+        display_name: p?.name ?? "Spelare",
+        is_winner: isWinner,
+        rounds: roundsUsed,
+        points_awarded: pointsAwarded,
+        month_key: monthKey,
+      };
+    });
+
+    const { error: mpErr } = await supabase.from("match_players").insert(rows);
+    if (mpErr) console.error("match_players insert failed", mpErr);
+
+    const { data: updated } = await supabase
+      .from("room_state")
+      .update({
+        started: false,
+        turn_player_id: null,
+        match_id: match.id,
+        finalized_at: endedAt,
+        updated_at: endedAt,
+      })
+      .eq("room_id", roomId)
+      .select("*")
+      .single();
+    if (updated) setRoomState(updated);
+    await loadLeaderboardData(user?.id ?? null);
+    if (user?.id) await loadStats(user.id);
+  }
+
   function endRound() {
     resetTurnState();
-    if (isMyTurn) advanceTurn();
+    if (!isMyTurn) return;
+    (async () => {
+      const counts = await incrementRoundCount();
+      const isFinalTurn =
+        roomState?.finish_triggered && roomState.finish_until_player_id === playerId;
+      if (isFinalTurn) {
+        await finalizeMatch(counts);
+        return;
+      }
+      advanceTurn();
+    })();
   }
 
   if (step === "home") {
@@ -1273,6 +1788,175 @@ export default function App() {
               Poängblad
             </Button>
           </div>
+
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 14,
+              border: "1px solid var(--border)",
+              background: "rgba(255,255,255,.02)",
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <div style={{ fontWeight: 800 }}>Konto</div>
+            {user ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontWeight: 700 }}>
+                  {profile?.display_name ?? "Spelare"}
+                  <div style={{ color: "var(--muted)", fontWeight: 600 }}>{user.email}</div>
+                </div>
+                <Button variant="ghost" onClick={handleSignOut}>
+                  Logga ut
+                </Button>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                <Input
+                  placeholder="E-post"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                />
+                <Input
+                  placeholder="Lösenord"
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                />
+                <Input
+                  placeholder="Visningsnamn"
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                />
+                {authError && <div style={{ color: "salmon", fontWeight: 700 }}>{authError}</div>}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Button onClick={handleSignIn} disabled={authLoading}>
+                    Logga in
+                  </Button>
+                  <Button variant="ghost" onClick={handleSignUp} disabled={authLoading}>
+                    Skapa konto
+                  </Button>
+                </div>
+                <div style={{ color: "var(--muted)", fontWeight: 600 }}>
+                  Gäster får inga poäng eller statistik.
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 14,
+              border: "1px solid var(--border)",
+              background: "rgba(255,255,255,.02)",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 800 }}>Leaderboard {getMonthKeySweden()}</div>
+              {leaderboard[0] && (
+                <div style={{ fontWeight: 800, color: "var(--accent)" }}>
+                  King: {leaderboard[0].name}
+                </div>
+              )}
+            </div>
+            {leaderboard.length === 0 && (
+              <div style={{ color: "var(--muted)" }}>Inga poäng ännu denna månad.</div>
+            )}
+            {leaderboard.slice(0, 5).map((p, idx) => (
+              <div
+                key={p.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "6px 10px",
+                  borderRadius: 10,
+                  border: "1px solid var(--border)",
+                  background: idx === 0 ? "rgba(245,158,11,.12)" : "transparent",
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>
+                  #{idx + 1} {p.name}
+                </div>
+                <div style={{ fontWeight: 900 }}>{p.points.toFixed(1)}</div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setShowKingHistory((v) => !v)}
+              style={{
+                marginTop: 6,
+                background: "transparent",
+                border: "none",
+                color: "var(--muted)",
+                fontWeight: 800,
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              {showKingHistory ? "Dölj tidigare kings" : "Visa tidigare kings"}
+            </button>
+            {showKingHistory && (
+              <div style={{ display: "grid", gap: 6 }}>
+                {kingHistory.slice(0, 12).map((k) => (
+                  <div key={k.month} style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div>{k.month}</div>
+                    <div style={{ fontWeight: 700 }}>{k.winner?.name}</div>
+                  </div>
+                ))}
+                {kingHistory.length === 0 && (
+                  <div style={{ color: "var(--muted)" }}>Ingen historik ännu.</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {user && stats && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 14,
+                border: "1px solid var(--border)",
+                background: "rgba(255,255,255,.02)",
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              <div style={{ fontWeight: 800 }}>Din statistik</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 900 }}>{stats.wins}</div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900 }}>
+                    {stats.matchesPerWin ? stats.matchesPerWin.toFixed(2) : "—"}
+                  </div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>matcher per vinst</div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900 }}>
+                    {stats.avgRoundsToWin ? stats.avgRoundsToWin.toFixed(1) : "—"}
+                  </div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>rundor per vinst</div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 900 }}>{stats.kingCount}</div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>king‑titlar</div>
+                </div>
+              </div>
+              <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                Vinner mest mot: {stats.mostBeaten ? `${stats.mostBeaten.name} (${stats.mostBeaten.wins})` : "—"}
+              </div>
+            </div>
+          )}
 
           <p style={{ marginTop: 14, color: "var(--muted)" }}>
             Skapa rum → dela koden → alla kan använda samma lobby.
@@ -1540,39 +2224,9 @@ export default function App() {
                     {themes.map((t) => (
                       <Button
                         key={t.name}
-                        variant={
-                          settings.bgColor === t.bgColor &&
-                          settings.accentColor === t.accentColor &&
-                          settings.rowCompleteBg === t.rowCompleteBg &&
-                          (settings.buttonIcon ?? "") === (t.buttonIcon ?? "")
-                            ? "primary"
-                            : "ghost"
-                        }
-                        onClick={() =>
-                          setSettings((s) => ({
-                            ...s,
-                            bgColor: t.bgColor,
-                            accentColor: t.accentColor,
-                            checkColor: t.accentColor,
-                            rowCompleteBg: t.rowCompleteBg,
-                            bgGlow1: t.bgGlow1,
-                            bgGlow2: t.bgGlow2,
-                            bgPattern: t.bgPattern ?? "none",
-                            bgPatternOpacity: t.bgPatternOpacity ?? 0.25,
-                            diceBg: t.diceBg,
-                            dicePip: t.dicePip,
-                            diceBorder: t.diceBorder,
-                            diceLocked: t.diceLocked,
-                            dicePipLocked: t.dicePipLocked,
-                            btnPrimaryBg: t.btnPrimaryBg,
-                            btnPrimaryText: t.btnPrimaryText,
-                            btnPrimaryBorder: t.btnPrimaryBorder,
-                            btnPrimaryShadow: t.btnPrimaryShadow,
-                            ringColorMode: t.ringColorMode ?? "none",
-                            ringColors: t.ringColors ?? null,
-                            buttonIcon: t.buttonIcon ?? "",
-                          }))
-                        }
+                        variant={settings.themeKey === (t.key ?? t.name) ? "primary" : "ghost"}
+                        onClick={() => applyTheme(t)}
+                        disabled={Boolean(t.requiresKing && !isKing)}
                         style={{ display: "grid", gap: 8, justifyItems: "center" }}
                       >
                         <div
@@ -1597,7 +2251,10 @@ export default function App() {
                             opacity: 0.9,
                           }}
                         />
-                        <div style={{ fontWeight: 800, fontSize: 12 }}>{t.name}</div>
+                        <div style={{ fontWeight: 800, fontSize: 12 }}>
+                          {t.name}
+                          {t.requiresKing && !isKing ? " 🔒" : ""}
+                        </div>
                       </Button>
                     ))}
                   </div>

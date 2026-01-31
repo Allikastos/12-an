@@ -29,7 +29,7 @@ export async function getPlayerByDevice(roomId, deviceId) {
 }
 
 // Skapa spelare
-export async function createPlayer(roomId, name, deviceId) {
+export async function createPlayer(roomId, name, deviceId, profileId = null) {
   return supabase
     .from("players")
     .insert([
@@ -37,6 +37,7 @@ export async function createPlayer(roomId, name, deviceId) {
         room_id: roomId,
         name,
         device_id: deviceId,
+        profile_id: profileId,
         last_seen: new Date().toISOString(),
       },
     ])

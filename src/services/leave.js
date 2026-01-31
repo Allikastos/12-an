@@ -13,6 +13,15 @@ export async function leaveRoom(roomId, playerId) {
     const order = Array.isArray(roomState.turn_order) ? roomState.turn_order : [];
     const remaining = order.filter((id) => id !== playerId);
     let nextTurn = roomState.turn_player_id;
+    const roundCounts = { ...(roomState.round_counts ?? {}) };
+    delete roundCounts[playerId];
+    const winnerIds = Array.isArray(roomState.finish_winner_ids)
+      ? roomState.finish_winner_ids.filter((id) => id !== playerId)
+      : [];
+    let finishUntil = roomState.finish_until_player_id;
+    if (finishUntil === playerId) {
+      finishUntil = remaining[remaining.length - 1] ?? null;
+    }
 
     if (nextTurn === playerId || (nextTurn && !remaining.includes(nextTurn))) {
       if (remaining.length === 0) {
@@ -31,6 +40,9 @@ export async function leaveRoom(roomId, playerId) {
       .update({
         turn_order: remaining,
         turn_player_id: nextTurn,
+        round_counts: roundCounts,
+        finish_winner_ids: winnerIds,
+        finish_until_player_id: finishUntil,
         started: remaining.length ? roomState.started : false,
         updated_at: new Date().toISOString(),
       })
