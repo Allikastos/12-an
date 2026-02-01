@@ -2372,12 +2372,13 @@ export default function App() {
               src="/12-an-hemskarm-logotyp.png"
               alt="12:an"
               style={{
-                width: 150,
-                height: 48,
+                width: 170,
+                height: 54,
                 objectFit: "contain",
                 borderRadius: 0,
                 border: "none",
                 boxShadow: "none",
+                marginLeft: -6,
               }}
             />
             <Button
