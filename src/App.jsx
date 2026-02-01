@@ -798,6 +798,7 @@ export default function App() {
     let wins = 0;
     let totalRounds = 0;
     let winRoundsCount = 0;
+    let fastestWinRounds = null;
 
     (myRows ?? []).forEach((r) => {
       if (r.match_id) matches.add(r.match_id);
@@ -806,6 +807,9 @@ export default function App() {
         if (typeof r.rounds === "number") {
           totalRounds += r.rounds;
           winRoundsCount += 1;
+          if (fastestWinRounds == null || r.rounds < fastestWinRounds) {
+            fastestWinRounds = r.rounds;
+          }
         }
       }
     });
@@ -840,6 +844,7 @@ export default function App() {
       matchCount,
       winRatio,
       avgRoundsToWin,
+      fastestWinRounds,
       mostBeaten,
       kingCount,
     });
@@ -1145,7 +1150,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatUnread, setChatUnread] = useState(0);
-  const [chatToast, setChatToast] = useState(null);
+  const [chatToasts, setChatToasts] = useState([]);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -1710,10 +1715,16 @@ export default function App() {
         (payload) => {
           const msg = payload.new;
           if (!msg) return;
+          const toastId = `${msg.id ?? "m"}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
           setChatMessages((prev) => [...prev, msg]);
           setChatUnread((n) => n + 1);
-          setChatToast(`${msg.sender_name}: ${msg.body}`);
-          setTimeout(() => setChatToast(null), 3000);
+          setChatToasts((prev) => [
+            ...prev,
+            { id: toastId, text: `${msg.sender_name}: ${msg.body}` },
+          ]);
+          setTimeout(() => {
+            setChatToasts((prev) => prev.filter((t) => t.id !== toastId));
+          }, 5000);
         }
       )
       .subscribe();
@@ -2508,6 +2519,12 @@ export default function App() {
                             {stats.avgRoundsToWin ? stats.avgRoundsToWin.toFixed(1) : "—"}
                           </div>
                           <div style={{ color: "var(--muted)", fontWeight: 700 }}>rundor per vinst</div>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 900 }}>
+                            {stats.fastestWinRounds != null ? stats.fastestWinRounds : "—"}
+                          </div>
+                          <div style={{ color: "var(--muted)", fontWeight: 700 }}>snabbaste vinst</div>
                         </div>
                         <div>
                           <div style={{ fontWeight: 900 }}>{stats.kingCount}</div>
@@ -4037,25 +4054,37 @@ export default function App() {
         </div>
       )}
 
-      {chatToast && (
+      {chatToasts.length > 0 && (
         <div
           style={{
             position: "fixed",
-            bottom: 16,
+            top: 76,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "rgba(15,23,42,.9)",
-            color: "white",
-            padding: "10px 14px",
-            borderRadius: 12,
-            border: "1px solid rgba(255,255,255,.12)",
+            display: "grid",
+            gap: 8,
             zIndex: 90,
-            fontWeight: 700,
-            maxWidth: "90vw",
-            textAlign: "center",
+            maxWidth: "92vw",
+            width: "min(520px, 92vw)",
+            pointerEvents: "none",
           }}
         >
-          {chatToast}
+          {chatToasts.map((toast) => (
+            <div
+              key={toast.id}
+              style={{
+                background: "rgba(15,23,42,.92)",
+                color: "white",
+                padding: "10px 14px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,.14)",
+                fontWeight: 700,
+                boxShadow: "0 12px 30px rgba(2,6,23,.4)",
+              }}
+            >
+              {toast.text}
+            </div>
+          ))}
         </div>
       )}
 
