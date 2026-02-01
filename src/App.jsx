@@ -3655,11 +3655,6 @@ export default function App() {
                           {roomState?.turn_player_id === inspectPlayerId ? " (aktiv)" : ""}
                         </div>
 
-                        <div style={{ color: "var(--muted)", fontWeight: 700 }}>
-                          Senaste kast: {lastDice.length ? lastDice.join(", ") : "—"}
-                          {lastTarget ? ` | Valör: ${lastTarget}` : ""}
-                        </div>
-
                         {hasDice && (
                           <div style={{ display: "grid", gap: 8 }}>
                             <div style={{ color: "var(--muted)", fontWeight: 700 }}>
