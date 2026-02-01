@@ -2308,6 +2308,7 @@ export default function App() {
                     Vänner
                   </Button>
                 </div>
+              )}
             </div>
           )}
 
