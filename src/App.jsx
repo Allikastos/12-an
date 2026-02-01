@@ -536,6 +536,7 @@ export default function App() {
             buttonIcon: "",
             personalThemes: [],
             personalThemeId: null,
+            filledRingColor: "#22c55e",
             diceStyle: "classic",
             showDice: false,
             vibrateOnTurn: false,
@@ -568,6 +569,7 @@ export default function App() {
         buttonIcon: "",
         personalThemes: [],
         personalThemeId: null,
+        filledRingColor: "#22c55e",
         diceStyle: "classic",
         showDice: false,
         vibrateOnTurn: false,
@@ -1159,6 +1161,7 @@ export default function App() {
       checkColor: settings.checkColor,
       ringColors: settings.ringColors,
       buttonIcon: settings.buttonIcon,
+      filledRingColor: settings.filledRingColor,
       diceStyle: settings.diceStyle,
       diceBg: settings.diceBg,
       dicePip: settings.dicePip,
@@ -1172,6 +1175,7 @@ export default function App() {
       settings.checkColor,
       settings.ringColors,
       settings.buttonIcon,
+      settings.filledRingColor,
       settings.diceStyle,
       settings.diceBg,
       settings.dicePip,
@@ -1205,6 +1209,7 @@ export default function App() {
       ringColorMode: t.ringColorMode ?? "none",
       ringColors: t.ringColors ?? null,
       buttonIcon: t.buttonIcon ?? "",
+      filledRingColor: t.accentColor ?? t.filledRingColor ?? s.filledRingColor,
       personalThemeId: null,
     }));
   }
@@ -1247,6 +1252,7 @@ export default function App() {
       ringColorMode: settings.ringColorMode,
       ringColors: settings.ringColors,
       buttonIcon: settings.buttonIcon,
+      filledRingColor: settings.filledRingColor,
     };
 
     setSettings((s) => ({
@@ -3497,20 +3503,35 @@ export default function App() {
                             />
                           </label>
                           <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
-                            Färdig rad
-                            <input
-                              type="color"
-                              value={settings.rowCompleteBg ?? "#1f3b2e"}
-                              onChange={(e) => setSettings((s) => ({ ...s, rowCompleteBg: e.target.value }))}
-                              style={{
-                                width: "100%",
-                                height: 36,
-                                border: "1px solid var(--border)",
-                                borderRadius: 10,
-                                background: "transparent",
-                              }}
-                            />
-                          </label>
+                        Färdig rad
+                        <input
+                          type="color"
+                          value={settings.rowCompleteBg ?? "#1f3b2e"}
+                          onChange={(e) => setSettings((s) => ({ ...s, rowCompleteBg: e.target.value }))}
+                          style={{
+                            width: "100%",
+                            height: 36,
+                            border: "1px solid var(--border)",
+                            borderRadius: 10,
+                            background: "transparent",
+                          }}
+                        />
+                      </label>
+                      <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
+                        Ringar (ifyllda)
+                        <input
+                          type="color"
+                          value={settings.filledRingColor ?? settings.checkColor ?? "#22c55e"}
+                          onChange={(e) => setSettings((s) => ({ ...s, filledRingColor: e.target.value }))}
+                          style={{
+                            width: "100%",
+                            height: 36,
+                            border: "1px solid var(--border)",
+                            borderRadius: 10,
+                            background: "transparent",
+                          }}
+                        />
+                      </label>
                           <label style={{ display: "grid", gap: 6, fontWeight: 700, color: "var(--muted)" }}>
                             Mönster
                             <select

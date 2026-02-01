@@ -68,6 +68,7 @@ export default function ScoreSheet({
   const checkColor = settings?.checkColor ?? "var(--accent)";
   const checkIcon = settings?.buttonIcon ?? "";
   const ringColors = Array.isArray(settings?.ringColors) ? settings.ringColors : null;
+  const filledRingColor = settings?.filledRingColor ?? checkColor;
   const isSnowflake = checkIcon === "snowflake";
   const isCrownOutline = checkIcon === "crown-outline";
   const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
@@ -157,7 +158,8 @@ export default function ScoreSheet({
                     ringColors && ringColors.length && checked
                       ? ringColors[(row + i) % ringColors.length]
                       : null;
-                  const crownStroke = ringColor ?? (checked ? checkColor : "rgba(148,163,184,.7)");
+                  const checkedRing = ringColor ?? filledRingColor;
+                  const crownStroke = ringColor ?? (checked ? checkedRing : "rgba(148,163,184,.7)");
                   return (
                     <button
                       key={i}
@@ -168,7 +170,7 @@ export default function ScoreSheet({
                         borderRadius: isCrownOutline ? 10 : 999,
                         border: isCrownOutline
                           ? "none"
-                          : `2px solid ${ringColor ?? (checked ? checkColor : "rgba(148,163,184,.7)")}`,
+                          : `2px solid ${ringColor ?? (checked ? checkedRing : "rgba(148,163,184,.7)")}`,
                         background: "transparent",
                         backgroundImage: isCrownOutline ? crownOutlineData(crownStroke) : "none",
                         backgroundRepeat: "no-repeat",
