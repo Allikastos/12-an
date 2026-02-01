@@ -2417,6 +2417,243 @@ export default function App() {
             )}
           </div>
 
+          {showFriendsPanel && (
+            <div
+              onClick={() => setShowFriendsPanel(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,.55)",
+                display: "grid",
+                placeItems: "center",
+                padding: 16,
+                zIndex: 60,
+              }}
+            >
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
+                <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <h3 style={{ margin: 0 }}>Vänner</h3>
+                    <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowFriendsPanel(false)}>
+                      Stäng
+                    </Button>
+                  </div>
+
+                  <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                    {!user && (
+                      <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                        Logga in för att hantera vänner.
+                      </div>
+                    )}
+                    {user && (
+                      <>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <div style={{ fontWeight: 800 }}>Sök spelare</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                            <Input
+                              placeholder="Sök namn"
+                              value={friendSearch}
+                              onChange={(e) => setFriendSearch(e.target.value)}
+                            />
+                            <Button
+                              variant="ghost"
+                              onClick={searchProfiles}
+                              style={{ width: "auto", padding: "8px 10px" }}
+                            >
+                              Sök
+                            </Button>
+                          </div>
+                          <div style={{ display: "grid", gap: 6 }}>
+                            {friendResults.length === 0 && (
+                              <div style={{ color: "var(--muted)" }}>Inga sökresultat.</div>
+                            )}
+                            {friendResults.map((p) => (
+                              <div
+                                key={p.id}
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "1fr auto",
+                                  alignItems: "center",
+                                  gap: 10,
+                                  padding: 8,
+                                  borderRadius: 10,
+                                  border: "1px solid var(--border)",
+                                  background: "rgba(255,255,255,.02)",
+                                }}
+                              >
+                                <div style={{ fontWeight: 700 }}>{p.display_name}</div>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => sendFriendRequest(p.id)}
+                                  style={{ width: "auto", padding: "6px 10px" }}
+                                >
+                                  Skicka
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gap: 8 }}>
+                          <div style={{ fontWeight: 800 }}>Förfrågningar</div>
+                          {friendRequests.incoming.length === 0 && (
+                            <div style={{ color: "var(--muted)" }}>Inga inkommande förfrågningar.</div>
+                          )}
+                          {friendRequests.incoming.map((req) => (
+                            <div
+                              key={req.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: 8,
+                                borderRadius: 10,
+                                border: "1px solid var(--border)",
+                                background: "rgba(255,255,255,.02)",
+                              }}
+                            >
+                              <div style={{ fontWeight: 700 }}>{req.requester?.display_name ?? "Spelare"}</div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <Button
+                                  onClick={() => acceptFriendRequest(req.id, req.requester?.id)}
+                                  style={{ width: "auto", padding: "6px 10px" }}
+                                >
+                                  Acceptera
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => declineFriendRequest(req.id)}
+                                  style={{ width: "auto", padding: "6px 10px" }}
+                                >
+                                  Neka
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                          {friendRequests.outgoing.length > 0 && (
+                            <div style={{ color: "var(--muted)" }}>
+                              Skickade:{" "}
+                              {friendRequests.outgoing
+                                .map((r) => r.addressee?.display_name ?? "Spelare")
+                                .join(", ")}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: "grid", gap: 8 }}>
+                          <div style={{ fontWeight: 800 }}>Dina vänner</div>
+                          {friends.length === 0 && <div style={{ color: "var(--muted)" }}>Inga vänner ännu.</div>}
+                          {friends.map((f) => {
+                            const stats = friendStats[f.id];
+                            return (
+                              <div
+                                key={f.id}
+                                style={{
+                                  display: "grid",
+                                  gap: 8,
+                                  padding: 8,
+                                  borderRadius: 10,
+                                  border: "1px solid var(--border)",
+                                  background: "rgba(255,255,255,.02)",
+                                }}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                  <div style={{ fontWeight: 700 }}>{f.display_name}</div>
+                                  <div style={{ display: "flex", gap: 6 }}>
+                                    <Button
+                                      variant="ghost"
+                                      onClick={() => loadFriendStatsFor(f.id)}
+                                      style={{ width: "auto", padding: "6px 10px" }}
+                                    >
+                                      Visa statistik
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      onClick={() => removeFriend(f.id)}
+                                      style={{ width: "auto", padding: "6px 10px" }}
+                                    >
+                                      Ta bort
+                                    </Button>
+                                  </div>
+                                </div>
+                                {stats && (
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                    <div>
+                                      <div style={{ fontWeight: 900 }}>{stats.wins}</div>
+                                      <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 900 }}>
+                                        {stats.winRatio != null ? stats.winRatio.toFixed(2) : "—"}
+                                      </div>
+                                      <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster / match</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 900 }}>
+                                        {stats.avgRoundsToWin ? stats.avgRoundsToWin.toFixed(1) : "—"}
+                                      </div>
+                                      <div style={{ color: "var(--muted)", fontWeight: 700 }}>rundor per vinst</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 900 }}>{stats.kingCount}</div>
+                                      <div style={{ color: "var(--muted)", fontWeight: 700 }}>king‑titlar</div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div style={{ display: "grid", gap: 8 }}>
+                          <div style={{ fontWeight: 800 }}>Inbjudningar till rum</div>
+                          {roomInvites.length === 0 && (
+                            <div style={{ color: "var(--muted)" }}>Inga inbjudningar just nu.</div>
+                          )}
+                          {roomInvites.map((inv) => (
+                            <div
+                              key={inv.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: 8,
+                                borderRadius: 10,
+                                border: "1px solid var(--border)",
+                                background: "rgba(255,255,255,.02)",
+                              }}
+                            >
+                              <div style={{ fontWeight: 700 }}>
+                                {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
+                              </div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <Button
+                                  onClick={() => acceptRoomInvite(inv)}
+                                  style={{ width: "auto", padding: "6px 10px" }}
+                                >
+                                  Gå med
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => declineRoomInvite(inv.id)}
+                                  style={{ width: "auto", padding: "6px 10px" }}
+                                >
+                                  Neka
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
           <p style={{ marginTop: 14, color: "var(--muted)" }}>
             Skapa rum → dela koden → alla kan använda samma lobby.
           </p>
@@ -3311,242 +3548,6 @@ export default function App() {
         </div>
       )}
 
-      {showFriendsPanel && (
-        <div
-          onClick={() => setShowFriendsPanel(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.55)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-            zIndex: 60,
-          }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
-            <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <h3 style={{ margin: 0 }}>Vänner</h3>
-                <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowFriendsPanel(false)}>
-                  Stäng
-                </Button>
-              </div>
-
-              <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-                {!user && (
-                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>
-                    Logga in för att hantera vänner.
-                  </div>
-                )}
-                {user && (
-                  <>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      <div style={{ fontWeight: 800 }}>Sök spelare</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                        <Input
-                          placeholder="Sök namn"
-                          value={friendSearch}
-                          onChange={(e) => setFriendSearch(e.target.value)}
-                        />
-                        <Button
-                          variant="ghost"
-                          onClick={searchProfiles}
-                          style={{ width: "auto", padding: "8px 10px" }}
-                        >
-                          Sök
-                        </Button>
-                      </div>
-                      <div style={{ display: "grid", gap: 6 }}>
-                        {friendResults.length === 0 && (
-                          <div style={{ color: "var(--muted)" }}>Inga sökresultat.</div>
-                        )}
-                        {friendResults.map((p) => (
-                          <div
-                            key={p.id}
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr auto",
-                              alignItems: "center",
-                              gap: 10,
-                              padding: 8,
-                              borderRadius: 10,
-                              border: "1px solid var(--border)",
-                              background: "rgba(255,255,255,.02)",
-                            }}
-                          >
-                            <div style={{ fontWeight: 700 }}>{p.display_name}</div>
-                            <Button
-                              variant="ghost"
-                              onClick={() => sendFriendRequest(p.id)}
-                              style={{ width: "auto", padding: "6px 10px" }}
-                            >
-                              Skicka
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <div style={{ fontWeight: 800 }}>Förfrågningar</div>
-                      {friendRequests.incoming.length === 0 && (
-                        <div style={{ color: "var(--muted)" }}>Inga inkommande förfrågningar.</div>
-                      )}
-                      {friendRequests.incoming.map((req) => (
-                        <div
-                          key={req.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr auto",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: 8,
-                            borderRadius: 10,
-                            border: "1px solid var(--border)",
-                            background: "rgba(255,255,255,.02)",
-                          }}
-                        >
-                          <div style={{ fontWeight: 700 }}>{req.requester?.display_name ?? "Spelare"}</div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <Button
-                              onClick={() => acceptFriendRequest(req.id, req.requester?.id)}
-                              style={{ width: "auto", padding: "6px 10px" }}
-                            >
-                              Acceptera
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              onClick={() => declineFriendRequest(req.id)}
-                              style={{ width: "auto", padding: "6px 10px" }}
-                            >
-                              Neka
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                      {friendRequests.outgoing.length > 0 && (
-                        <div style={{ color: "var(--muted)" }}>
-                          Skickade:{" "}
-                          {friendRequests.outgoing
-                            .map((r) => r.addressee?.display_name ?? "Spelare")
-                            .join(", ")}
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <div style={{ fontWeight: 800 }}>Dina vänner</div>
-                      {friends.length === 0 && <div style={{ color: "var(--muted)" }}>Inga vänner ännu.</div>}
-                      {friends.map((f) => {
-                        const stats = friendStats[f.id];
-                        return (
-                          <div
-                            key={f.id}
-                            style={{
-                              display: "grid",
-                              gap: 8,
-                              padding: 8,
-                              borderRadius: 10,
-                              border: "1px solid var(--border)",
-                              background: "rgba(255,255,255,.02)",
-                            }}
-                          >
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                              <div style={{ fontWeight: 700 }}>{f.display_name}</div>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => loadFriendStatsFor(f.id)}
-                                  style={{ width: "auto", padding: "6px 10px" }}
-                                >
-                                  Visa statistik
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => removeFriend(f.id)}
-                                  style={{ width: "auto", padding: "6px 10px" }}
-                                >
-                                  Ta bort
-                                </Button>
-                              </div>
-                            </div>
-                            {stats && (
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                                <div>
-                                  <div style={{ fontWeight: 900 }}>{stats.wins}</div>
-                                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontWeight: 900 }}>
-                                    {stats.winRatio != null ? stats.winRatio.toFixed(2) : "—"}
-                                  </div>
-                                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster / match</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontWeight: 900 }}>
-                                    {stats.avgRoundsToWin ? stats.avgRoundsToWin.toFixed(1) : "—"}
-                                  </div>
-                                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>rundor per vinst</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontWeight: 900 }}>{stats.kingCount}</div>
-                                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>king‑titlar</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <div style={{ fontWeight: 800 }}>Inbjudningar till rum</div>
-                      {roomInvites.length === 0 && (
-                        <div style={{ color: "var(--muted)" }}>Inga inbjudningar just nu.</div>
-                      )}
-                      {roomInvites.map((inv) => (
-                        <div
-                          key={inv.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr auto",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: 8,
-                            borderRadius: 10,
-                            border: "1px solid var(--border)",
-                            background: "rgba(255,255,255,.02)",
-                          }}
-                        >
-                          <div style={{ fontWeight: 700 }}>
-                            {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
-                          </div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <Button
-                              onClick={() => acceptRoomInvite(inv)}
-                              style={{ width: "auto", padding: "6px 10px" }}
-                            >
-                              Gå med
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              onClick={() => declineRoomInvite(inv.id)}
-                              style={{ width: "auto", padding: "6px 10px" }}
-                            >
-                              Neka
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
       {turnFlash && (
         <div
           style={{
