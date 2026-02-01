@@ -114,6 +114,13 @@ function getMonthKeySweden(date = new Date()) {
   return `${year}-${month}`;
 }
 
+function getPreviousMonthKeySweden(date = new Date()) {
+  const d = new Date(date.getTime());
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return getMonthKeySweden(d);
+}
+
 function ceilToHalf(value) {
   return Math.ceil(value * 2) / 2;
 }
@@ -725,7 +732,6 @@ export default function App() {
 
     const list = Array.from(totals.values()).sort((a, b) => b.points - a.points);
     setLeaderboard(list);
-    setIsKing(Boolean(currentUserId && list[0]?.id === currentUserId));
 
     const { data: historyRows } = await supabase
       .from("match_players")
@@ -754,6 +760,13 @@ export default function App() {
       .sort((a, b) => (a.month < b.month ? 1 : -1));
 
     setKingHistory(history);
+    const previousMonthKey = getPreviousMonthKeySweden();
+    const previousMonthWinner = history.find((h) => h.month === previousMonthKey)?.winner ?? null;
+    const currentLeaderId = list[0]?.id ?? null;
+    const eligibleKing =
+      Boolean(currentUserId) &&
+      (currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id);
+    setIsKing(eligibleKing);
   }
 
   async function loadStats(userId) {
@@ -962,10 +975,18 @@ export default function App() {
   }, [isKing]);
 
   useEffect(() => {
-    if (!isKing && settings.themeKey !== "King" && settings.buttonIcon === "crown-outline") {
-      setSettings((s) => ({ ...s, buttonIcon: "" }));
+    if (UNLOCK_KING_FOR_PREVIEW) return;
+    if (isKing) return;
+    const hasKingOnly =
+      settings.themeKey === "King" ||
+      settings.bgPattern === "royal" ||
+      settings.diceStyle === "king" ||
+      settings.buttonIcon === "crown-outline";
+    if (hasKingOnly) {
+      const fallback = themes.find((t) => t.key === "Standard");
+      if (fallback) applyTheme(fallback);
     }
-  }, [isKing, settings.themeKey, settings.buttonIcon]);
+  }, [isKing, settings.themeKey, settings.bgPattern, settings.diceStyle, settings.buttonIcon]);
 
   const progressStorageKey = useMemo(() => {
     if (roomId && playerId) return `t12_progress_${roomId}_${playerId}`;
@@ -1132,6 +1153,15 @@ export default function App() {
       setInspectPlayerId(activePlayer.id);
     }
   }, [followActivePlayer, activePlayer?.id]);
+
+  useEffect(() => {
+    if (isSolo || !followActivePlayer) return;
+    if (isMyTurn) {
+      setShowInspect(false);
+      return;
+    }
+    setShowInspect(true);
+  }, [followActivePlayer, isMyTurn, isSolo]);
 
   const canAct = isSolo ? true : gameStarted && isMyTurn;
 
@@ -1547,6 +1577,7 @@ export default function App() {
   }, [roomId, playerId]);
 
   function toggleCell(row, idx) {
+    if (settings.showDice) return;
     setProgress((prev) => {
       const base = prev && typeof prev === "object" ? prev : emptyProgress();
       const next = { ...base, [row]: [...(base[row] ?? Array(7).fill(false))] };
@@ -2058,14 +2089,15 @@ export default function App() {
               marginTop: 16,
               padding: 12,
               borderRadius: 14,
-              border: "1px solid var(--border)",
+              border: "1px solid rgba(245, 215, 123, .45)",
               background: "rgba(255,255,255,.02)",
+              boxShadow: "0 0 0 1px rgba(245, 215, 123, .12)",
               display: "grid",
               gap: 8,
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 800 }}>Leaderboard {getMonthKeySweden()}</div>
+              <div style={{ fontWeight: 800 }}>King of the Month {getMonthKeySweden()}</div>
               {leaderboard[0] && (
                 <div style={{ fontWeight: 800, color: "var(--accent)" }}>
                   King: {leaderboard[0].name}
@@ -2588,7 +2620,9 @@ export default function App() {
                           <option value="paws">Otis – Tassar</option>
                           <option value="crystals">Ice – Kristaller</option>
                           <option value="reggae">Reggae – Ränder</option>
-                          <option value="royal">King – Kronor</option>
+                          <option value="royal" disabled={!isKing}>
+                            King – Kronor
+                          </option>
                           <option value="lava">Lava – Sprickor</option>
                         </select>
                           </label>
