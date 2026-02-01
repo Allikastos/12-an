@@ -1144,6 +1144,7 @@ export default function App() {
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [authNotice, setAuthNotice] = useState(null);
   const themes = THEMES;
   const themeSnapshot = useMemo(
     () => ({
@@ -1707,6 +1708,23 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const sharedCode = params.get("room");
     if (sharedCode) setRoomCode(sharedCode.toUpperCase());
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash ?? "";
+    if (!hash) return;
+    const params = new URLSearchParams(hash.replace(/^#/, ""));
+    const type = params.get("type");
+    const accessToken = params.get("access_token");
+    const errorDesc = params.get("error_description");
+    if (type === "signup" && accessToken) {
+      setAuthNotice("E-post bekräftad. Du är nu inloggad.");
+    } else if (errorDesc) {
+      setAuthNotice(decodeURIComponent(errorDesc));
+    }
+    if (accessToken || errorDesc) {
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+    }
   }, []);
 
   async function createRoom() {
@@ -2348,6 +2366,20 @@ export default function App() {
                 zIndex: 10,
               }}
             >
+              {authNotice && (
+                <div
+                  style={{
+                    padding: 8,
+                    borderRadius: 10,
+                    border: "1px solid rgba(34,197,94,.35)",
+                    background: "rgba(34,197,94,.12)",
+                    fontWeight: 800,
+                    color: "#bbf7d0",
+                  }}
+                >
+                  {authNotice}
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                 <button
                   type="button"
@@ -2531,10 +2563,15 @@ export default function App() {
             <Button variant="ghost" onClick={() => setStep("solo")}>
               Poängblad
             </Button>
-            {!isStandalone && (
+            {!isStandalone && installPrompt && (
               <Button variant="ghost" onClick={() => setShowInstallHelp(true)}>
                 Lägg till som app
               </Button>
+            )}
+            {!isStandalone && !installPrompt && (
+              <div style={{ color: "var(--muted)", fontWeight: 600, fontSize: 12 }}>
+                För iPhone: installera via Dela → Lägg till på hemskärmen.
+              </div>
             )}
           </div>
 
@@ -2891,7 +2928,7 @@ export default function App() {
             </div>
           )}
 
-          {showInstallHelp && !isStandalone && (
+          {showInstallHelp && !isStandalone && installPrompt && (
             <div
               onClick={() => setShowInstallHelp(false)}
               style={{
