@@ -1284,14 +1284,25 @@ export default function App() {
   useEffect(() => {
     if (UNLOCK_KING_FOR_PREVIEW) return;
     if (isKing) return;
-    const hasKingOnly =
-      settings.themeKey === "King" ||
-      settings.bgPattern === "royal" ||
-      settings.diceStyle === "king" ||
-      settings.buttonIcon === "crown-outline";
-    if (hasKingOnly) {
-      const fallback = themes.find((t) => t.key === "Standard");
-      if (fallback) applyTheme(fallback);
+    const kingOnly = {
+      themeKey: settings.themeKey === "King" ? "Standard" : settings.themeKey,
+      bgPattern: settings.bgPattern === "royal" ? "none" : settings.bgPattern,
+      diceStyle: settings.diceStyle === "king" ? "classic" : settings.diceStyle,
+      buttonIcon: settings.buttonIcon === "crown-outline" ? "" : settings.buttonIcon,
+    };
+    if (
+      kingOnly.themeKey !== settings.themeKey ||
+      kingOnly.bgPattern !== settings.bgPattern ||
+      kingOnly.diceStyle !== settings.diceStyle ||
+      kingOnly.buttonIcon !== settings.buttonIcon
+    ) {
+      setSettings((s) => ({
+        ...s,
+        themeKey: kingOnly.themeKey,
+        bgPattern: kingOnly.bgPattern,
+        diceStyle: kingOnly.diceStyle,
+        buttonIcon: kingOnly.buttonIcon,
+      }));
     }
   }, [isKing, settings.themeKey, settings.bgPattern, settings.diceStyle, settings.buttonIcon]);
 
@@ -2338,8 +2349,21 @@ export default function App() {
     return (
       <Container>
         <Card style={{ padding: 22, position: "relative" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-            <h1 style={{ margin: 0, fontSize: 28 }}>12:an</h1>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <img
+                src="/12-an-hemskärm-logotyp.PNG"
+                alt="12:an"
+                style={{
+                  width: 56,
+                  height: 28,
+                  objectFit: "contain",
+                  borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  boxShadow: "0 6px 16px rgba(2,6,23,0.28)",
+                }}
+              />
+            </div>
           </div>
 
           <div
