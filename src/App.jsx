@@ -980,6 +980,63 @@ export default function App() {
     }));
   }
 
+  async function loadRoomInvites(userId) {
+    if (!userId) {
+      setRoomInvites([]);
+      return;
+    }
+    const { data: inviteRows } = await supabase
+      .from("room_invites")
+      .select("id, room_id, sender_profile_id, recipient_profile_id, status, created_at")
+      .eq("recipient_profile_id", userId)
+      .eq("status", "pending");
+    const roomIds = (inviteRows ?? []).map((r) => r.room_id).filter(Boolean);
+    const senderIds = (inviteRows ?? []).map((r) => r.sender_profile_id).filter(Boolean);
+
+    const { data: rooms } = roomIds.length
+      ? await supabase.from("rooms").select("id, code").in("id", roomIds)
+      : { data: [] };
+    const { data: senders } = senderIds.length
+      ? await supabase.from("profiles").select("id, display_name").in("id", senderIds)
+      : { data: [] };
+
+    const roomById = new Map((rooms ?? []).map((r) => [r.id, r]));
+    const senderById = new Map((senders ?? []).map((s) => [s.id, s]));
+
+    const mapped = (inviteRows ?? []).map((r) => ({
+      id: r.id,
+      roomId: r.room_id,
+      roomCode: roomById.get(r.room_id)?.code ?? "",
+      sender: senderById.get(r.sender_profile_id) ?? null,
+    }));
+    setRoomInvites(mapped);
+  }
+
+  async function sendRoomInvite(friendId) {
+    if (!user?.id || !roomId || !friendId) return;
+    await supabase.from("room_invites").upsert(
+      {
+        room_id: roomId,
+        sender_profile_id: user.id,
+        recipient_profile_id: friendId,
+        status: "pending",
+      },
+      { onConflict: "room_id,recipient_profile_id" }
+    );
+  }
+
+  async function acceptRoomInvite(invite) {
+    if (!invite?.id || !invite?.roomCode) return;
+    await supabase.from("room_invites").update({ status: "accepted" }).eq("id", invite.id);
+    await joinRoom(invite.roomCode);
+  }
+
+  async function declineRoomInvite(inviteId) {
+    if (!inviteId) return;
+    await supabase.from("room_invites").delete().eq("id", inviteId);
+    if (user?.id) await loadRoomInvites(user.id);
+  }
+
   useEffect(() => {
     loadLeaderboardData(user?.id ?? null);
   }, [user?.id]);
@@ -996,6 +1053,10 @@ export default function App() {
     loadFriendsAndRequests(user?.id ?? null);
   }, [user?.id]);
 
+  useEffect(() => {
+    loadRoomInvites(user?.id ?? null);
+  }, [user?.id]);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
@@ -1010,6 +1071,8 @@ export default function App() {
   const [friendSearch, setFriendSearch] = useState("");
   const [friendResults, setFriendResults] = useState([]);
   const [friendStats, setFriendStats] = useState({});
+  const [roomInvites, setRoomInvites] = useState([]);
+  const lastTurnNotifiedRef = useRef(null);
   const themes = THEMES;
   const themeSnapshot = useMemo(
     () => ({
@@ -1226,6 +1289,17 @@ export default function App() {
       }
     })();
   }, [roomId, playerId, progress, dice, target, themeSnapshot]);
+
+  useEffect(() => {
+    if (!settings.turnNotifications) return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    if (!isMyTurn || !roomState?.updated_at) return;
+    const key = `${roomState.turn_player_id}:${roomState.updated_at}`;
+    if (lastTurnNotifiedRef.current === key) return;
+    lastTurnNotifiedRef.current = key;
+    new Notification("Din tur", { body: "Det är din tur att slå!" });
+  }, [isMyTurn, roomState?.updated_at, roomState?.turn_player_id, settings.turnNotifications]);
 
   const resetTurnState = () => {
     setDiceStatus("idle");
@@ -1513,6 +1587,12 @@ export default function App() {
     return roomCode.trim().length >= 4 && hasName;
   }, [roomCode, name, profile?.display_name, authName]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedCode = params.get("room");
+    if (sharedCode) setRoomCode(sharedCode.toUpperCase());
+  }, []);
+
   async function createRoom() {
     const code = makeCode(6);
     const { data: room, error } = await createRoomWithCode(code);
@@ -1595,6 +1675,17 @@ export default function App() {
     setRoomId(room.id);
     setPlayerId(player.id);
     setStep("room");
+  }
+
+  function shareRoomLink() {
+    if (!roomCode) return;
+    const url = `${window.location.origin}?room=${roomCode}`;
+    const text = `Kom och spela 12:an! Rumskod: ${roomCode} Länk: ${url}`;
+    if (navigator.share) {
+      navigator.share({ title: "12:an", text, url }).catch(() => {});
+      return;
+    }
+    window.location.href = `sms:&body=${encodeURIComponent(text)}`;
   }
 
   async function handleLeave() {
@@ -2394,6 +2485,47 @@ export default function App() {
                           );
                         })}
                       </div>
+
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontWeight: 800 }}>Inbjudningar till rum</div>
+                        {roomInvites.length === 0 && (
+                          <div style={{ color: "var(--muted)" }}>Inga inbjudningar just nu.</div>
+                        )}
+                        {roomInvites.map((inv) => (
+                          <div
+                            key={inv.id}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr auto",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid var(--border)",
+                              background: "rgba(255,255,255,.02)",
+                            }}
+                          >
+                            <div style={{ fontWeight: 700 }}>
+                              {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
+                            </div>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <Button
+                                onClick={() => acceptRoomInvite(inv)}
+                                style={{ width: "auto", padding: "6px 10px" }}
+                              >
+                                Gå med
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() => declineRoomInvite(inv.id)}
+                                style={{ width: "auto", padding: "6px 10px" }}
+                              >
+                                Neka
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </>
                   )}
                 </div>
@@ -3100,6 +3232,51 @@ export default function App() {
                   </div>
                 )}
 
+                {!isSolo && (
+                  <div>
+                    <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>
+                      Bjud in vänner
+                    </div>
+                    {!user && (
+                      <div style={{ color: "var(--muted)" }}>Logga in för att bjuda in vänner.</div>
+                    )}
+                    {user && (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <Button variant="ghost" onClick={shareRoomLink}>
+                          Dela via SMS / länk
+                        </Button>
+                        {friends.length === 0 && (
+                          <div style={{ color: "var(--muted)" }}>Inga vänner att bjuda in ännu.</div>
+                        )}
+                        {friends.map((f) => (
+                          <div
+                            key={f.id}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr auto",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid var(--border)",
+                              background: "rgba(255,255,255,.02)",
+                            }}
+                          >
+                            <div style={{ fontWeight: 700 }}>{f.display_name}</div>
+                            <Button
+                              variant="ghost"
+                              onClick={() => sendRoomInvite(f.id)}
+                              style={{ width: "auto", padding: "6px 10px" }}
+                            >
+                              Bjud in
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Tärningar i appen</div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -3178,6 +3355,34 @@ export default function App() {
                     >
                       {settings.vibrateOnTurn ? "På" : "Av"}
                     </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Notiser</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <Button
+                      variant={settings.turnNotifications ? "primary" : "ghost"}
+                      onClick={async () => {
+                        if (!("Notification" in window)) {
+                          alert("Notiser stöds inte i denna webbläsare.");
+                          return;
+                        }
+                        if (Notification.permission !== "granted") {
+                          const perm = await Notification.requestPermission();
+                          if (perm !== "granted") {
+                            setSettings((s) => ({ ...s, turnNotifications: false }));
+                            return;
+                          }
+                        }
+                        setSettings((s) => ({ ...s, turnNotifications: !s.turnNotifications }));
+                      }}
+                    >
+                      {settings.turnNotifications ? "På" : "Av"}
+                    </Button>
+                  </div>
+                  <div style={{ color: "var(--muted)", fontWeight: 600, marginTop: 6 }}>
+                    Notiser fungerar när appen är öppen.
                   </div>
                 </div>
               </div>

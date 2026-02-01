@@ -77,3 +77,16 @@ create table if not exists public.friends (
 
 create unique index if not exists friends_unique_idx
   on public.friends(user_id, friend_id);
+
+-- Room invites
+create table if not exists public.room_invites (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid references public.rooms(id) on delete cascade,
+  sender_profile_id uuid references public.profiles(id) on delete set null,
+  recipient_profile_id uuid references public.profiles(id) on delete cascade,
+  status text not null default 'pending',
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists room_invites_unique_idx
+  on public.room_invites(room_id, recipient_profile_id);
