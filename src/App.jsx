@@ -1094,6 +1094,20 @@ export default function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+  useEffect(() => {
+    const media = window.matchMedia?.("(display-mode: standalone)");
+    const update = () => {
+      const standalone =
+        Boolean(media && media.matches) ||
+        window.navigator.standalone === true ||
+        document.referrer.startsWith("android-app://");
+      setIsStandalone(standalone);
+    };
+    update();
+    media?.addEventListener?.("change", update);
+    return () => media?.removeEventListener?.("change", update);
+  }, []);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
@@ -1117,6 +1131,7 @@ export default function App() {
   const [chatToast, setChatToast] = useState(null);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(false);
   const themes = THEMES;
   const themeSnapshot = useMemo(
     () => ({
@@ -2405,9 +2420,11 @@ export default function App() {
             <Button variant="ghost" onClick={() => setStep("solo")}>
               Poängblad
             </Button>
-            <Button variant="ghost" onClick={() => setShowInstallHelp(true)}>
-              Lägg till som app
-            </Button>
+            {!isStandalone && (
+              <Button variant="ghost" onClick={() => setShowInstallHelp(true)}>
+                Lägg till som app
+              </Button>
+            )}
           </div>
 
           <div
@@ -2727,7 +2744,7 @@ export default function App() {
             </div>
           )}
 
-          {showInstallHelp && (
+          {showInstallHelp && !isStandalone && (
             <div
               onClick={() => setShowInstallHelp(false)}
               style={{
