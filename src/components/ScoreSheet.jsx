@@ -154,7 +154,7 @@ export default function ScoreSheet({
                 {Array.from({ length: REQUIRED_PER_ROW }, (_, i) => {
                   const checked = Boolean(rowArr[i]);
                   const ringColor =
-                    ringColors && ringColors.length
+                    ringColors && ringColors.length && checked
                       ? ringColors[(row + i) % ringColors.length]
                       : null;
                   const crownStroke = ringColor ?? (checked ? checkColor : "rgba(148,163,184,.7)");
