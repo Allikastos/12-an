@@ -2380,7 +2380,7 @@ export default function App() {
             <Button
               variant="ghost"
               onClick={() => setShowAuthPanel((v) => !v)}
-              style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
+              style={{ width: "auto", padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
               aria-label="Konto"
             >
               <span
