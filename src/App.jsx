@@ -830,6 +830,156 @@ export default function App() {
     });
   }
 
+  async function loadFriendsAndRequests(userId) {
+    if (!userId) {
+      setFriends([]);
+      setFriendRequests({ incoming: [], outgoing: [] });
+      return;
+    }
+
+    const { data: friendRows } = await supabase
+      .from("friends")
+      .select("friend_id")
+      .eq("user_id", userId);
+    const friendIds = (friendRows ?? []).map((r) => r.friend_id).filter(Boolean);
+
+    if (friendIds.length) {
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", friendIds);
+      setFriends(profileRows ?? []);
+    } else {
+      setFriends([]);
+    }
+
+    const { data: incomingRows } = await supabase
+      .from("friend_requests")
+      .select("id, requester_id, addressee_id, status")
+      .eq("addressee_id", userId)
+      .eq("status", "pending");
+    const incomingIds = (incomingRows ?? []).map((r) => r.requester_id).filter(Boolean);
+    let incoming = [];
+    if (incomingIds.length) {
+      const { data: incomingProfiles } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", incomingIds);
+      const byId = new Map((incomingProfiles ?? []).map((p) => [p.id, p]));
+      incoming = (incomingRows ?? []).map((r) => ({
+        id: r.id,
+        requester: byId.get(r.requester_id),
+      }));
+    }
+
+    const { data: outgoingRows } = await supabase
+      .from("friend_requests")
+      .select("id, requester_id, addressee_id, status")
+      .eq("requester_id", userId)
+      .eq("status", "pending");
+    const outgoingIds = (outgoingRows ?? []).map((r) => r.addressee_id).filter(Boolean);
+    let outgoing = [];
+    if (outgoingIds.length) {
+      const { data: outgoingProfiles } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", outgoingIds);
+      const byId = new Map((outgoingProfiles ?? []).map((p) => [p.id, p]));
+      outgoing = (outgoingRows ?? []).map((r) => ({
+        id: r.id,
+        addressee: byId.get(r.addressee_id),
+      }));
+    }
+
+    setFriendRequests({ incoming, outgoing });
+  }
+
+  async function searchProfiles() {
+    if (!user?.id) return;
+    const q = friendSearch.trim();
+    if (!q) {
+      setFriendResults([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .ilike("display_name", `%${q}%`)
+      .limit(20);
+    const filtered = (data ?? []).filter((p) => p.id !== user.id);
+    setFriendResults(filtered);
+  }
+
+  async function sendFriendRequest(targetId) {
+    if (!user?.id || !targetId) return;
+    await supabase.from("friend_requests").upsert({
+      requester_id: user.id,
+      addressee_id: targetId,
+      status: "pending",
+    });
+    await loadFriendsAndRequests(user.id);
+  }
+
+  async function acceptFriendRequest(requestId, requesterId) {
+    if (!user?.id || !requestId || !requesterId) return;
+    await supabase
+      .from("friend_requests")
+      .update({ status: "accepted" })
+      .eq("id", requestId);
+    await supabase.from("friends").upsert([
+      { user_id: user.id, friend_id: requesterId },
+      { user_id: requesterId, friend_id: user.id },
+    ]);
+    await loadFriendsAndRequests(user.id);
+  }
+
+  async function declineFriendRequest(requestId) {
+    if (!requestId) return;
+    await supabase.from("friend_requests").delete().eq("id", requestId);
+    if (user?.id) await loadFriendsAndRequests(user.id);
+  }
+
+  async function removeFriend(friendId) {
+    if (!user?.id || !friendId) return;
+    await supabase.from("friends").delete().eq("user_id", user.id).eq("friend_id", friendId);
+    await supabase.from("friends").delete().eq("user_id", friendId).eq("friend_id", user.id);
+    await loadFriendsAndRequests(user.id);
+  }
+
+  async function loadFriendStatsFor(friendId) {
+    if (!friendId) return;
+    const { data: rows } = await supabase
+      .from("match_players")
+      .select("match_id, is_winner, rounds")
+      .eq("profile_id", friendId);
+
+    const matches = new Set();
+    let wins = 0;
+    let totalRounds = 0;
+    let winRoundsCount = 0;
+
+    (rows ?? []).forEach((r) => {
+      if (r.match_id) matches.add(r.match_id);
+      if (r.is_winner) {
+        wins += 1;
+        if (typeof r.rounds === "number") {
+          totalRounds += r.rounds;
+          winRoundsCount += 1;
+        }
+      }
+    });
+
+    const matchCount = matches.size;
+    const winRatio = matchCount ? wins / matchCount : null;
+    const avgRoundsToWin = winRoundsCount ? totalRounds / winRoundsCount : null;
+    const kingCount = kingHistory.filter((k) => k.winner?.id === friendId).length;
+
+    setFriendStats((prev) => ({
+      ...prev,
+      [friendId]: { wins, winRatio, avgRoundsToWin, kingCount },
+    }));
+  }
+
   useEffect(() => {
     loadLeaderboardData(user?.id ?? null);
   }, [user?.id]);
@@ -842,14 +992,24 @@ export default function App() {
     loadStats(user.id);
   }, [user?.id, kingHistory.length]);
 
+  useEffect(() => {
+    loadFriendsAndRequests(user?.id ?? null);
+  }, [user?.id]);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
+  const [accountTab, setAccountTab] = useState("account");
   const [advancedTab, setAdvancedTab] = useState("colors");
   const [personalThemeName, setPersonalThemeName] = useState("");
   const [showAllThemes, setShowAllThemes] = useState(false);
   const [showDiceStyles, setShowDiceStyles] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [friendRequests, setFriendRequests] = useState({ incoming: [], outgoing: [] });
+  const [friendSearch, setFriendSearch] = useState("");
+  const [friendResults, setFriendResults] = useState([]);
+  const [friendStats, setFriendStats] = useState({});
   const themes = THEMES;
   const themeSnapshot = useMemo(
     () => ({
@@ -1951,8 +2111,23 @@ export default function App() {
                 zIndex: 10,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ fontWeight: 800 }}>Konto</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Button
+                    variant={accountTab === "account" ? "primary" : "ghost"}
+                    onClick={() => setAccountTab("account")}
+                    style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}
+                  >
+                    Profil
+                  </Button>
+                  <Button
+                    variant={accountTab === "friends" ? "primary" : "ghost"}
+                    onClick={() => setAccountTab("friends")}
+                    style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}
+                  >
+                    Vänner
+                  </Button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowAuthPanel(false)}
@@ -1967,7 +2142,7 @@ export default function App() {
                   Stäng
                 </button>
               </div>
-              {user ? (
+              {accountTab === "account" && user ? (
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ fontWeight: 700 }}>
                     {profile?.display_name ?? "Spelare"}
@@ -2017,7 +2192,8 @@ export default function App() {
                     Logga ut
                   </Button>
                 </div>
-              ) : (
+              )}
+              {accountTab === "account" && !user && (
                 <div style={{ display: "grid", gap: 8 }}>
                   <Input
                     placeholder="E-post"
@@ -2047,6 +2223,179 @@ export default function App() {
                   <div style={{ color: "var(--muted)", fontWeight: 600 }}>
                     Gäster får inga poäng eller statistik.
                   </div>
+                </div>
+              )}
+              {accountTab === "friends" && (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {!user && (
+                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                      Logga in för att hantera vänner.
+                    </div>
+                  )}
+                  {user && (
+                    <>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <div style={{ fontWeight: 800 }}>Sök spelare</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                          <Input
+                            placeholder="Sök namn"
+                            value={friendSearch}
+                            onChange={(e) => setFriendSearch(e.target.value)}
+                          />
+                          <Button
+                            variant="ghost"
+                            onClick={searchProfiles}
+                            style={{ width: "auto", padding: "8px 10px" }}
+                          >
+                            Sök
+                          </Button>
+                        </div>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          {friendResults.length === 0 && (
+                            <div style={{ color: "var(--muted)" }}>Inga sökresultat.</div>
+                          )}
+                          {friendResults.map((p) => (
+                            <div
+                              key={p.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: 8,
+                                borderRadius: 10,
+                                border: "1px solid var(--border)",
+                                background: "rgba(255,255,255,.02)",
+                              }}
+                            >
+                              <div style={{ fontWeight: 700 }}>{p.display_name}</div>
+                              <Button
+                                variant="ghost"
+                                onClick={() => sendFriendRequest(p.id)}
+                                style={{ width: "auto", padding: "6px 10px" }}
+                              >
+                                Skicka
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontWeight: 800 }}>Förfrågningar</div>
+                        {friendRequests.incoming.length === 0 && (
+                          <div style={{ color: "var(--muted)" }}>Inga inkommande förfrågningar.</div>
+                        )}
+                        {friendRequests.incoming.map((req) => (
+                          <div
+                            key={req.id}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr auto",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid var(--border)",
+                              background: "rgba(255,255,255,.02)",
+                            }}
+                          >
+                            <div style={{ fontWeight: 700 }}>{req.requester?.display_name ?? "Spelare"}</div>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <Button
+                                onClick={() => acceptFriendRequest(req.id, req.requester?.id)}
+                                style={{ width: "auto", padding: "6px 10px" }}
+                              >
+                                Acceptera
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() => declineFriendRequest(req.id)}
+                                style={{ width: "auto", padding: "6px 10px" }}
+                              >
+                                Neka
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                        {friendRequests.outgoing.length > 0 && (
+                          <div style={{ color: "var(--muted)" }}>
+                            Skickade:{" "}
+                            {friendRequests.outgoing
+                              .map((r) => r.addressee?.display_name ?? "Spelare")
+                              .join(", ")}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontWeight: 800 }}>Dina vänner</div>
+                        {friends.length === 0 && (
+                          <div style={{ color: "var(--muted)" }}>Inga vänner ännu.</div>
+                        )}
+                        {friends.map((f) => {
+                          const stats = friendStats[f.id];
+                          return (
+                            <div
+                              key={f.id}
+                              style={{
+                                display: "grid",
+                                gap: 8,
+                                padding: 8,
+                                borderRadius: 10,
+                                border: "1px solid var(--border)",
+                                background: "rgba(255,255,255,.02)",
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                <div style={{ fontWeight: 700 }}>{f.display_name}</div>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <Button
+                                    variant="ghost"
+                                    onClick={() => loadFriendStatsFor(f.id)}
+                                    style={{ width: "auto", padding: "6px 10px" }}
+                                  >
+                                    Visa statistik
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    onClick={() => removeFriend(f.id)}
+                                    style={{ width: "auto", padding: "6px 10px" }}
+                                  >
+                                    Ta bort
+                                  </Button>
+                                </div>
+                              </div>
+                              {stats && (
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                  <div>
+                                    <div style={{ fontWeight: 900 }}>{stats.wins}</div>
+                                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: 900 }}>
+                                      {stats.winRatio != null ? stats.winRatio.toFixed(2) : "—"}
+                                    </div>
+                                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster / match</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: 900 }}>
+                                      {stats.avgRoundsToWin ? stats.avgRoundsToWin.toFixed(1) : "—"}
+                                    </div>
+                                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>rundor per vinst</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: 900 }}>{stats.kingCount}</div>
+                                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>king‑titlar</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

@@ -55,3 +55,25 @@ create index if not exists match_players_match_idx on public.match_players(match
 -- Player state theme snapshot for inspect view
 alter table public.player_state
   add column if not exists theme_snapshot jsonb default '{}'::jsonb;
+
+-- Friends
+create table if not exists public.friend_requests (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid references public.profiles(id) on delete cascade,
+  addressee_id uuid references public.profiles(id) on delete cascade,
+  status text not null default 'pending',
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists friend_requests_unique_idx
+  on public.friend_requests(requester_id, addressee_id);
+
+create table if not exists public.friends (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  friend_id uuid references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists friends_unique_idx
+  on public.friends(user_id, friend_id);
