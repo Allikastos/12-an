@@ -2300,9 +2300,33 @@ export default function App() {
                   display: "grid",
                   placeItems: "center",
                   fontSize: 14,
+                  position: "relative",
                 }}
               >
                 👤
+                {friendRequests.incoming.length > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -6,
+                      minWidth: 16,
+                      height: 16,
+                      padding: "0 4px",
+                      borderRadius: 999,
+                      background: "#ef4444",
+                      color: "white",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      display: "grid",
+                      placeItems: "center",
+                      border: "2px solid rgba(8,12,20,.9)",
+                    }}
+                  >
+                    {friendRequests.incoming.length}
+                  </span>
+                )}
               </span>
             </Button>
           </div>
@@ -2624,8 +2648,17 @@ export default function App() {
                     )}
                     {user && (
                       <>
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <div style={{ fontWeight: 800 }}>Sök spelare</div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            padding: 12,
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "rgba(255,255,255,.02)",
+                          }}
+                        >
+                          <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Sök spelare</div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                             <Input
                               placeholder="Sök namn"
@@ -2671,8 +2704,17 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div style={{ display: "grid", gap: 8 }}>
-                          <div style={{ fontWeight: 800 }}>Förfrågningar</div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            padding: 12,
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "rgba(255,255,255,.02)",
+                          }}
+                        >
+                          <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Förfrågningar</div>
                           {friendRequests.incoming.length === 0 && (
                             <div style={{ color: "var(--muted)" }}>Inga inkommande förfrågningar.</div>
                           )}
@@ -2718,8 +2760,17 @@ export default function App() {
                           )}
                         </div>
 
-                        <div style={{ display: "grid", gap: 8 }}>
-                          <div style={{ fontWeight: 800 }}>Dina vänner</div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            padding: 12,
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "rgba(255,255,255,.02)",
+                          }}
+                        >
+                          <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Dina vänner</div>
                           {friends.length === 0 && <div style={{ color: "var(--muted)" }}>Inga vänner ännu.</div>}
                           {friends.map((f) => {
                             const stats = friendStats[f.id];
@@ -2783,8 +2834,17 @@ export default function App() {
                           })}
                         </div>
 
-                        <div style={{ display: "grid", gap: 8 }}>
-                          <div style={{ fontWeight: 800 }}>Inbjudningar till rum</div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            padding: 12,
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "rgba(255,255,255,.02)",
+                          }}
+                        >
+                          <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Inbjudningar till rum</div>
                           {roomInvites.length === 0 && (
                             <div style={{ color: "var(--muted)" }}>Inga inbjudningar just nu.</div>
                           )}
