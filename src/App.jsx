@@ -1622,6 +1622,12 @@ export default function App() {
     loadPlayerStates(roomId);
     loadChat(roomId);
 
+    const pollId = setInterval(() => {
+      loadPlayers(roomId);
+      loadRoomState(roomId);
+      loadPlayerStates(roomId);
+    }, 3000);
+
     const channel = supabase
       .channel(`room:${roomId}:state`)
       .on(
@@ -1656,6 +1662,7 @@ export default function App() {
       .subscribe();
 
     return () => {
+      clearInterval(pollId);
       supabase.removeChannel(channel);
     };
   }, [roomId]);
