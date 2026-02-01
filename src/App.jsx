@@ -2355,8 +2355,8 @@ export default function App() {
                 src="/12-an-hemskarm-logotyp.png"
                 alt="12:an"
                 style={{
-                  width: 96,
-                  height: 44,
+                  width: 132,
+                  height: 58,
                   objectFit: "contain",
                   borderRadius: 0,
                   border: "none",
