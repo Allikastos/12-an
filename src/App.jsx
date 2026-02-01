@@ -1037,6 +1037,34 @@ export default function App() {
     if (user?.id) await loadRoomInvites(user.id);
   }
 
+  async function loadChat(room) {
+    if (!room) {
+      setChatMessages([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("room_messages")
+      .select("id, sender_name, body, created_at")
+      .eq("room_id", room)
+      .order("created_at", { ascending: true })
+      .limit(200);
+    setChatMessages(data ?? []);
+  }
+
+  async function sendChat() {
+    const body = chatInput.trim();
+    if (!body || !roomId) return;
+    const senderName = (name.trim() || profile?.display_name || authName || "Spelare").trim();
+    await supabase.from("room_messages").insert({
+      room_id: roomId,
+      sender_profile_id: user?.id ?? null,
+      sender_player_id: playerId ?? null,
+      sender_name: senderName,
+      body,
+    });
+    setChatInput("");
+  }
+
   useEffect(() => {
     loadLeaderboardData(user?.id ?? null);
   }, [user?.id]);
@@ -1057,6 +1085,15 @@ export default function App() {
     loadRoomInvites(user?.id ?? null);
   }, [user?.id]);
 
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
@@ -1073,6 +1110,13 @@ export default function App() {
   const [friendStats, setFriendStats] = useState({});
   const [roomInvites, setRoomInvites] = useState([]);
   const lastTurnNotifiedRef = useRef(null);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatUnread, setChatUnread] = useState(0);
+  const [chatToast, setChatToast] = useState(null);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
   const themes = THEMES;
   const themeSnapshot = useMemo(
     () => ({
@@ -1397,6 +1441,10 @@ export default function App() {
     setShowInspect(true);
   }, [followActivePlayer, isMyTurn, isSolo]);
 
+  useEffect(() => {
+    if (showChat) setChatUnread(0);
+  }, [showChat]);
+
   const canAct = isSolo ? true : gameStarted && isMyTurn;
 
   const triggerRollAnimation = () => {
@@ -1557,6 +1605,7 @@ export default function App() {
     loadPlayers(roomId);
     loadRoomState(roomId);
     loadPlayerStates(roomId);
+    loadChat(roomId);
 
     const channel = supabase
       .channel(`room:${roomId}:state`)
@@ -1574,6 +1623,20 @@ export default function App() {
         "postgres_changes",
         { event: "*", schema: "public", table: "player_state", filter: `room_id=eq.${roomId}` },
         () => loadPlayerStates(roomId)
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "room_messages", filter: `room_id=eq.${roomId}` },
+        (payload) => {
+          const msg = payload.new;
+          if (!msg) return;
+          setChatMessages((prev) => [...prev, msg]);
+          if (!showChat) {
+            setChatUnread((n) => n + 1);
+            setChatToast(`${msg.sender_name}: ${msg.body}`);
+            setTimeout(() => setChatToast(null), 3000);
+          }
+        }
       )
       .subscribe();
 
@@ -2342,6 +2405,9 @@ export default function App() {
             <Button variant="ghost" onClick={() => setStep("solo")}>
               Poängblad
             </Button>
+            <Button variant="ghost" onClick={() => setShowInstallHelp(true)}>
+              Lägg till som app
+            </Button>
           </div>
 
           <div
@@ -2661,6 +2727,61 @@ export default function App() {
             </div>
           )}
 
+          {showInstallHelp && (
+            <div
+              onClick={() => setShowInstallHelp(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,.55)",
+                display: "grid",
+                placeItems: "center",
+                padding: 16,
+                zIndex: 70,
+              }}
+            >
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100%)" }}>
+                <Card style={{ padding: 18 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <h3 style={{ margin: 0 }}>Lägg till som app</h3>
+                    <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowInstallHelp(false)}>
+                      Stäng
+                    </Button>
+                  </div>
+                  <div style={{ marginTop: 10, display: "grid", gap: 10, color: "var(--text)" }}>
+                    {installPrompt ? (
+                      <>
+                        <div>Klicka på knappen nedan för att installera appen på hemskärmen.</div>
+                        <Button
+                          onClick={async () => {
+                            const prompt = installPrompt;
+                            if (!prompt) return;
+                            prompt.prompt();
+                            await prompt.userChoice;
+                            setInstallPrompt(null);
+                          }}
+                        >
+                          Installera
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          iPhone/iPad (Safari): Tryck på <strong>Dela</strong> och välj{" "}
+                          <strong>Lägg till på hemskärmen</strong>.
+                        </div>
+                        <div>
+                          Android/Chrome: Tryck på <strong>meny</strong> (⋮) och välj{" "}
+                          <strong>Installera app</strong> eller <strong>Lägg till på hemskärmen</strong>.
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
           <p style={{ marginTop: 14, color: "var(--muted)" }}>
             Skapa rum → dela koden → alla kan använda samma lobby.
           </p>
@@ -2813,6 +2934,19 @@ export default function App() {
           lastGain={lastGain}
           status={diceStatus}
         />
+
+        {!isSolo && (
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+            <Button
+              variant="ghost"
+              onClick={() => setShowChat(true)}
+              style={{ width: "auto", padding: "8px 10px", fontSize: 13 }}
+            >
+              Chat
+              {chatUnread > 0 ? ` (${chatUnread})` : ""}
+            </Button>
+          </div>
+        )}
 
         {!isSolo && (
           <div
@@ -3549,6 +3683,93 @@ export default function App() {
                 ) : (
                   <div style={{ color: "var(--muted)" }}>Inga spelare.</div>
                 )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {chatToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(15,23,42,.9)",
+            color: "white",
+            padding: "10px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,.12)",
+            zIndex: 90,
+            fontWeight: 700,
+            maxWidth: "90vw",
+            textAlign: "center",
+          }}
+        >
+          {chatToast}
+        </div>
+      )}
+
+      {showChat && (
+        <div
+          onClick={() => setShowChat(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.55)",
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+            zIndex: 70,
+          }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
+            <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <h3 style={{ margin: 0 }}>Chat</h3>
+                <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowChat(false)}>
+                  Stäng
+                </Button>
+              </div>
+
+              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div
+                  style={{
+                    maxHeight: "52vh",
+                    overflow: "auto",
+                    display: "grid",
+                    gap: 8,
+                    padding: 8,
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,.02)",
+                  }}
+                >
+                  {chatMessages.length === 0 && (
+                    <div style={{ color: "var(--muted)" }}>Inga meddelanden ännu.</div>
+                  )}
+                  {chatMessages.map((m) => (
+                    <div key={m.id} style={{ display: "grid", gap: 4 }}>
+                      <div style={{ fontWeight: 800 }}>{m.sender_name}</div>
+                      <div style={{ color: "var(--text)" }}>{m.body}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                  <Input
+                    placeholder="Skriv ett meddelande..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") sendChat();
+                    }}
+                  />
+                  <Button onClick={sendChat} style={{ width: "auto" }}>
+                    Skicka
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
