@@ -1691,11 +1691,9 @@ export default function App() {
           const msg = payload.new;
           if (!msg) return;
           setChatMessages((prev) => [...prev, msg]);
-          if (!showChat) {
-            setChatUnread((n) => n + 1);
-            setChatToast(`${msg.sender_name}: ${msg.body}`);
-            setTimeout(() => setChatToast(null), 3000);
-          }
+          setChatUnread((n) => n + 1);
+          setChatToast(`${msg.sender_name}: ${msg.body}`);
+          setTimeout(() => setChatToast(null), 3000);
         }
       )
       .subscribe();
@@ -2098,7 +2096,11 @@ export default function App() {
   function rerollAll() {
     triggerRollAnimation();
     setDice(Array(6).fill(0).map(() => rollDie()));
-    resetTurnState();
+    setDiceStatus("choose");
+    setTargetLocked(false);
+    setLocked(Array(6).fill(false));
+    setPreviewLocked(Array(6).fill(false));
+    setLastGain(0);
   }
 
   function addToProgress(val, count) {
