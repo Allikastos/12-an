@@ -2352,7 +2352,7 @@ export default function App() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <img
-                src="/12-an-hemskärm-logotyp.PNG"
+                src="/12-an-hemskarm-logotyp.png"
                 alt="12:an"
                 style={{
                   width: 56,
