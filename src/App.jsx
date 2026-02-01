@@ -2431,7 +2431,14 @@ export default function App() {
               }}
             >
               <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
-                <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto" }}>
+                <Card
+                  style={{
+                    padding: 18,
+                    maxHeight: "82vh",
+                    overflow: "auto",
+                    background: "rgba(8,12,20,.98)",
+                  }}
+                >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <h3 style={{ margin: 0 }}>Vänner</h3>
                     <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowFriendsPanel(false)}>
