@@ -260,8 +260,7 @@ export default function DiceTray({
             disabled={
               !canAct ||
               (status === "choose" && !target) ||
-              status === "stopped" ||
-              status === "all"
+              status === "stopped"
             }
             style={{ minWidth: 0, paddingInline: 6, fontSize: 13 }}
           >

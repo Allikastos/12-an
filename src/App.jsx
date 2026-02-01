@@ -2119,7 +2119,11 @@ export default function App() {
   }
 
   function rollOnce() {
-    if (diceStatus === "stopped" || diceStatus === "all") return;
+    if (diceStatus === "all") {
+      rerollAll();
+      return;
+    }
+    if (diceStatus === "stopped") return;
     if (diceStatus === "idle") {
       triggerRollAnimation();
       const firstDice = Array(6).fill(0).map(() => rollDie());
