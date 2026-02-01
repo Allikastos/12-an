@@ -2460,6 +2460,49 @@ export default function App() {
             </Button>
           </div>
 
+          {roomInvites.length > 0 && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: "rgba(255,255,255,.02)",
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              {roomInvites.slice(0, 1).map((inv) => (
+                <div
+                  key={inv.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto auto",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>
+                    {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
+                  </div>
+                  <Button
+                    onClick={() => acceptRoomInvite(inv)}
+                    style={{ width: "auto", padding: "6px 10px" }}
+                  >
+                    Gå med
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => declineRoomInvite(inv.id)}
+                    style={{ width: "auto", padding: "6px 10px" }}
+                  >
+                    Neka
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
             <Button variant="ghost" onClick={() => setStep("solo")}>
               Poängblad
