@@ -930,6 +930,12 @@ export default function App() {
     await loadFriendsAndRequests(user.id);
   }
 
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
+  const outgoingRequestIds = useMemo(
+    () => new Set(friendRequests.outgoing.map((r) => r.addressee?.id).filter(Boolean)),
+    [friendRequests.outgoing]
+  );
+
   async function acceptFriendRequest(requestId, requesterId) {
     if (!user?.id || !requestId || !requesterId) return;
     await supabase
@@ -1145,6 +1151,7 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [authNotice, setAuthNotice] = useState(null);
+  const [selectedStandingPlayerId, setSelectedStandingPlayerId] = useState(null);
   const themes = THEMES;
   const themeSnapshot = useMemo(
     () => ({
@@ -1549,6 +1556,7 @@ export default function App() {
       return {
         id: p.id,
         name: p.name,
+        profileId: p.profile_id ?? null,
         percent: Math.round(w * 100),
         rows,
       };
@@ -3174,9 +3182,42 @@ export default function App() {
                     background: p.id === playerId ? "rgba(255,255,255,.03)" : "transparent",
                   }}
                 >
-                  <div style={{ fontWeight: 700 }}>
-                    {p.name}
-                    {p.id === playerId ? " (du)" : ""}
+                  <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedStandingPlayerId((v) => (v === p.id ? null : p.id))
+                      }
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "inherit",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        padding: 0,
+                        textAlign: "left",
+                      }}
+                    >
+                      {p.name}
+                      {p.id === playerId ? " (du)" : ""}
+                    </button>
+                    {selectedStandingPlayerId === p.id &&
+                      user?.id &&
+                      p.profileId &&
+                      p.profileId !== user.id && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => sendFriendRequest(p.profileId)}
+                          disabled={friendIds.has(p.profileId) || outgoingRequestIds.has(p.profileId)}
+                          style={{ width: "auto", padding: "4px 8px", fontSize: 11 }}
+                        >
+                          {friendIds.has(p.profileId)
+                            ? "Vänner"
+                            : outgoingRequestIds.has(p.profileId)
+                            ? "Skickad"
+                            : "Lägg till"}
+                        </Button>
+                      )}
                   </div>
                   <div style={{ fontWeight: 900 }}>{p.percent}%</div>
                 </div>
