@@ -725,7 +725,7 @@ export default function App() {
     setProfile(null);
   }
 
-  async function loadLeaderboardData(currentUserId) {
+  async function loadLeaderboardData(currentUserId, currentUserName) {
     const monthKey = getMonthKeySweden();
     const { data: rows } = await supabase
       .from("match_players")
@@ -775,9 +775,12 @@ export default function App() {
     const previousMonthKey = getPreviousMonthKeySweden();
     const previousMonthWinner = history.find((h) => h.month === previousMonthKey)?.winner ?? null;
     const currentLeaderId = list[0]?.id ?? null;
+    const currentLeaderName = (list[0]?.name ?? "").trim().toLowerCase();
+    const normalizedUserName = (currentUserName ?? "").trim().toLowerCase();
+    const nameMatch = Boolean(normalizedUserName && currentLeaderName && normalizedUserName === currentLeaderName);
     const eligibleKing =
       Boolean(currentUserId) &&
-      (currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id);
+      (currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id || nameMatch);
     setIsKing(eligibleKing);
   }
 
@@ -1078,8 +1081,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    loadLeaderboardData(user?.id ?? null);
-  }, [user?.id]);
+    loadLeaderboardData(user?.id ?? null, profile?.display_name ?? authName ?? name ?? null);
+  }, [user?.id, profile?.display_name, authName, name]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -2331,7 +2334,7 @@ export default function App() {
       .select("*")
       .single();
     if (updated) setRoomState(updated);
-    await loadLeaderboardData(user?.id ?? null);
+    await loadLeaderboardData(user?.id ?? null, profile?.display_name ?? authName ?? name ?? null);
     if (user?.id) await loadStats(user.id);
   }
 
