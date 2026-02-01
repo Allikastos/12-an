@@ -539,6 +539,8 @@ export default function App() {
             diceStyle: "classic",
             showDice: false,
             vibrateOnTurn: false,
+            notifyTurn: true,
+            notifyInvite: true,
           };
     } catch {
       return {
@@ -569,6 +571,8 @@ export default function App() {
         diceStyle: "classic",
         showDice: false,
         vibrateOnTurn: false,
+        notifyTurn: true,
+        notifyInvite: true,
       };
     }
   });
@@ -608,6 +612,12 @@ export default function App() {
       setSettings((s) => ({ ...s, themeKey: "Standard" }));
     }
   }, [settings.themeKey]);
+
+  useEffect(() => {
+    if (typeof settings.turnNotifications === "boolean" && typeof settings.notifyTurn !== "boolean") {
+      setSettings((s) => ({ ...s, notifyTurn: s.turnNotifications }));
+    }
+  }, [settings.turnNotifications, settings.notifyTurn]);
 
   useEffect(() => {
     let active = true;
@@ -1124,6 +1134,8 @@ export default function App() {
   const [friendStats, setFriendStats] = useState({});
   const [roomInvites, setRoomInvites] = useState([]);
   const lastTurnNotifiedRef = useRef(null);
+  const prevTurnPlayerRef = useRef(null);
+  const seenInviteIdsRef = useRef(new Set());
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
@@ -1350,15 +1362,20 @@ export default function App() {
   }, [roomId, playerId, progress, dice, target, themeSnapshot]);
 
   useEffect(() => {
-    if (!settings.turnNotifications) return;
+    if (!settings.notifyTurn) return;
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
-    if (!isMyTurn || !roomState?.updated_at) return;
-    const key = `${roomState.turn_player_id}:${roomState.updated_at}`;
+    if (!roomState?.turn_player_id) return;
+    const prev = prevTurnPlayerRef.current;
+    const current = String(roomState.turn_player_id);
+    prevTurnPlayerRef.current = current;
+    if (String(playerId ?? "") !== current) return;
+    if (prev && prev === current) return;
+    const key = `${current}:${roomState.updated_at ?? ""}`;
     if (lastTurnNotifiedRef.current === key) return;
     lastTurnNotifiedRef.current = key;
     new Notification("Din tur", { body: "Det är din tur att slå!" });
-  }, [isMyTurn, roomState?.updated_at, roomState?.turn_player_id, settings.turnNotifications]);
+  }, [roomState?.turn_player_id, roomState?.updated_at, playerId, settings.notifyTurn]);
 
   const resetTurnState = () => {
     setDiceStatus("idle");
@@ -1459,6 +1476,19 @@ export default function App() {
   useEffect(() => {
     if (showChat) setChatUnread(0);
   }, [showChat]);
+
+  useEffect(() => {
+    if (!settings.notifyInvite) return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    const seen = seenInviteIdsRef.current;
+    const newInvites = roomInvites.filter((i) => !seen.has(i.id));
+    if (newInvites.length === 0) return;
+    newInvites.forEach((inv) => seen.add(inv.id));
+    const first = newInvites[0];
+    const from = first?.sender?.display_name ?? "Spelare";
+    new Notification("Rumsinbjudan", { body: `${from} bjöd in dig till ett rum.` });
+  }, [roomInvites, settings.notifyInvite]);
 
   const canAct = isSolo ? true : gameStarted && isMyTurn;
 
@@ -1626,6 +1656,7 @@ export default function App() {
       loadPlayers(roomId);
       loadRoomState(roomId);
       loadPlayerStates(roomId);
+      loadChat(roomId);
     }, 3000);
 
     const channel = supabase
@@ -2079,7 +2110,13 @@ export default function App() {
         return current + addedCount >= 7;
       })();
 
-    if (nextLocked.every(Boolean) || rowFilled) {
+    if (nextLocked.every(Boolean)) {
+      setDiceStatus("all");
+      setTargetLocked(true);
+      return;
+    }
+
+    if (rowFilled) {
       resetTurnState();
       return;
     }
@@ -3541,26 +3578,51 @@ export default function App() {
 
                 <div>
                   <div style={{ color: "var(--muted)", fontWeight: 800, marginBottom: 8 }}>Notiser</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <Button
-                      variant={settings.turnNotifications ? "primary" : "ghost"}
-                      onClick={async () => {
-                        if (!("Notification" in window)) {
-                          alert("Notiser stöds inte i denna webbläsare.");
-                          return;
-                        }
-                        if (Notification.permission !== "granted") {
-                          const perm = await Notification.requestPermission();
-                          if (perm !== "granted") {
-                            setSettings((s) => ({ ...s, turnNotifications: false }));
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontWeight: 700 }}>När det är din tur</div>
+                      <Button
+                        variant={settings.notifyTurn ? "primary" : "ghost"}
+                        onClick={async () => {
+                          if (!("Notification" in window)) {
+                            alert("Notiser stöds inte i denna webbläsare.");
                             return;
                           }
-                        }
-                        setSettings((s) => ({ ...s, turnNotifications: !s.turnNotifications }));
-                      }}
-                    >
-                      {settings.turnNotifications ? "På" : "Av"}
-                    </Button>
+                          if (Notification.permission !== "granted") {
+                            const perm = await Notification.requestPermission();
+                            if (perm !== "granted") {
+                              setSettings((s) => ({ ...s, notifyTurn: false }));
+                              return;
+                            }
+                          }
+                          setSettings((s) => ({ ...s, notifyTurn: !s.notifyTurn }));
+                        }}
+                      >
+                        {settings.notifyTurn ? "På" : "Av"}
+                      </Button>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontWeight: 700 }}>Rumsinbjudan</div>
+                      <Button
+                        variant={settings.notifyInvite ? "primary" : "ghost"}
+                        onClick={async () => {
+                          if (!("Notification" in window)) {
+                            alert("Notiser stöds inte i denna webbläsare.");
+                            return;
+                          }
+                          if (Notification.permission !== "granted") {
+                            const perm = await Notification.requestPermission();
+                            if (perm !== "granted") {
+                              setSettings((s) => ({ ...s, notifyInvite: false }));
+                              return;
+                            }
+                          }
+                          setSettings((s) => ({ ...s, notifyInvite: !s.notifyInvite }));
+                        }}
+                      >
+                        {settings.notifyInvite ? "På" : "Av"}
+                      </Button>
+                    </div>
                   </div>
                   <div style={{ color: "var(--muted)", fontWeight: 600, marginTop: 6 }}>
                     Notiser fungerar när appen är öppen.
