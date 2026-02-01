@@ -1706,6 +1706,38 @@ export default function App() {
     };
   }, [roomId]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`user:${user.id}:invites`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friend_requests", filter: `addressee_id=eq.${user.id}` },
+        () => loadFriendsAndRequests(user.id)
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friend_requests", filter: `requester_id=eq.${user.id}` },
+        () => loadFriendsAndRequests(user.id)
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "friends", filter: `user_id=eq.${user.id}` },
+        () => loadFriendsAndRequests(user.id)
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "room_invites", filter: `recipient_profile_id=eq.${user.id}` },
+        () => loadRoomInvites(user.id)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const canJoin = useMemo(() => {
     const hasName = name.trim().length >= 2 || Boolean(profile?.display_name || authName);
     return roomCode.trim().length >= 4 && hasName;
