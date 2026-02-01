@@ -930,12 +930,6 @@ export default function App() {
     await loadFriendsAndRequests(user.id);
   }
 
-  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
-  const outgoingRequestIds = useMemo(
-    () => new Set(friendRequests.outgoing.map((r) => r.addressee?.id).filter(Boolean)),
-    [friendRequests.outgoing]
-  );
-
   async function acceptFriendRequest(requestId, requesterId) {
     if (!user?.id || !requestId || !requesterId) return;
     await supabase
@@ -1153,6 +1147,11 @@ export default function App() {
   const [authNotice, setAuthNotice] = useState(null);
   const [selectedStandingPlayerId, setSelectedStandingPlayerId] = useState(null);
   const themes = THEMES;
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
+  const outgoingRequestIds = useMemo(
+    () => new Set(friendRequests.outgoing.map((r) => r.addressee?.id).filter(Boolean)),
+    [friendRequests.outgoing]
+  );
   const themeSnapshot = useMemo(
     () => ({
       boxSize: settings.boxSize,
