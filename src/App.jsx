@@ -2355,12 +2355,12 @@ export default function App() {
                 src="/12-an-hemskarm-logotyp.png"
                 alt="12:an"
                 style={{
-                  width: 56,
-                  height: 28,
+                  width: 96,
+                  height: 44,
                   objectFit: "contain",
-                  borderRadius: 6,
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  boxShadow: "0 6px 16px rgba(2,6,23,0.28)",
+                  borderRadius: 0,
+                  border: "none",
+                  boxShadow: "none",
                 }}
               />
             </div>
