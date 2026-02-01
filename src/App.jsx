@@ -493,6 +493,7 @@ export default function App() {
   const [kingHistory, setKingHistory] = useState([]);
   const [stats, setStats] = useState(null);
   const [isKing, setIsKing] = useState(false);
+  const [isKingReady, setIsKingReady] = useState(false);
   const [showKingHistory, setShowKingHistory] = useState(false);
 
   const [step, setStep] = useState("home"); // home | room | solo
@@ -778,10 +779,14 @@ export default function App() {
     const currentLeaderName = (list[0]?.name ?? "").trim().toLowerCase();
     const normalizedUserName = (currentUserName ?? "").trim().toLowerCase();
     const nameMatch = Boolean(normalizedUserName && currentLeaderName && normalizedUserName === currentLeaderName);
+    if (!currentUserId) {
+      setIsKingReady(false);
+      return;
+    }
     const eligibleKing =
-      Boolean(currentUserId) &&
-      (currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id || nameMatch);
+      currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id || nameMatch;
     setIsKing(eligibleKing);
+    setIsKingReady(true);
   }
 
   async function loadStats(userId) {
@@ -1068,7 +1073,27 @@ export default function App() {
       .eq("room_id", room)
       .order("created_at", { ascending: true })
       .limit(200);
-    setChatMessages(data ?? []);
+    const rows = data ?? [];
+    if (rows.length) {
+      const lastId = lastChatIdRef.current;
+      if (!lastId) {
+        lastChatIdRef.current = rows[rows.length - 1]?.id ?? null;
+      } else {
+        const lastIdx = rows.findIndex((r) => r.id === lastId);
+        const newRows = lastIdx >= 0 ? rows.slice(lastIdx + 1) : rows.slice(-1);
+        if (newRows.length) {
+          newRows.forEach((msg) => {
+            const toastId = `${msg.id ?? "m"}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            setChatToasts((prev) => [...prev, { id: toastId, text: `${msg.sender_name}: ${msg.body}` }]);
+            setTimeout(() => {
+              setChatToasts((prev) => prev.filter((t) => t.id !== toastId));
+            }, 5000);
+          });
+          lastChatIdRef.current = rows[rows.length - 1]?.id ?? lastChatIdRef.current;
+        }
+      }
+    }
+    setChatMessages(rows);
   }
 
   async function sendChat() {
@@ -1086,6 +1111,10 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!user?.id) {
+      setIsKing(false);
+      setIsKingReady(false);
+    }
     loadLeaderboardData(user?.id ?? null, profile?.display_name ?? authName ?? name ?? null);
   }, [user?.id, profile?.display_name, authName, name]);
 
@@ -1151,6 +1180,7 @@ export default function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatUnread, setChatUnread] = useState(0);
   const [chatToasts, setChatToasts] = useState([]);
+  const lastChatIdRef = useRef(null);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -1283,13 +1313,15 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!isKingReady) return;
     if (settings.themeKey === "King" && !isKing && !UNLOCK_KING_FOR_PREVIEW) {
       const fallback = themes.find((t) => t.key === "Standard");
       if (fallback) applyTheme(fallback);
     }
-  }, [isKing]);
+  }, [isKing, isKingReady]);
 
   useEffect(() => {
+    if (!isKingReady) return;
     if (UNLOCK_KING_FOR_PREVIEW) return;
     if (isKing) return;
     const kingOnly = {
