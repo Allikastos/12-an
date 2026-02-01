@@ -16,6 +16,7 @@ alter table public.room_state
   add column if not exists round_counts jsonb default '{}'::jsonb,
   add column if not exists finish_triggered boolean default false,
   add column if not exists finish_until_player_id uuid,
+  add column if not exists finish_until_round int,
   add column if not exists finish_winner_ids uuid[] default '{}',
   add column if not exists match_id uuid,
   add column if not exists finalized_at timestamptz,

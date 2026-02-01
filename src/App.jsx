@@ -1910,6 +1910,7 @@ export default function App() {
           round_counts: roundCounts,
           finish_triggered: false,
           finish_until_player_id: null,
+          finish_until_round: null,
           finish_winner_ids: [],
           match_id: null,
           finalized_at: null,
@@ -1998,6 +1999,7 @@ export default function App() {
               round_counts: {},
               finish_triggered: false,
               finish_until_player_id: null,
+              finish_until_round: null,
               finish_winner_ids: [],
               match_id: null,
               finalized_at: null,
@@ -2229,6 +2231,8 @@ export default function App() {
     if (!roomId || !playerId || !roomState?.started) return;
     const order = roomState.turn_order ?? [];
     const finishUntil = roomState.finish_until_player_id ?? order[order.length - 1] ?? playerId;
+    const baseCounts = roomState.round_counts ?? {};
+    const finishUntilRound = (baseCounts[playerId] ?? 0) + 1;
     const winners = new Set(roomState.finish_winner_ids ?? []);
     winners.add(playerId);
 
@@ -2237,6 +2241,7 @@ export default function App() {
       .update({
         finish_triggered: true,
         finish_until_player_id: finishUntil,
+        finish_until_round: finishUntilRound,
         finish_winner_ids: Array.from(winners),
         updated_at: new Date().toISOString(),
       })
@@ -2340,9 +2345,13 @@ export default function App() {
       );
       const finishUntil = roomState?.finish_until_player_id ?? null;
       const finishMissing = !finishUntil || !activeOrder.includes(finishUntil);
+      const finishUntilRound = roomState?.finish_until_round ?? null;
+      const reachedFinishRound =
+        finishUntilRound != null &&
+        activeOrder.every((id) => (counts?.[id] ?? roomState?.round_counts?.[id] ?? 0) >= finishUntilRound);
       const isFinalTurn =
         roomState?.finish_triggered &&
-        (finishUntil === playerId || finishMissing || activeOrder.length <= 1);
+        (reachedFinishRound || finishUntil === playerId || finishMissing || activeOrder.length <= 1);
       if (isFinalTurn) {
         await finalizeMatch(counts);
         return;
@@ -2355,43 +2364,19 @@ export default function App() {
     return (
       <Container>
         <Card style={{ padding: 22, position: "relative" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }} />
-
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              left: 16,
-              display: "flex",
-              alignItems: "flex-end",
-              height: 24,
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <img
               src="/12-an-hemskarm-logotyp.png"
               alt="12:an"
               style={{
-                width: 132,
-                height: 24,
+                width: 150,
+                height: 48,
                 objectFit: "contain",
                 borderRadius: 0,
                 border: "none",
                 boxShadow: "none",
               }}
             />
-          </div>
-
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              zIndex: 10,
-            }}
-          >
             <Button
               variant="ghost"
               onClick={() => setShowAuthPanel((v) => !v)}
@@ -2580,7 +2565,7 @@ export default function App() {
             </div>
           )}
 
-          <div style={{ marginTop: 14 }}>
+          <div style={{ marginTop: 24 }}>
             <label style={{ display: "block", color: "var(--muted)", fontWeight: 700, marginBottom: 8 }}>
               Ditt namn
             </label>
