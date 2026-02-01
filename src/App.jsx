@@ -2357,7 +2357,7 @@ export default function App() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 800 }}>King of the Month {getMonthKeySweden()}</div>
+              <div style={{ fontWeight: 800 }}>King of the Month</div>
               {leaderboard[0] && (
                 <div style={{ fontWeight: 800, color: "var(--accent)" }}>
                   King: {leaderboard[0].name}
