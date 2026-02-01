@@ -2335,8 +2335,14 @@ export default function App() {
     if (!isMyTurn) return;
     (async () => {
       const counts = await incrementRoundCount();
+      const activeOrder = (roomState?.turn_order ?? []).filter((id) =>
+        players.some((p) => p.id === id)
+      );
+      const finishUntil = roomState?.finish_until_player_id ?? null;
+      const finishMissing = !finishUntil || !activeOrder.includes(finishUntil);
       const isFinalTurn =
-        roomState?.finish_triggered && roomState.finish_until_player_id === playerId;
+        roomState?.finish_triggered &&
+        (finishUntil === playerId || finishMissing || activeOrder.length <= 1);
       if (isFinalTurn) {
         await finalizeMatch(counts);
         return;
