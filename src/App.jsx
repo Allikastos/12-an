@@ -2349,21 +2349,30 @@ export default function App() {
     return (
       <Container>
         <Card style={{ padding: 22, position: "relative" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <img
-                src="/12-an-hemskarm-logotyp.png"
-                alt="12:an"
-                style={{
-                  width: 132,
-                  height: 58,
-                  objectFit: "contain",
-                  borderRadius: 0,
-                  border: "none",
-                  boxShadow: "none",
-                }}
-              />
-            </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }} />
+
+          <div
+            style={{
+              position: "absolute",
+              top: 16,
+              left: 16,
+              display: "flex",
+              alignItems: "flex-end",
+              height: 24,
+            }}
+          >
+            <img
+              src="/12-an-hemskarm-logotyp.png"
+              alt="12:an"
+              style={{
+                width: 132,
+                height: 24,
+                objectFit: "contain",
+                borderRadius: 0,
+                border: "none",
+                boxShadow: "none",
+              }}
+            />
           </div>
 
           <div
