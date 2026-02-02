@@ -1187,6 +1187,7 @@ export default function App() {
   const [authNotice, setAuthNotice] = useState(null);
   const [selectedStandingPlayerId, setSelectedStandingPlayerId] = useState(null);
   const themes = THEMES;
+  const kingLocked = isKingReady && !isKing && !UNLOCK_KING_FOR_PREVIEW;
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
   const outgoingRequestIds = useMemo(
     () => new Set(friendRequests.outgoing.map((r) => r.addressee?.id).filter(Boolean)),
@@ -3426,7 +3427,7 @@ export default function App() {
                         key={t.name}
                         variant={settings.themeKey === (t.key ?? t.name) ? "primary" : "ghost"}
                         onClick={() => applyTheme(t)}
-                        disabled={Boolean(t.requiresKing && !isKing && !UNLOCK_KING_FOR_PREVIEW)}
+                        disabled={Boolean(t.requiresKing && kingLocked)}
                         style={{ display: "grid", gap: 8, justifyItems: "center" }}
                       >
                         <div
@@ -3453,7 +3454,7 @@ export default function App() {
                         />
                         <div style={{ fontWeight: 800, fontSize: 12 }}>
                           {t.name}
-                          {t.requiresKing && !isKing && !UNLOCK_KING_FOR_PREVIEW ? " 🔒" : ""}
+                          {t.requiresKing && kingLocked ? " 🔒" : ""}
                         </div>
                       </Button>
                     ))}
@@ -3635,7 +3636,7 @@ export default function App() {
                           <option value="paws">Otis – Tassar</option>
                           <option value="crystals">Ice – Kristaller</option>
                           <option value="reggae">Reggae – Ränder</option>
-                          <option value="royal" disabled={!isKing}>
+                          <option value="royal" disabled={kingLocked}>
                             King – Kronor
                           </option>
                           <option value="lava">Lava – Sprickor</option>
@@ -3864,12 +3865,12 @@ export default function App() {
                         >
                           <div style={{ fontWeight: 800 }}>
                             {opt.label}
-                            {opt.kingOnly && !isKing ? " 🔒" : ""}
+                            {opt.kingOnly && kingLocked ? " 🔒" : ""}
                           </div>
                           <Button
                             variant={settings.diceStyle === opt.key ? "primary" : "ghost"}
                             onClick={() => setSettings((s) => ({ ...s, diceStyle: opt.key }))}
-                            disabled={Boolean(opt.kingOnly && !isKing && !UNLOCK_KING_FOR_PREVIEW)}
+                            disabled={Boolean(opt.kingOnly && kingLocked)}
                             style={{ width: "auto", padding: "8px 10px" }}
                           >
                             Välj
