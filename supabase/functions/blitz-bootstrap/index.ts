@@ -38,6 +38,10 @@ serve(async () => {
   const offset = getStockholmOffset();
   const lobbyAtIso = new Date(`${dateKey}T19:45:00${offset}`).toISOString();
   const startAtIso = new Date(`${dateKey}T20:00:00${offset}`).toISOString();
+  const now = new Date();
+  if (now.getTime() < new Date(lobbyAtIso).getTime()) {
+    return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 });
+  }
 
   const { data: existing } = await client
     .from("blitz_events")

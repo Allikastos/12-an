@@ -38,6 +38,15 @@ serve(async () => {
   if (!event?.room_id) {
     return new Response(JSON.stringify({ error: "No event" }), { status: 404 });
   }
+  if (event.status !== "lobby") {
+    return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 });
+  }
+  if (event.start_at) {
+    const startAt = new Date(event.start_at);
+    if (Date.now() < startAt.getTime()) {
+      return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
+    }
+  }
 
   const { data: participants } = await client
     .from("blitz_participants")
