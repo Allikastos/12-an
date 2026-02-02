@@ -94,6 +94,17 @@ function shuffleArray(arr) {
   return copy;
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 function countCompletedRows(progressObj) {
   let rows = 0;
   for (let r = 1; r <= 12; r++) {
@@ -114,11 +125,44 @@ function getMonthKeySweden(date = new Date()) {
   return `${year}-${month}`;
 }
 
+function getDateKeySweden(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${year}-${month}-${day}`;
+}
+
 function getPreviousMonthKeySweden(date = new Date()) {
   const d = new Date(date.getTime());
   d.setDate(1);
   d.setMonth(d.getMonth() - 1);
   return getMonthKeySweden(d);
+}
+
+function getNextBlitzTimes(now = new Date()) {
+  const start = new Date(now.getTime());
+  start.setHours(20, 0, 0, 0);
+  if (now.getTime() >= start.getTime()) {
+    start.setDate(start.getDate() + 1);
+  }
+  const lobby = new Date(start.getTime());
+  lobby.setMinutes(lobby.getMinutes() - 15);
+  return { start, lobby };
+}
+
+function formatCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 function ceilToHalf(value) {
@@ -543,6 +587,7 @@ export default function App() {
             vibrateOnTurn: false,
             notifyTurn: true,
             notifyInvite: true,
+            notifyBlitz: true,
           };
     } catch {
       return {
@@ -576,6 +621,7 @@ export default function App() {
         vibrateOnTurn: false,
         notifyTurn: true,
         notifyInvite: true,
+        notifyBlitz: true,
       };
     }
   });
@@ -1037,6 +1083,41 @@ export default function App() {
     setRoomInvites(mapped);
   }
 
+  async function loadBlitzEvent() {
+    const todayKey = getDateKeySweden();
+    let { data: event } = await supabase
+      .from("blitz_events")
+      .select("*")
+      .eq("date_key", todayKey)
+      .maybeSingle();
+    if (!event) {
+      const next = new Date();
+      next.setDate(next.getDate() + 1);
+      const nextKey = getDateKeySweden(next);
+      const { data: nextEvent } = await supabase
+        .from("blitz_events")
+        .select("*")
+        .eq("date_key", nextKey)
+        .maybeSingle();
+      event = nextEvent ?? null;
+    }
+    setBlitzEvent(event);
+    setBlitzStatus(event?.status ?? "idle");
+    if (event?.id) await loadBlitzParticipants(event.id);
+  }
+
+  async function loadBlitzParticipants(eventId) {
+    if (!eventId) {
+      setBlitzParticipants([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("blitz_participants")
+      .select("id, profile_id, player_id, status, eliminated_at, eliminated_seq")
+      .eq("event_id", eventId);
+    setBlitzParticipants(data ?? []);
+  }
+
   async function sendRoomInvite(friendId) {
     if (!user?.id || !roomId || !friendId) return;
     await supabase.from("room_invites").upsert(
@@ -1110,6 +1191,51 @@ export default function App() {
     setChatInput("");
   }
 
+  async function registerBlitzPush() {
+    if (!user?.id) return;
+    if (!("serviceWorker" in navigator)) return;
+    const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!publicKey) return;
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    const json = sub.toJSON();
+    const endpoint = sub.endpoint;
+    const p256dh = json.keys?.p256dh ?? "";
+    const auth = json.keys?.auth ?? "";
+    if (!endpoint || !p256dh || !auth) return;
+    await supabase.from("push_subscriptions").upsert(
+      {
+        profile_id: user.id,
+        endpoint,
+        p256dh,
+        auth,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "profile_id,endpoint" }
+    );
+  }
+
+  async function unregisterBlitzPush() {
+    if (!user?.id) return;
+    if (!("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) {
+      await sub.unsubscribe();
+      await supabase
+        .from("push_subscriptions")
+        .delete()
+        .eq("profile_id", user.id)
+        .eq("endpoint", sub.endpoint);
+    }
+  }
+
   useEffect(() => {
     if (!user?.id) {
       setIsKing(false);
@@ -1133,6 +1259,76 @@ export default function App() {
   useEffect(() => {
     loadRoomInvites(user?.id ?? null);
   }, [user?.id]);
+
+  useEffect(() => {
+    loadBlitzEvent();
+    const id = setInterval(() => loadBlitzEvent(), 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!blitzEvent?.id) return;
+    const channel = supabase
+      .channel(`blitz:${blitzEvent.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blitz_events", filter: `id=eq.${blitzEvent.id}` },
+        () => loadBlitzEvent()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "blitz_participants",
+          filter: `event_id=eq.${blitzEvent.id}`,
+        },
+        () => loadBlitzParticipants(blitzEvent.id)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [blitzEvent?.id]);
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const times = blitzEvent?.start_at
+        ? { start: new Date(blitzEvent.start_at), lobby: new Date(blitzEvent.lobby_open_at) }
+        : getNextBlitzTimes(now);
+      setBlitzCountdown(formatCountdown(times.start.getTime() - now.getTime()));
+      if (blitzEvent?.status) {
+        setBlitzStatus(blitzEvent.status);
+      } else if (now >= times.start) {
+        setBlitzStatus("running");
+      } else if (now >= times.lobby) {
+        setBlitzStatus("lobby");
+      } else {
+        setBlitzStatus("idle");
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [blitzEvent?.start_at, blitzEvent?.lobby_open_at, blitzEvent?.status]);
+
+  useEffect(() => {
+    if (!isBlitzRoom) {
+      if (prevShowDiceRef.current != null) {
+        setSettings((s) => ({ ...s, showDice: prevShowDiceRef.current }));
+        prevShowDiceRef.current = null;
+      }
+      return;
+    }
+    if (prevShowDiceRef.current == null) {
+      prevShowDiceRef.current = settings.showDice;
+    }
+    if (!settings.showDice) {
+      setSettings((s) => ({ ...s, showDice: true }));
+    }
+  }, [isBlitzRoom, settings.showDice]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -1175,6 +1371,12 @@ export default function App() {
   const lastTurnNotifiedRef = useRef(null);
   const prevTurnPlayerRef = useRef(null);
   const seenInviteIdsRef = useRef(new Set());
+  const [blitzEvent, setBlitzEvent] = useState(null);
+  const [blitzParticipants, setBlitzParticipants] = useState([]);
+  const [blitzCountdown, setBlitzCountdown] = useState(null);
+  const [blitzStatus, setBlitzStatus] = useState("idle");
+  const [blitzJoinError, setBlitzJoinError] = useState(null);
+  const prevShowDiceRef = useRef(null);
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
@@ -1223,6 +1425,26 @@ export default function App() {
       settings.dicePipLocked,
     ]
   );
+  const isBlitzRoom = Boolean(roomId && blitzEvent?.room_id && roomId === blitzEvent.room_id);
+  const blitzActiveCount = blitzParticipants.filter((p) => p.status === "active").length;
+  const blitzEliminatedCount = blitzParticipants.filter((p) => p.status === "eliminated").length;
+  const blitzJoined = Boolean(
+    user?.id && blitzParticipants.some((p) => p.profile_id === user.id && p.status === "active")
+  );
+  const blitzTimes = useMemo(() => {
+    if (blitzEvent?.start_at && blitzEvent?.lobby_open_at) {
+      return {
+        start: new Date(blitzEvent.start_at),
+        lobby: new Date(blitzEvent.lobby_open_at),
+      };
+    }
+    return getNextBlitzTimes();
+  }, [blitzEvent?.start_at, blitzEvent?.lobby_open_at]);
+  const blitzNow = new Date();
+  const blitzLobbyOpen = blitzNow >= blitzTimes.lobby && blitzNow < blitzTimes.start;
+  const blitzStartsIn = blitzCountdown ?? formatCountdown(blitzTimes.start.getTime() - blitzNow.getTime());
+  const blitzRunning = blitzEvent?.status === "running";
+  const blitzFinished = blitzEvent?.status === "finished";
 
   function applyTheme(t) {
     setSettings((s) => ({
@@ -1555,6 +1777,13 @@ export default function App() {
     new Notification("Rumsinbjudan", { body: `${from} bjöd in dig till ett rum.` });
   }, [roomInvites, settings.notifyInvite]);
 
+  useEffect(() => {
+    if (!settings.notifyBlitz) return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    registerBlitzPush();
+  }, [settings.notifyBlitz, user?.id]);
+
   const canAct = isSolo ? true : gameStarted && isMyTurn;
 
   const triggerRollAnimation = () => {
@@ -1619,6 +1848,19 @@ export default function App() {
       };
     });
   }, [players, playerStates]);
+
+  const blitzRiskIds = useMemo(() => {
+    if (!isBlitzRoom) return new Set();
+    const activeCount = playerSummaries.length;
+    if (activeCount <= 1) return new Set();
+    const eliminateCount = activeCount > 10 && activeCount > 4 ? 2 : 1;
+    const sorted = [...playerSummaries].sort((a, b) => {
+      if (a.percent !== b.percent) return a.percent - b.percent;
+      if (a.rows !== b.rows) return a.rows - b.rows;
+      return a.name.localeCompare(b.name);
+    });
+    return new Set(sorted.slice(0, eliminateCount).map((p) => p.id));
+  }, [isBlitzRoom, playerSummaries]);
 
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -1837,12 +2079,8 @@ export default function App() {
     await joinRoom(code);
   }
 
-  async function joinRoom(codeParam) {
-    const code = (codeParam ?? roomCode).trim().toUpperCase();
+  async function joinRoomWithRoom(room, codeOverride = "") {
     const playerName = (name.trim() || profile?.display_name || authName || "").trim();
-
-    const { data: room, error: roomErr } = await getRoomByCode(code);
-    if (roomErr || !room) return alert("Rummet hittades inte. Kontrollera koden.");
 
     let player = null;
     const { data: existing, error: existingErr } = await getPlayerByDevice(room.id, deviceId);
@@ -1864,12 +2102,12 @@ export default function App() {
         deviceId,
         user?.id ?? null
       );
-      if (playerErr) return alert(playerErr.message);
+      if (playerErr) return { room: null, player: null, error: playerErr };
       player = created;
     }
 
     const { error: scoreErr } = await ensureScore(room.id, player.id);
-    if (scoreErr) return alert(scoreErr.message);
+    if (scoreErr) return { room: null, player: null, error: scoreErr };
 
     await supabase.from("player_state").upsert(
       {
@@ -1902,14 +2140,59 @@ export default function App() {
       }
     }
 
-    localStorage.setItem("scoreboard_room_code", code);
+    localStorage.setItem("scoreboard_room_code", codeOverride || room.code || "");
     localStorage.setItem("scoreboard_room_id", room.id);
     localStorage.setItem("scoreboard_player_id", player.id);
 
-    setRoomCode(code);
+    setRoomCode((codeOverride || room.code || "").toUpperCase());
     setRoomId(room.id);
     setPlayerId(player.id);
     setStep("room");
+
+    return { room, player, error: null };
+  }
+
+  async function joinRoom(codeParam) {
+    const code = (codeParam ?? roomCode).trim().toUpperCase();
+
+    const { data: room, error: roomErr } = await getRoomByCode(code);
+    if (roomErr || !room) return alert("Rummet hittades inte. Kontrollera koden.");
+
+    const { error } = await joinRoomWithRoom(room, code);
+    if (error) return alert(error.message);
+  }
+
+  async function joinBlitz() {
+    setBlitzJoinError(null);
+    if (!user?.id) {
+      setBlitzJoinError("Du måste vara inloggad för Blitz.");
+      return;
+    }
+    if (!blitzEvent?.room_id) {
+      setBlitzJoinError("Blitz är inte öppet ännu.");
+      return;
+    }
+    const { data: room } = await supabase.from("rooms").select("*").eq("id", blitzEvent.room_id).maybeSingle();
+    if (!room) {
+      setBlitzJoinError("Blitz-rummet hittades inte.");
+      return;
+    }
+    const { player, error } = await joinRoomWithRoom(room, room.code || "BLITZ");
+    if (error || !player) {
+      setBlitzJoinError(error?.message ?? "Kunde inte gå med i Blitz.");
+      return;
+    }
+    await supabase.from("blitz_participants").upsert(
+      {
+        event_id: blitzEvent.id,
+        profile_id: user.id,
+        player_id: player.id,
+        status: "active",
+        joined_at: new Date().toISOString(),
+      },
+      { onConflict: "event_id,profile_id" }
+    );
+    await loadBlitzParticipants(blitzEvent.id);
   }
 
   function shareRoomLink() {
@@ -2645,6 +2928,54 @@ export default function App() {
             </Button>
           </div>
 
+          <div
+            style={{
+              marginTop: 14,
+              padding: 14,
+              borderRadius: 14,
+              border: "1px solid rgba(234,179,8,.45)",
+              background:
+                "linear-gradient(135deg, rgba(234,179,8,.14), rgba(56,189,248,.08) 55%, rgba(15,23,42,.05))",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "grid", gap: 4 }}>
+                <div style={{ fontWeight: 900 }}>Kvällsblitz 20:00</div>
+                <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                  Startar om {blitzStartsIn}
+                </div>
+                <div style={{ color: blitzLobbyOpen ? "#fde68a" : "var(--muted)", fontWeight: 800 }}>
+                  {blitzRunning
+                    ? "Pågår nu"
+                    : blitzFinished
+                    ? "Avslutad"
+                    : blitzLobbyOpen
+                    ? "Anmälan öppen (19:45–20:00)"
+                    : "Anmälan öppnar 19:45"}
+                </div>
+                <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                  Aktiva: {blitzActiveCount} {blitzEliminatedCount ? `• Utslagna: ${blitzEliminatedCount}` : ""}
+                </div>
+              </div>
+              <Button
+                variant={blitzLobbyOpen && user?.id ? "primary" : "ghost"}
+                onClick={joinBlitz}
+                disabled={!blitzLobbyOpen || !user?.id || blitzRunning || blitzFinished || !blitzEvent?.id}
+                style={{ width: "auto", whiteSpace: "nowrap" }}
+              >
+                {blitzJoined ? "Du är med" : blitzLobbyOpen ? "Gå med" : "Väntar..."}
+              </Button>
+            </div>
+            {blitzJoinError && (
+              <div style={{ marginTop: 8, color: "salmon", fontWeight: 700 }}>{blitzJoinError}</div>
+            )}
+            {!user?.id && (
+              <div style={{ marginTop: 6, color: "var(--muted)", fontWeight: 600 }}>
+                Blitz kräver inloggning.
+              </div>
+            )}
+          </div>
+
           {roomInvites.length > 0 && (
             <div
               style={{
@@ -3299,8 +3630,14 @@ export default function App() {
                     alignItems: "center",
                     padding: "8px 10px",
                     borderRadius: 10,
-                    border: "1px solid var(--border)",
-                    background: p.id === playerId ? "rgba(255,255,255,.03)" : "transparent",
+                    border: blitzRiskIds.has(p.id)
+                      ? "1px solid rgba(239,68,68,.6)"
+                      : "1px solid var(--border)",
+                    background: blitzRiskIds.has(p.id)
+                      ? "rgba(239,68,68,.12)"
+                      : p.id === playerId
+                      ? "rgba(255,255,255,.03)"
+                      : "transparent",
                   }}
                 >
                   <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
@@ -3817,9 +4154,13 @@ export default function App() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <Button
                       variant={settings.showDice ? "primary" : "ghost"}
-                      onClick={() => setSettings((s) => ({ ...s, showDice: !s.showDice }))}
+                      onClick={() => {
+                        if (isBlitzRoom) return;
+                        setSettings((s) => ({ ...s, showDice: !s.showDice }));
+                      }}
+                      disabled={isBlitzRoom}
                     >
-                      {settings.showDice ? "På" : "Av"}
+                      {isBlitzRoom ? "På (Blitz)" : settings.showDice ? "På" : "Av"}
                     </Button>
                   </div>
                   {settings.showDice && (
@@ -3940,9 +4281,37 @@ export default function App() {
                         {settings.notifyInvite ? "På" : "Av"}
                       </Button>
                     </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontWeight: 700 }}>Kvällsblitz 19:45</div>
+                      <Button
+                        variant={settings.notifyBlitz ? "primary" : "ghost"}
+                        onClick={async () => {
+                          if (!("Notification" in window)) {
+                            alert("Notiser stöds inte i denna webbläsare.");
+                            return;
+                          }
+                          if (Notification.permission !== "granted") {
+                            const perm = await Notification.requestPermission();
+                            if (perm !== "granted") {
+                              setSettings((s) => ({ ...s, notifyBlitz: false }));
+                              return;
+                            }
+                          }
+                          const next = !settings.notifyBlitz;
+                          setSettings((s) => ({ ...s, notifyBlitz: next }));
+                          if (next) {
+                            registerBlitzPush();
+                          } else {
+                            unregisterBlitzPush();
+                          }
+                        }}
+                      >
+                        {settings.notifyBlitz ? "På" : "Av"}
+                      </Button>
+                    </div>
                   </div>
                   <div style={{ color: "var(--muted)", fontWeight: 600, marginTop: 6 }}>
-                    Notiser fungerar när appen är öppen.
+                    Notiser fungerar när appen är öppen. Blitz-notiser kan skickas i bakgrunden.
                   </div>
                 </div>
               </div>

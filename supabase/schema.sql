@@ -104,3 +104,49 @@ create table if not exists public.room_messages (
 );
 
 create index if not exists room_messages_room_idx on public.room_messages(room_id);
+
+-- Blitz events
+create table if not exists public.blitz_events (
+  id uuid primary key default gen_random_uuid(),
+  date_key text not null unique,
+  room_id uuid references public.rooms(id) on delete set null,
+  status text not null default 'lobby',
+  lobby_open_at timestamptz not null,
+  start_at timestamptz not null,
+  started_at timestamptz,
+  finished_at timestamptz,
+  last_elim_at timestamptz,
+  next_elim_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.blitz_participants (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid references public.blitz_events(id) on delete cascade,
+  profile_id uuid references public.profiles(id) on delete cascade,
+  player_id uuid references public.players(id) on delete set null,
+  status text not null default 'active',
+  joined_at timestamptz not null default now(),
+  eliminated_at timestamptz,
+  eliminated_seq int
+);
+
+create unique index if not exists blitz_participants_unique_idx
+  on public.blitz_participants(event_id, profile_id);
+
+create index if not exists blitz_participants_event_idx
+  on public.blitz_participants(event_id);
+
+-- Push subscriptions
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid references public.profiles(id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists push_subscriptions_unique_idx
+  on public.push_subscriptions(profile_id, endpoint);
