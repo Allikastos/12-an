@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendNotification, setVapidDetails } from "https://deno.land/x/webpush@v0.0.4/mod.ts";
+import { sendNotification, setVapidDetails } from "https://esm.sh/web-push@3.5.0?target=deno";
 
 function getStockholmDateKey(date = new Date()): string {
   const parts = new Intl.DateTimeFormat("sv-SE", {
