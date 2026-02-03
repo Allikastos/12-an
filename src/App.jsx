@@ -2494,7 +2494,32 @@ export default function App() {
 
     if (diceStatus === "choose") {
       const { nextLocked } = computeLocks(dice, locked, value);
+      const lockedCount = nextLocked.filter(Boolean).length;
+      const initialCount = value >= 7 ? Math.floor(lockedCount / 2) : lockedCount;
+      addToProgress(value, initialCount);
+      setLocked(nextLocked);
       setPreviewLocked(nextLocked);
+      setLastGain(0);
+      setTargetLocked(true);
+
+      const rowFilled =
+        value &&
+        (() => {
+          const current = (progress?.[value] ?? []).filter(Boolean).length;
+          return current + initialCount >= 7;
+        })();
+
+      if (rowFilled) {
+        resetTurnState();
+        return;
+      }
+
+      if (nextLocked.every(Boolean)) {
+        setDiceStatus("all");
+        return;
+      }
+
+      setDiceStatus("running");
       return;
     }
 
