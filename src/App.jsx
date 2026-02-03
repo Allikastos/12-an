@@ -4305,7 +4305,7 @@ export default function App() {
                       </Button>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontWeight: 700 }}>Event 19:45</div>
+                      <div style={{ fontWeight: 700 }}>Event</div>
                       <Button
                         variant={settings.notifyBlitz ? "primary" : "ghost"}
                         onClick={async () => {
