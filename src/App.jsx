@@ -1104,6 +1104,19 @@ export default function App() {
     setBlitzEvent(event);
     setBlitzStatus(event?.status ?? "idle");
     if (event?.id) await loadBlitzParticipants(event.id);
+    return event;
+  }
+
+  async function ensureBlitzEvent() {
+    const now = new Date();
+    const times = getNextBlitzTimes(now);
+    if (now < times.lobby) return blitzEvent ?? null;
+    try {
+      await supabase.functions.invoke("blitz-bootstrap");
+    } catch (_) {
+      // Ignore, fallback to load from DB
+    }
+    return await loadBlitzEvent();
   }
 
   async function loadBlitzParticipants(eventId) {
@@ -2213,11 +2226,19 @@ export default function App() {
       setBlitzJoinError("Du måste vara inloggad för Blitz.");
       return;
     }
-    if (!blitzEvent?.room_id) {
+    if (!blitzLobbyOpen) {
       setBlitzJoinError("Blitz är inte öppet ännu.");
       return;
     }
-    const { data: room } = await supabase.from("rooms").select("*").eq("id", blitzEvent.room_id).maybeSingle();
+    let event = blitzEvent;
+    if (!event?.room_id || !event?.id) {
+      event = await ensureBlitzEvent();
+    }
+    if (!event?.room_id || !event?.id) {
+      setBlitzJoinError("Blitz-rummet hittades inte.");
+      return;
+    }
+    const { data: room } = await supabase.from("rooms").select("*").eq("id", event.room_id).maybeSingle();
     if (!room) {
       setBlitzJoinError("Blitz-rummet hittades inte.");
       return;
@@ -2229,7 +2250,7 @@ export default function App() {
     }
     await supabase.from("blitz_participants").upsert(
       {
-        event_id: blitzEvent.id,
+        event_id: event.id,
         profile_id: user.id,
         player_id: player.id,
         status: "active",
@@ -2237,7 +2258,7 @@ export default function App() {
       },
       { onConflict: "event_id,profile_id" }
     );
-    await loadBlitzParticipants(blitzEvent.id);
+    await loadBlitzParticipants(event.id);
   }
 
   function shareRoomLink() {
