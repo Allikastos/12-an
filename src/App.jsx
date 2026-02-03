@@ -138,6 +138,20 @@ function getDateKeySweden(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function getStockholmOffset(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    timeZoneName: "shortOffset",
+  }).formatToParts(date);
+  const tz = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+0";
+  const match = tz.match(/GMT([+-]?)(\d+)(?::(\d+))?/);
+  if (!match) return "+00:00";
+  const sign = match[1] === "-" ? "-" : "+";
+  const hours = String(match[2] ?? "0").padStart(2, "0");
+  const mins = String(match[3] ?? "0").padStart(2, "0");
+  return `${sign}${hours}:${mins}`;
+}
+
 function getPreviousMonthKeySweden(date = new Date()) {
   const d = new Date(date.getTime());
   d.setDate(1);
@@ -146,13 +160,16 @@ function getPreviousMonthKeySweden(date = new Date()) {
 }
 
 function getNextBlitzTimes(now = new Date()) {
-  const start = new Date(now.getTime());
-  start.setHours(20, 0, 0, 0);
+  const dateKey = getDateKeySweden(now);
+  const offset = getStockholmOffset(now);
+  let start = new Date(`${dateKey}T20:00:00${offset}`);
   if (now.getTime() >= start.getTime()) {
-    start.setDate(start.getDate() + 1);
+    const nextDay = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const nextKey = getDateKeySweden(nextDay);
+    const nextOffset = getStockholmOffset(nextDay);
+    start = new Date(`${nextKey}T20:00:00${nextOffset}`);
   }
-  const lobby = new Date(start.getTime());
-  lobby.setMinutes(lobby.getMinutes() - 15);
+  const lobby = new Date(`${getDateKeySweden(start)}T19:45:00${getStockholmOffset(start)}`);
   if (typeof window !== "undefined") {
     const qp = new URLSearchParams(window.location.search);
     const testShift = Number(qp.get("blitzTestShiftMin") ?? "");
