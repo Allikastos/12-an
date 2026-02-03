@@ -2728,7 +2728,7 @@ export default function App() {
                 borderRadius: 0,
                 border: "none",
                 boxShadow: "none",
-                marginLeft: -6,
+                marginLeft: -28,
               }}
             />
             <Button
