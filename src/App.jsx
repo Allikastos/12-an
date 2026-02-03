@@ -1245,6 +1245,29 @@ export default function App() {
   }, [user?.id, profile?.display_name, authName, name]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    const askedKey = "scoreboard_notifs_prompted_v1";
+    if (localStorage.getItem(askedKey)) return;
+    if (!("Notification" in window)) {
+      localStorage.setItem(askedKey, "1");
+      return;
+    }
+    if (Notification.permission === "default") {
+      const ok = window.confirm("Vill du slå på notiser?");
+      localStorage.setItem(askedKey, "1");
+      if (!ok) return;
+      (async () => {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") return;
+        setSettings((s) => ({ ...s, notifyTurn: true, notifyInvite: true, notifyBlitz: true }));
+        await registerBlitzPush();
+      })();
+    } else {
+      localStorage.setItem(askedKey, "1");
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
     if (!user?.id) {
       setStats(null);
       return;
@@ -2940,7 +2963,7 @@ export default function App() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <div style={{ display: "grid", gap: 4 }}>
-                <div style={{ fontWeight: 900 }}>Kvällsblitz 20:00</div>
+                <div style={{ fontWeight: 900 }}>Event 20:00</div>
                 <div style={{ color: "var(--muted)", fontWeight: 700 }}>
                   Startar om {blitzStartsIn}
                 </div>
@@ -2971,7 +2994,7 @@ export default function App() {
             )}
             {!user?.id && (
               <div style={{ marginTop: 6, color: "var(--muted)", fontWeight: 600 }}>
-                Blitz kräver inloggning.
+                Event kräver inloggning.
               </div>
             )}
           </div>
@@ -4282,7 +4305,7 @@ export default function App() {
                       </Button>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontWeight: 700 }}>Kvällsblitz 19:45</div>
+                      <div style={{ fontWeight: 700 }}>Event 19:45</div>
                       <Button
                         variant={settings.notifyBlitz ? "primary" : "ghost"}
                         onClick={async () => {
