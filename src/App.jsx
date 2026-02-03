@@ -2508,6 +2508,7 @@ export default function App() {
     triggerRollAnimation();
     setDice(Array(6).fill(0).map(() => rollDie()));
     setDiceStatus("choose");
+    setTarget(null);
     setTargetLocked(false);
     setLocked(Array(6).fill(false));
     setPreviewLocked(Array(6).fill(false));
