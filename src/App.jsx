@@ -1836,7 +1836,7 @@ export default function App() {
   }, [roomState?.turn_player_id, gameStarted]);
 
   useEffect(() => {
-    if (isSolo || !gameStarted || !isMyTurn) {
+    if (!isBlitzRoom || isSolo || !gameStarted || !isMyTurn) {
       if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
       return;
     }
@@ -1845,14 +1845,14 @@ export default function App() {
     turnTimeoutRef.current = setTimeout(() => {
       const elapsed = Date.now() - lastTurnActionRef.current;
       if (elapsed < 15000) return;
-      if (!isMyTurn || isSolo || !gameStarted) return;
+      if (!isMyTurn || !isBlitzRoom || isSolo || !gameStarted) return;
       resetTurnState();
       advanceTurn();
     }, 15000);
     return () => {
       if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
     };
-  }, [gameStarted, isMyTurn, isSolo]);
+  }, [gameStarted, isMyTurn, isSolo, isBlitzRoom]);
 
   useEffect(() => {
     if (!gameStarted || !isMyTurn) return;
@@ -2472,14 +2472,14 @@ export default function App() {
   }
 
   function markTurnActivity() {
-    if (isSolo || !gameStarted) return;
+    if (!isBlitzRoom || isSolo || !gameStarted) return;
     if (!isMyTurn) return;
     lastTurnActionRef.current = Date.now();
     if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
     turnTimeoutRef.current = setTimeout(() => {
       const elapsed = Date.now() - lastTurnActionRef.current;
       if (elapsed < 15000) return;
-      if (!isMyTurn || isSolo || !gameStarted) return;
+      if (!isMyTurn || !isBlitzRoom || isSolo || !gameStarted) return;
       resetTurnState();
       advanceTurn();
     }, 15000);
