@@ -1261,76 +1261,6 @@ export default function App() {
   }, [user?.id]);
 
   useEffect(() => {
-    loadBlitzEvent();
-    const id = setInterval(() => loadBlitzEvent(), 15000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (!blitzEvent?.id) return;
-    const channel = supabase
-      .channel(`blitz:${blitzEvent.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "blitz_events", filter: `id=eq.${blitzEvent.id}` },
-        () => loadBlitzEvent()
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "blitz_participants",
-          filter: `event_id=eq.${blitzEvent.id}`,
-        },
-        () => loadBlitzParticipants(blitzEvent.id)
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [blitzEvent?.id]);
-
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const times = blitzEvent?.start_at
-        ? { start: new Date(blitzEvent.start_at), lobby: new Date(blitzEvent.lobby_open_at) }
-        : getNextBlitzTimes(now);
-      setBlitzCountdown(formatCountdown(times.start.getTime() - now.getTime()));
-      if (blitzEvent?.status) {
-        setBlitzStatus(blitzEvent.status);
-      } else if (now >= times.start) {
-        setBlitzStatus("running");
-      } else if (now >= times.lobby) {
-        setBlitzStatus("lobby");
-      } else {
-        setBlitzStatus("idle");
-      }
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [blitzEvent?.start_at, blitzEvent?.lobby_open_at, blitzEvent?.status]);
-
-  useEffect(() => {
-    if (!isBlitzRoom) {
-      if (prevShowDiceRef.current != null) {
-        setSettings((s) => ({ ...s, showDice: prevShowDiceRef.current }));
-        prevShowDiceRef.current = null;
-      }
-      return;
-    }
-    if (prevShowDiceRef.current == null) {
-      prevShowDiceRef.current = settings.showDice;
-    }
-    if (!settings.showDice) {
-      setSettings((s) => ({ ...s, showDice: true }));
-    }
-  }, [isBlitzRoom, settings.showDice]);
-
-  useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
       setInstallPrompt(e);
@@ -1445,6 +1375,76 @@ export default function App() {
   const blitzStartsIn = blitzCountdown ?? formatCountdown(blitzTimes.start.getTime() - blitzNow.getTime());
   const blitzRunning = blitzEvent?.status === "running";
   const blitzFinished = blitzEvent?.status === "finished";
+
+  useEffect(() => {
+    loadBlitzEvent();
+    const id = setInterval(() => loadBlitzEvent(), 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!blitzEvent?.id) return;
+    const channel = supabase
+      .channel(`blitz:${blitzEvent.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blitz_events", filter: `id=eq.${blitzEvent.id}` },
+        () => loadBlitzEvent()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "blitz_participants",
+          filter: `event_id=eq.${blitzEvent.id}`,
+        },
+        () => loadBlitzParticipants(blitzEvent.id)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [blitzEvent?.id]);
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const times = blitzEvent?.start_at
+        ? { start: new Date(blitzEvent.start_at), lobby: new Date(blitzEvent.lobby_open_at) }
+        : getNextBlitzTimes(now);
+      setBlitzCountdown(formatCountdown(times.start.getTime() - now.getTime()));
+      if (blitzEvent?.status) {
+        setBlitzStatus(blitzEvent.status);
+      } else if (now >= times.start) {
+        setBlitzStatus("running");
+      } else if (now >= times.lobby) {
+        setBlitzStatus("lobby");
+      } else {
+        setBlitzStatus("idle");
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [blitzEvent?.start_at, blitzEvent?.lobby_open_at, blitzEvent?.status]);
+
+  useEffect(() => {
+    if (!isBlitzRoom) {
+      if (prevShowDiceRef.current != null) {
+        setSettings((s) => ({ ...s, showDice: prevShowDiceRef.current }));
+        prevShowDiceRef.current = null;
+      }
+      return;
+    }
+    if (prevShowDiceRef.current == null) {
+      prevShowDiceRef.current = settings.showDice;
+    }
+    if (!settings.showDice) {
+      setSettings((s) => ({ ...s, showDice: true }));
+    }
+  }, [isBlitzRoom, settings.showDice]);
 
   function applyTheme(t) {
     setSettings((s) => ({
