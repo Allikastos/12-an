@@ -138,6 +138,10 @@ function getDateKeySweden(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function getStockholmNow() {
+  return new Date(new Date().toLocaleString("sv-SE", { timeZone: "Europe/Stockholm" }));
+}
+
 function getStockholmOffset(date = new Date()) {
   const parts = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Stockholm",
@@ -160,10 +164,11 @@ function getPreviousMonthKeySweden(date = new Date()) {
 }
 
 function getNextBlitzTimes(now = new Date()) {
-  const dateKey = getDateKeySweden(now);
-  const offset = getStockholmOffset(now);
+  const baseNow = now ?? getStockholmNow();
+  const dateKey = getDateKeySweden(baseNow);
+  const offset = getStockholmOffset(baseNow);
   let start = new Date(`${dateKey}T20:00:00${offset}`);
-  if (now.getTime() >= start.getTime()) {
+  if (baseNow.getTime() >= start.getTime()) {
     const nextDay = new Date(start.getTime() + 24 * 60 * 60 * 1000);
     const nextKey = getDateKeySweden(nextDay);
     const nextOffset = getStockholmOffset(nextDay);
@@ -1109,8 +1114,8 @@ export default function App() {
   }
 
   async function loadBlitzEvent() {
-    const todayKey = getDateKeySweden();
-    const now = new Date();
+    const now = getStockholmNow();
+    const todayKey = getDateKeySweden(now);
     const times = getNextBlitzTimes(now);
     let { data: event } = await supabase
       .from("blitz_events")
@@ -1118,15 +1123,7 @@ export default function App() {
       .eq("date_key", todayKey)
       .maybeSingle();
     if (!event && now >= times.start) {
-      const next = new Date();
-      next.setDate(next.getDate() + 1);
-      const nextKey = getDateKeySweden(next);
-      const { data: nextEvent } = await supabase
-        .from("blitz_events")
-        .select("*")
-        .eq("date_key", nextKey)
-        .maybeSingle();
-      event = nextEvent ?? null;
+      event = null;
     }
     setBlitzEvent(event);
     setBlitzStatus(event?.status ?? "idle");
@@ -1135,7 +1132,7 @@ export default function App() {
   }
 
   async function ensureBlitzEvent() {
-    const now = new Date();
+    const now = getStockholmNow();
     const times = getNextBlitzTimes(now);
     if (now < times.lobby) return blitzEvent ?? null;
     try {
@@ -1382,6 +1379,7 @@ export default function App() {
   const [blitzEvent, setBlitzEvent] = useState(null);
   const [blitzParticipants, setBlitzParticipants] = useState([]);
   const [blitzCountdown, setBlitzCountdown] = useState(null);
+  const [blitzNowState, setBlitzNowState] = useState(getStockholmNow());
   const [blitzStatus, setBlitzStatus] = useState("idle");
   const [blitzJoinError, setBlitzJoinError] = useState(null);
   const prevShowDiceRef = useRef(null);
@@ -1450,7 +1448,7 @@ export default function App() {
     }
     return getNextBlitzTimes();
   }, [blitzEvent?.start_at, blitzEvent?.lobby_open_at]);
-  const blitzNow = new Date();
+  const blitzNow = blitzNowState;
   const blitzLobbyOpen = blitzNow >= blitzTimes.lobby && blitzNow < blitzTimes.start;
   const blitzStartsIn = formatCountdown(blitzTimes.start.getTime() - blitzNow.getTime());
   const blitzRunning = blitzEvent?.status === "running";
@@ -1490,7 +1488,8 @@ export default function App() {
 
   useEffect(() => {
     const tick = () => {
-      const now = new Date();
+      const now = getStockholmNow();
+      setBlitzNowState(now);
       const times = blitzEvent?.start_at
         ? { start: new Date(blitzEvent.start_at), lobby: new Date(blitzEvent.lobby_open_at) }
         : getNextBlitzTimes(now);
