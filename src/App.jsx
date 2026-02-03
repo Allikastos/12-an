@@ -3017,6 +3017,9 @@ export default function App() {
                     ? "Anmälan öppen (19:45–20:00)"
                     : "Anmälan öppnar 19:45"}
                 </div>
+                {blitzEvent?.award_points === false && (
+                  <div style={{ color: "#fbbf24", fontWeight: 800 }}>Testläge – inga poäng delas ut</div>
+                )}
                 <div style={{ color: "var(--muted)", fontWeight: 700 }}>
                   Aktiva: {blitzActiveCount} {blitzEliminatedCount ? `• Utslagna: ${blitzEliminatedCount}` : ""}
                 </div>

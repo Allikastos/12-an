@@ -200,20 +200,22 @@ async function finalizeBlitz(client: ReturnType<typeof createClient>, event: any
     .in("id", profileIds);
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name]));
 
-  const monthKey = getStockholmDateKey().slice(0, 7);
-  const rows = profileIds.map((id) => ({
-    match_id: null,
-    room_id: event.room_id,
-    profile_id: id,
-    display_name: nameById.get(id) ?? "Spelare",
-    is_winner: false,
-    rounds: null,
-    points_awarded: pointsByProfile.get(id) ?? 0,
-    month_key: monthKey,
-  }));
+  if (event?.award_points) {
+    const monthKey = getStockholmDateKey().slice(0, 7);
+    const rows = profileIds.map((id) => ({
+      match_id: null,
+      room_id: event.room_id,
+      profile_id: id,
+      display_name: nameById.get(id) ?? "Spelare",
+      is_winner: false,
+      rounds: null,
+      points_awarded: pointsByProfile.get(id) ?? 0,
+      month_key: monthKey,
+    }));
 
-  if (rows.length) {
-    await client.from("match_players").insert(rows);
+    if (rows.length) {
+      await client.from("match_players").insert(rows);
+    }
   }
 
   await client.from("blitz_events").update({

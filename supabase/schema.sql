@@ -111,6 +111,7 @@ create table if not exists public.blitz_events (
   date_key text not null unique,
   room_id uuid references public.rooms(id) on delete set null,
   status text not null default 'lobby',
+  award_points boolean not null default true,
   lobby_open_at timestamptz not null,
   start_at timestamptz not null,
   started_at timestamptz,

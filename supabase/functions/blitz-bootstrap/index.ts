@@ -68,6 +68,7 @@ serve(async () => {
           date_key: dateKey,
           room_id: room.id,
           status: "lobby",
+          award_points: true,
           lobby_open_at: lobbyAtIso,
           start_at: startAtIso,
         },
