@@ -1085,12 +1085,14 @@ export default function App() {
 
   async function loadBlitzEvent() {
     const todayKey = getDateKeySweden();
+    const now = new Date();
+    const times = getNextBlitzTimes(now);
     let { data: event } = await supabase
       .from("blitz_events")
       .select("*")
       .eq("date_key", todayKey)
       .maybeSingle();
-    if (!event) {
+    if (!event && now >= times.start) {
       const next = new Date();
       next.setDate(next.getDate() + 1);
       const nextKey = getDateKeySweden(next);
