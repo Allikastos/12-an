@@ -1421,7 +1421,7 @@ export default function App() {
   }, [blitzEvent?.start_at, blitzEvent?.lobby_open_at]);
   const blitzNow = new Date();
   const blitzLobbyOpen = blitzNow >= blitzTimes.lobby && blitzNow < blitzTimes.start;
-  const blitzStartsIn = blitzCountdown ?? formatCountdown(blitzTimes.start.getTime() - blitzNow.getTime());
+  const blitzStartsIn = formatCountdown(blitzTimes.start.getTime() - blitzNow.getTime());
   const blitzRunning = blitzEvent?.status === "running";
   const blitzFinished = blitzEvent?.status === "finished";
 
@@ -3059,6 +3059,11 @@ export default function App() {
                 )}
                 <div style={{ color: "var(--muted)", fontWeight: 700 }}>
                   Aktiva: {blitzActiveCount} {blitzEliminatedCount ? `• Utslagna: ${blitzEliminatedCount}` : ""}
+                </div>
+                <div style={{ color: "var(--muted)", fontSize: 12 }}>
+                  Debug: nu {blitzNow.toLocaleTimeString("sv-SE")} • lobby{" "}
+                  {blitzTimes.lobby.toLocaleTimeString("sv-SE")} • start{" "}
+                  {blitzTimes.start.toLocaleTimeString("sv-SE")}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
