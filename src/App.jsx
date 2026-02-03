@@ -1311,6 +1311,7 @@ export default function App() {
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
+  const [showBlitzInfo, setShowBlitzInfo] = useState(false);
   const [advancedTab, setAdvancedTab] = useState("colors");
   const [personalThemeName, setPersonalThemeName] = useState("");
   const [showAllThemes, setShowAllThemes] = useState(false);
@@ -1341,6 +1342,8 @@ export default function App() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [authNotice, setAuthNotice] = useState(null);
   const [selectedStandingPlayerId, setSelectedStandingPlayerId] = useState(null);
+  const turnTimeoutRef = useRef(null);
+  const lastTurnActionRef = useRef(0);
   const themes = THEMES;
   const kingLocked = isKingReady && !isKing && !UNLOCK_KING_FOR_PREVIEW;
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
@@ -1827,6 +1830,25 @@ export default function App() {
       resetTurnState();
     }
   }, [roomState?.turn_player_id, gameStarted]);
+
+  useEffect(() => {
+    if (isSolo || !gameStarted || !isMyTurn) {
+      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+      return;
+    }
+    lastTurnActionRef.current = Date.now();
+    if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+    turnTimeoutRef.current = setTimeout(() => {
+      const elapsed = Date.now() - lastTurnActionRef.current;
+      if (elapsed < 15000) return;
+      if (!isMyTurn || isSolo || !gameStarted) return;
+      resetTurnState();
+      advanceTurn();
+    }, 15000);
+    return () => {
+      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+    };
+  }, [gameStarted, isMyTurn, isSolo]);
 
   useEffect(() => {
     if (!gameStarted || !isMyTurn) return;
@@ -2372,6 +2394,7 @@ export default function App() {
 
   function toggleCell(row, idx) {
     if (settings.showDice) return;
+    markTurnActivity();
     setProgress((prev) => {
       const base = prev && typeof prev === "object" ? prev : emptyProgress();
       const next = { ...base, [row]: [...(base[row] ?? Array(7).fill(false))] };
@@ -2444,6 +2467,20 @@ export default function App() {
     return { nextLocked, gain };
   }
 
+  function markTurnActivity() {
+    if (isSolo || !gameStarted) return;
+    if (!isMyTurn) return;
+    lastTurnActionRef.current = Date.now();
+    if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+    turnTimeoutRef.current = setTimeout(() => {
+      const elapsed = Date.now() - lastTurnActionRef.current;
+      if (elapsed < 15000) return;
+      if (!isMyTurn || isSolo || !gameStarted) return;
+      resetTurnState();
+      advanceTurn();
+    }, 15000);
+  }
+
   function countMatchesForTargetLocal(diceArr, targetVal) {
     const { gain } = computeLocks(diceArr, Array(6).fill(false), targetVal);
     return gain;
@@ -2452,6 +2489,7 @@ export default function App() {
   function setTargetSafe(value) {
     if (targetLocked) return;
     if (fullRows.has(value)) return;
+    markTurnActivity();
     setTarget(value);
 
     if (diceStatus === "choose") {
@@ -2466,6 +2504,7 @@ export default function App() {
   }
 
   function rerollAll() {
+    markTurnActivity();
     triggerRollAnimation();
     setDice(Array(6).fill(0).map(() => rollDie()));
     setDiceStatus("choose");
@@ -2493,6 +2532,7 @@ export default function App() {
   }
 
   function rollOnce() {
+    markTurnActivity();
     if (diceStatus === "all") {
       rerollAll();
       return;
@@ -2980,14 +3020,23 @@ export default function App() {
                   Aktiva: {blitzActiveCount} {blitzEliminatedCount ? `• Utslagna: ${blitzEliminatedCount}` : ""}
                 </div>
               </div>
-              <Button
-                variant={blitzLobbyOpen && user?.id ? "primary" : "ghost"}
-                onClick={joinBlitz}
-                disabled={!blitzLobbyOpen || !user?.id || blitzRunning || blitzFinished || !blitzEvent?.id}
-                style={{ width: "auto", whiteSpace: "nowrap" }}
-              >
-                {blitzJoined ? "Du är med" : blitzLobbyOpen ? "Gå med" : "Väntar..."}
-              </Button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowBlitzInfo(true)}
+                  style={{ width: "auto", whiteSpace: "nowrap" }}
+                >
+                  Regler
+                </Button>
+                <Button
+                  variant={blitzLobbyOpen && user?.id ? "primary" : "ghost"}
+                  onClick={joinBlitz}
+                  disabled={!blitzLobbyOpen || !user?.id || blitzRunning || blitzFinished || !blitzEvent?.id}
+                  style={{ width: "auto", whiteSpace: "nowrap" }}
+                >
+                  {blitzJoined ? "Du är med" : blitzLobbyOpen ? "Gå med" : "Väntar..."}
+                </Button>
+              </div>
             </div>
             {blitzJoinError && (
               <div style={{ marginTop: 8, color: "salmon", fontWeight: 700 }}>{blitzJoinError}</div>
@@ -3405,6 +3454,76 @@ export default function App() {
                         </div>
                       </>
                     )}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {showBlitzInfo && (
+            <div
+              onClick={() => setShowBlitzInfo(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,.55)",
+                display: "grid",
+                placeItems: "center",
+                padding: 16,
+                zIndex: 60,
+              }}
+            >
+              <div onClick={(e) => e.stopPropagation()} style={{ width: "min(720px, 100%)" }}>
+                <Card
+                  style={{
+                    padding: 18,
+                    maxHeight: "82vh",
+                    overflow: "auto",
+                    background: "rgba(8,12,20,.98)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <h3 style={{ margin: 0 }}>Blitz – spelregler</h3>
+                    <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowBlitzInfo(false)}>
+                      Stäng
+                    </Button>
+                  </div>
+
+                  <div style={{ marginTop: 12, display: "grid", gap: 12, color: "var(--text)" }}>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800 }}>Tider</div>
+                      <div style={{ color: "var(--muted)" }}>
+                        Anmälan öppnar 19:45. Eventet startar exakt 20:00 (svensk tid).
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800 }}>Eliminering</div>
+                      <div style={{ color: "var(--muted)" }}>
+                        Var 5:e minut avslutas påbörjad runda. Eliminering sker först när alla aktiva spelare har
+                        spelat lika många rundor. Den/de med lägst viktad procent åker ut.
+                      </div>
+                      <div style={{ color: "var(--muted)" }}>
+                        Är det fler än 10 aktiva spelare elimineras 2 spelare, annars 1. Vid lika placering vinner den
+                        med flest ibockade rutor.
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800 }}>Tärningar</div>
+                      <div style={{ color: "var(--muted)" }}>
+                        Tärningar är alltid på i Blitz. Man kan inte spela utan tärningar i detta läge.
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800 }}>Poäng</div>
+                      <div style={{ color: "var(--muted)" }}>1:a plats: 10 poäng • 2:a plats: 5 poäng • 3:e plats: 3 poäng.</div>
+                      <div style={{ color: "var(--muted)" }}>
+                        Om två spelare delar en placering delar de på poängen för de berörda placeringarna.
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800 }}>Krav</div>
+                      <div style={{ color: "var(--muted)" }}>Endast inloggade spelare kan delta.</div>
+                    </div>
                   </div>
                 </Card>
               </div>
