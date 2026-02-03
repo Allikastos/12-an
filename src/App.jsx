@@ -153,6 +153,14 @@ function getNextBlitzTimes(now = new Date()) {
   }
   const lobby = new Date(start.getTime());
   lobby.setMinutes(lobby.getMinutes() - 15);
+  if (typeof window !== "undefined") {
+    const qp = new URLSearchParams(window.location.search);
+    const testShift = Number(qp.get("blitzTestShiftMin") ?? "");
+    if (Number.isFinite(testShift) && testShift !== 0) {
+      start.setMinutes(start.getMinutes() + testShift);
+      lobby.setMinutes(lobby.getMinutes() + testShift);
+    }
+  }
   return { start, lobby };
 }
 
