@@ -1346,6 +1346,20 @@ export default function App() {
     return () => media?.removeEventListener?.("change", update);
   }, []);
 
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const qp = new URLSearchParams(window.location.search);
+    if (qp.get("swReset") !== "1") return;
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+      .finally(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("swReset");
+        window.location.replace(url.toString());
+      });
+  }, []);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
   const [followActivePlayer, setFollowActivePlayer] = useState(false);
