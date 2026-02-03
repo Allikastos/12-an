@@ -139,7 +139,7 @@ function getDateKeySweden(date = new Date()) {
 }
 
 function getStockholmNow() {
-  return new Date(new Date().toLocaleString("sv-SE", { timeZone: "Europe/Stockholm" }));
+  return new Date();
 }
 
 function getStockholmOffset(date = new Date()) {
@@ -1114,7 +1114,7 @@ export default function App() {
   }
 
   async function loadBlitzEvent() {
-    const now = getStockholmNow();
+    const now = new Date();
     const todayKey = getDateKeySweden(now);
     const times = getNextBlitzTimes(now);
     let { data: event } = await supabase
@@ -1132,7 +1132,7 @@ export default function App() {
   }
 
   async function ensureBlitzEvent() {
-    const now = getStockholmNow();
+    const now = new Date();
     const times = getNextBlitzTimes(now);
     if (now < times.lobby) return blitzEvent ?? null;
     try {
@@ -1379,7 +1379,7 @@ export default function App() {
   const [blitzEvent, setBlitzEvent] = useState(null);
   const [blitzParticipants, setBlitzParticipants] = useState([]);
   const [blitzCountdown, setBlitzCountdown] = useState(null);
-  const [blitzNowState, setBlitzNowState] = useState(getStockholmNow());
+  const [blitzNowState, setBlitzNowState] = useState(new Date());
   const [blitzStatus, setBlitzStatus] = useState("idle");
   const [blitzJoinError, setBlitzJoinError] = useState(null);
   const prevShowDiceRef = useRef(null);
@@ -1488,7 +1488,7 @@ export default function App() {
 
   useEffect(() => {
     const tick = () => {
-      const now = getStockholmNow();
+      const now = new Date();
       setBlitzNowState(now);
       const times = blitzEvent?.start_at
         ? { start: new Date(blitzEvent.start_at), lobby: new Date(blitzEvent.lobby_open_at) }
@@ -3091,9 +3091,10 @@ export default function App() {
                   Aktiva: {blitzActiveCount} {blitzEliminatedCount ? `• Utslagna: ${blitzEliminatedCount}` : ""}
                 </div>
                 <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                  Debug: nu {blitzNow.toLocaleTimeString("sv-SE")} • lobby{" "}
-                  {blitzTimes.lobby.toLocaleTimeString("sv-SE")} • start{" "}
-                  {blitzTimes.start.toLocaleTimeString("sv-SE")}
+                  Debug: nu{" "}
+                  {blitzNow.toLocaleTimeString("sv-SE", { timeZone: "Europe/Stockholm" })} • lobby{" "}
+                  {blitzTimes.lobby.toLocaleTimeString("sv-SE", { timeZone: "Europe/Stockholm" })} • start{" "}
+                  {blitzTimes.start.toLocaleTimeString("sv-SE", { timeZone: "Europe/Stockholm" })}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
