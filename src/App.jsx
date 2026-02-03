@@ -1337,8 +1337,6 @@ export default function App() {
   const [chatUnread, setChatUnread] = useState(0);
   const [chatToasts, setChatToasts] = useState([]);
   const lastChatIdRef = useRef(null);
-  const initialSelectionRef = useRef(null);
-  const [initialSelection, setInitialSelection] = useState(null);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -1699,8 +1697,6 @@ export default function App() {
     setPreviewLocked(Array(6).fill(false));
     setLastGain(0);
     setTargetLocked(false);
-    initialSelectionRef.current = null;
-    setInitialSelection(null);
   };
 
   const TOTAL_BOXES = 12 * 7;
@@ -2490,40 +2486,6 @@ export default function App() {
     return gain;
   }
 
-  function applyInitialSelection(nextTarget, nextCount) {
-    setProgress((prev) => {
-      const base = prev && typeof prev === "object" ? prev : emptyProgress();
-      const next = { ...base };
-      const prevSel = initialSelectionRef.current;
-      if (prevSel?.count > 0 && prevSel.target) {
-        const row = next[prevSel.target] ?? Array(7).fill(false);
-        let remaining = prevSel.count;
-        for (let i = row.length - 1; i >= 0 && remaining > 0; i--) {
-          if (row[i]) {
-            row[i] = false;
-            remaining -= 1;
-          }
-        }
-        next[prevSel.target] = row;
-      }
-      if (nextTarget && nextCount > 0) {
-        const row = next[nextTarget] ?? Array(7).fill(false);
-        let filled = row.filter(Boolean).length;
-        const nextRow = [...row];
-        for (let i = filled; i < Math.min(7, filled + nextCount); i++) {
-          nextRow[i] = true;
-        }
-        next[nextTarget] = nextRow;
-      }
-      const won = isProgressWin(next);
-      setShowWin(won);
-      return next;
-    });
-    const nextSel = nextTarget ? { target: nextTarget, count: nextCount } : null;
-    initialSelectionRef.current = nextSel;
-    setInitialSelection(nextSel);
-  }
-
   function setTargetSafe(value) {
     if (targetLocked) return;
     if (fullRows.has(value)) return;
@@ -2532,32 +2494,7 @@ export default function App() {
 
     if (diceStatus === "choose") {
       const { nextLocked } = computeLocks(dice, locked, value);
-      const lockedCount = nextLocked.filter(Boolean).length;
-      const initialCount = value >= 7 ? Math.floor(lockedCount / 2) : lockedCount;
-      const prevSel = initialSelectionRef.current;
-      if (prevSel?.target === value && prevSel?.count === initialCount) {
-        setPreviewLocked(nextLocked);
-        setLocked(nextLocked);
-        return;
-      }
-      applyInitialSelection(value, initialCount);
-      setLocked(nextLocked);
       setPreviewLocked(nextLocked);
-      setLastGain(0);
-
-      const rowFilled =
-        value &&
-        (() => {
-          const current = (progress?.[value] ?? []).filter(Boolean).length;
-          const baseFilled =
-            prevSel?.target === value ? Math.max(0, current - (prevSel?.count ?? 0)) : current;
-          return baseFilled + initialCount >= 7;
-        })();
-
-      if (rowFilled) {
-        resetTurnState();
-        return;
-      }
       return;
     }
 
@@ -2576,8 +2513,6 @@ export default function App() {
     setLocked(Array(6).fill(false));
     setPreviewLocked(Array(6).fill(false));
     setLastGain(0);
-    initialSelectionRef.current = null;
-    setInitialSelection(null);
   }
 
   function addToProgress(val, count) {
@@ -2630,18 +2565,10 @@ export default function App() {
     const isTwoDiceTarget = target >= 7;
     let addedCount = 0;
     if (diceStatus === "choose") {
-      const pending = initialSelectionRef.current;
-      if (pending?.target === target) {
-        addedCount = gain;
-        if (addedCount > 0) addToProgress(target, addedCount);
-      } else {
-        const lockedCount = baseLocked.filter(Boolean).length;
-        const initialCount = isTwoDiceTarget ? Math.floor(lockedCount / 2) : lockedCount;
-        addedCount = initialCount + gain;
-        addToProgress(target, addedCount);
-      }
-      initialSelectionRef.current = null;
-      setInitialSelection(null);
+      const lockedCount = baseLocked.filter(Boolean).length;
+      const initialCount = isTwoDiceTarget ? Math.floor(lockedCount / 2) : lockedCount;
+      addedCount = initialCount + gain;
+      addToProgress(target, addedCount);
     } else if (gain > 0) {
       addedCount = gain;
       addToProgress(target, addedCount);
