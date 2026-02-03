@@ -2558,7 +2558,13 @@ export default function App() {
     }
 
     triggerRollAnimation();
-    const baseLocked = diceStatus === "choose" ? previewLocked : locked;
+    const baseLocked =
+      diceStatus === "choose"
+        ? computeLocks(dice, locked, target).nextLocked
+        : locked;
+    if (diceStatus === "choose") {
+      setPreviewLocked(baseLocked);
+    }
     const nextDice = dice.map((d, i) => (baseLocked[i] ? d : rollDie()));
     const { nextLocked, gain } = computeLocks(nextDice, baseLocked, target);
 
