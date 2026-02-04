@@ -3071,7 +3071,7 @@ export default function App() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <div style={{ display: "grid", gap: 4 }}>
-                <div style={{ fontWeight: 900 }}>Event 20:00</div>
+                <div style={{ fontWeight: 900 }}>Blitz 20:00</div>
                 <div style={{ color: "var(--muted)", fontWeight: 700 }}>
                   Startar om {blitzStartsIn}
                 </div>
@@ -3089,12 +3089,6 @@ export default function App() {
                 )}
                 <div style={{ color: "var(--muted)", fontWeight: 700 }}>
                   Aktiva: {blitzActiveCount} {blitzEliminatedCount ? `• Utslagna: ${blitzEliminatedCount}` : ""}
-                </div>
-                <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                  Debug: nu{" "}
-                  {blitzNow.toLocaleTimeString("sv-SE", { timeZone: "Europe/Stockholm" })} • lobby{" "}
-                  {blitzTimes.lobby.toLocaleTimeString("sv-SE", { timeZone: "Europe/Stockholm" })} • start{" "}
-                  {blitzTimes.start.toLocaleTimeString("sv-SE", { timeZone: "Europe/Stockholm" })}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
