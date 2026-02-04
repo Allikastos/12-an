@@ -1396,6 +1396,7 @@ export default function App() {
   const [selectedStandingPlayerId, setSelectedStandingPlayerId] = useState(null);
   const turnTimeoutRef = useRef(null);
   const lastTurnActionRef = useRef(0);
+  const autoEndWinRef = useRef(false);
   const themes = THEMES;
   const kingLocked = isKingReady && !isKing && !UNLOCK_KING_FOR_PREVIEW;
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
@@ -1699,11 +1700,18 @@ export default function App() {
     if (!hasSignaledWin && isProgressWin(progress)) {
       setHasSignaledWin(true);
       signalWin();
+      if (isMyTurn && !autoEndWinRef.current) {
+        autoEndWinRef.current = true;
+        endRound();
+      }
     }
-  }, [progress, isSolo, gameStarted, hasSignaledWin]);
+  }, [progress, isSolo, gameStarted, hasSignaledWin, isMyTurn]);
 
   useEffect(() => {
-    if (!gameStarted) setHasSignaledWin(false);
+    if (!gameStarted) {
+      setHasSignaledWin(false);
+      autoEndWinRef.current = false;
+    }
   }, [gameStarted]);
 
   useEffect(() => {
