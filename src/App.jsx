@@ -3062,8 +3062,27 @@ export default function App() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
             <Button onClick={createRoom}>Skapa rum</Button>
-            <Button variant="ghost" onClick={() => joinRoom()} disabled={!canJoin}>
+            <Button
+              variant={canJoin ? "primary" : "ghost"}
+              onClick={() => joinRoom()}
+              disabled={!canJoin}
+            >
               Joina rum
+            </Button>
+          </div>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            <Button
+              variant="primary"
+              onClick={() => setStep("solo")}
+              style={{
+                background: "linear-gradient(135deg, rgba(56,189,248,.85), rgba(34,197,94,.75))",
+                color: "#0b1220",
+                fontWeight: 900,
+                boxShadow: "0 12px 24px rgba(56,189,248,.2)",
+              }}
+            >
+              Poängblad
             </Button>
           </div>
 
@@ -3171,9 +3190,6 @@ export default function App() {
           )}
 
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-            <Button variant="ghost" onClick={() => setStep("solo")}>
-              Poängblad
-            </Button>
             {!isStandalone && installPrompt && (
               <Button variant="ghost" onClick={() => setShowInstallHelp(true)}>
                 Lägg till som app
