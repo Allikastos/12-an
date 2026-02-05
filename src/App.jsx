@@ -1473,6 +1473,12 @@ export default function App() {
   const blitzStartsIn = formatCountdown(blitzTimes.start.getTime() - blitzNow.getTime());
   const blitzRunning = blitzEvent?.status === "running";
   const blitzFinished = blitzEvent?.status === "finished";
+  const turnTimeLeft = useMemo(() => {
+    if (!isBlitzRoom || isSolo || !gameStarted || !isMyTurn) return null;
+    const last = lastTurnActionRef.current || Date.now();
+    const elapsed = Math.floor((blitzNowState.getTime() - last) / 1000);
+    return Math.max(0, 15 - elapsed);
+  }, [blitzNowState, isBlitzRoom, isSolo, gameStarted, isMyTurn]);
 
   useEffect(() => {
     loadBlitzEvent();
@@ -3836,6 +3842,7 @@ export default function App() {
         <DiceTray
           show={Boolean(settings.showDice)}
           canAct={canAct}
+          turnTimeLeft={turnTimeLeft}
           dice={dice}
           locked={locked}
           previewLocked={previewLocked}

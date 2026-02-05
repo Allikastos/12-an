@@ -156,6 +156,7 @@ function formatTargetLabel(target) {
 export default function DiceTray({
   show,
   canAct,
+  turnTimeLeft,
   dice,
   locked,
   previewLocked,
@@ -175,6 +176,16 @@ export default function DiceTray({
   status,
 }) {
   if (!show) return null;
+
+  const showTimer = typeof turnTimeLeft === "number" && canAct;
+  const timerTone = turnTimeLeft != null && turnTimeLeft <= 5 ? "var(--danger)" : "var(--accent)";
+  const statusText =
+    (!canAct && "Vänta på din tur.") ||
+    (status === "idle" && "Slå för att börja. Välj vad du vill samla på efter första slaget.") ||
+    (status === "choose" && "Välj vad du vill samla på.") ||
+    (status === "running" && `Nya träffar: ${lastGain}`) ||
+    (status === "stopped" && "Inga nya träffar. Avsluta runda.") ||
+    (status === "all" && "Alla tärningar låsta. Slå om för ny omgång.");
 
   return (
     <div
@@ -285,13 +296,38 @@ export default function DiceTray({
           </Button>
         </div>
 
-        <div style={{ color: "var(--muted)", fontWeight: 700 }}>
-          {!canAct && "Vänta på din tur."}
-          {canAct && status === "idle" && "Slå för att börja. Välj vad du vill samla på efter första slaget."}
-          {canAct && status === "choose" && "Välj vad du vill samla på."}
-          {canAct && status === "running" && `Nya träffar: ${lastGain}`}
-          {canAct && status === "stopped" && "Inga nya träffar. Avsluta runda."}
-          {canAct && status === "all" && "Alla tärningar låsta. Slå om för ny omgång."}
+        <div
+          style={{
+            color: "var(--muted)",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ flex: "1 1 220px" }}>{statusText}</div>
+          {showTimer && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 10px",
+                borderRadius: 999,
+                border: `1px solid color-mix(in srgb, ${timerTone} 55%, transparent)`,
+                background: `color-mix(in srgb, ${timerTone} 18%, transparent)`,
+                color: timerTone,
+                fontWeight: 800,
+                fontSize: 12,
+                letterSpacing: 0.2,
+              }}
+            >
+              <span>Betänketid</span>
+              <span>{turnTimeLeft}s</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
