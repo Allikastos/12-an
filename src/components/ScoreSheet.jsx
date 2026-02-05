@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { rowWeight } from "../utils/probability";
 
 const REQUIRED_PER_ROW = 7;
@@ -16,13 +16,27 @@ export default function ScoreSheet({
   onReset,
   showWin,
   onCloseWin,
+  winVideoSrc,
   headerRight,
   settings,
   showReset = true,
   showHeader = true,
   readOnly = false,
 }) {
+  const winVideoRef = useRef(null);
   const safeProgress = progress ?? defaultProgress();
+
+  useEffect(() => {
+    if (!showWin || !winVideoSrc || !winVideoRef.current) return;
+    const el = winVideoRef.current;
+    try {
+      el.currentTime = 0;
+      const p = el.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch (_) {
+      // Ignore autoplay failures
+    }
+  }, [showWin, winVideoSrc]);
 
   const stats = useMemo(() => {
     let done = 0;
@@ -307,6 +321,25 @@ export default function ScoreSheet({
               padding: 18,
             }}
           >
+            {winVideoSrc && (
+              <div style={{ marginBottom: 12 }}>
+                <video
+                  ref={winVideoRef}
+                  src={winVideoSrc}
+                  autoPlay
+                  playsInline
+                  muted={false}
+                  controls={false}
+                  preload="auto"
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    background: "#0b0b0b",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            )}
             <div style={{ fontSize: 22, fontWeight: 950 }}>Grattis! Du Vann!!</div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>

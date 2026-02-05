@@ -3832,6 +3832,7 @@ export default function App() {
             onReset={resetProgress}
             showWin={showWin}
             onCloseWin={() => setShowWin(false)}
+            winVideoSrc={settings.themeKey === "Otis" ? "/otis-win.mp4" : null}
             headerRight={null}
             settings={settings}
             showHeader={false}
