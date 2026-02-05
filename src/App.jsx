@@ -3129,7 +3129,7 @@ export default function App() {
                 <Button
                   variant={blitzLobbyOpen && user?.id ? "primary" : "ghost"}
                   onClick={joinBlitz}
-                  disabled={!blitzLobbyOpen || !user?.id || blitzRunning || blitzFinished || !blitzEvent?.id}
+                  disabled={!blitzLobbyOpen || !user?.id || blitzRunning || blitzFinished}
                   style={{ width: "auto", whiteSpace: "nowrap" }}
                 >
                   {blitzJoined ? "Du är med" : blitzLobbyOpen ? "Gå med" : "Väntar..."}
