@@ -52,13 +52,24 @@ serve(async () => {
   let event = existing;
   if (!event) {
     const code = `BLITZ-${dateKey.replace(/-/g, "")}`;
-    const { data: room, error: roomErr } = await client
+    let room = null;
+    const { data: existingRoom } = await client
       .from("rooms")
-      .insert([{ code }])
       .select("*")
-      .single();
-    if (roomErr) {
-      return new Response(JSON.stringify({ error: roomErr.message }), { status: 500 });
+      .eq("code", code)
+      .maybeSingle();
+    if (existingRoom) {
+      room = existingRoom;
+    } else {
+      const { data: createdRoom, error: roomErr } = await client
+        .from("rooms")
+        .insert([{ code }])
+        .select("*")
+        .single();
+      if (roomErr) {
+        return new Response(JSON.stringify({ error: roomErr.message }), { status: 500 });
+      }
+      room = createdRoom;
     }
 
     const { data: created, error: evErr } = await client
