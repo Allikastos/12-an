@@ -1143,6 +1143,24 @@ export default function App() {
     return await loadBlitzEvent();
   }
 
+  async function maybeAutoStartBlitz(event, now) {
+    if (!event?.id || event.status !== "lobby") return;
+    const startAt = event.start_at ? new Date(event.start_at) : getNextBlitzTimes(now).start;
+    if (now < startAt) return;
+
+    const dateKey = event.date_key ?? getDateKeySweden(now);
+    const last = blitzAutoStartRef.current;
+    if (last?.dateKey === dateKey && now.getTime() - (last?.lastAttempt ?? 0) < 60000) return;
+
+    blitzAutoStartRef.current = { dateKey, lastAttempt: now.getTime() };
+    try {
+      await supabase.functions.invoke("blitz-start");
+      await loadBlitzEvent();
+    } catch (err) {
+      console.error("blitz-start fallback failed", err);
+    }
+  }
+
   async function loadBlitzParticipants(eventId) {
     if (!eventId) {
       setBlitzParticipants([]);
@@ -1397,6 +1415,7 @@ export default function App() {
   const turnTimeoutRef = useRef(null);
   const lastTurnActionRef = useRef(0);
   const autoEndWinRef = useRef(false);
+  const blitzAutoStartRef = useRef({ dateKey: null, lastAttempt: 0 });
   const themes = THEMES;
   const kingLocked = isKingReady && !isKing && !UNLOCK_KING_FOR_PREVIEW;
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
@@ -1486,6 +1505,12 @@ export default function App() {
       supabase.removeChannel(channel);
     };
   }, [blitzEvent?.id]);
+
+  useEffect(() => {
+    if (!blitzEvent?.id || blitzEvent.status !== "lobby") return;
+    const now = new Date();
+    maybeAutoStartBlitz(blitzEvent, now);
+  }, [blitzEvent?.id, blitzEvent?.status, blitzEvent?.start_at]);
 
   useEffect(() => {
     const tick = () => {
