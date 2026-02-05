@@ -1903,8 +1903,7 @@ export default function App() {
       const elapsed = Date.now() - lastTurnActionRef.current;
       if (elapsed < 15000) return;
       if (!isMyTurn || !isBlitzRoom || isSolo || !gameStarted) return;
-      resetTurnState();
-      advanceTurn();
+      endRound();
     }, 15000);
     return () => {
       if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
@@ -2148,9 +2147,10 @@ export default function App() {
     };
   }, [user?.id]);
 
+  const hasJoinCode = useMemo(() => roomCode.trim().length >= 6, [roomCode]);
   const canJoin = useMemo(() => {
     const hasName = name.trim().length >= 2 || Boolean(profile?.display_name || authName);
-    return roomCode.trim().length >= 4 && hasName;
+    return roomCode.trim().length >= 6 && hasName;
   }, [roomCode, name, profile?.display_name, authName]);
 
   useEffect(() => {
@@ -2545,8 +2545,7 @@ export default function App() {
       const elapsed = Date.now() - lastTurnActionRef.current;
       if (elapsed < 15000) return;
       if (!isMyTurn || !isBlitzRoom || isSolo || !gameStarted) return;
-      resetTurnState();
-      advanceTurn();
+      endRound();
     }, 15000);
   }
 
@@ -3063,7 +3062,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
             <Button onClick={createRoom}>Skapa rum</Button>
             <Button
-              variant={canJoin ? "primary" : "ghost"}
+              variant={hasJoinCode ? "primary" : "ghost"}
               onClick={() => joinRoom()}
               disabled={!canJoin}
             >
@@ -3076,10 +3075,11 @@ export default function App() {
               variant="primary"
               onClick={() => setStep("solo")}
               style={{
-                background: "linear-gradient(135deg, rgba(56,189,248,.85), rgba(34,197,94,.75))",
+                background:
+                  "linear-gradient(135deg, rgba(34,197,94,.95), rgba(56,189,248,.85) 70%)",
                 color: "#0b1220",
                 fontWeight: 900,
-                boxShadow: "0 12px 24px rgba(56,189,248,.2)",
+                boxShadow: "0 14px 28px rgba(34,197,94,.28), 0 0 0 1px rgba(255,255,255,.15)",
               }}
             >
               Poängblad
