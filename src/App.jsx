@@ -852,15 +852,13 @@ export default function App() {
     const previousMonthKey = getPreviousMonthKeySweden();
     const previousMonthWinner = history.find((h) => h.month === previousMonthKey)?.winner ?? null;
     const currentLeaderId = list[0]?.id ?? null;
-    const currentLeaderName = (list[0]?.name ?? "").trim().toLowerCase();
-    const normalizedUserName = (currentUserName ?? "").trim().toLowerCase();
-    const nameMatch = Boolean(normalizedUserName && currentLeaderName && normalizedUserName === currentLeaderName);
     if (!currentUserId) {
-      setIsKingReady(false);
+      setIsKing(false);
+      setIsKingReady(true);
       return;
     }
     const eligibleKing =
-      currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id || nameMatch;
+      currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id;
     setIsKing(eligibleKing);
     setIsKingReady(true);
   }
