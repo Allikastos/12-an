@@ -25,6 +25,7 @@ export default function ScoreSheet({
 }) {
   const safeProgress = progress ?? defaultProgress();
   const [videoFailed, setVideoFailed] = useState(false);
+  const [needsUserPlay, setNeedsUserPlay] = useState(false);
   const winVideoRef = useRef(null);
 
   const stats = useMemo(() => {
@@ -89,7 +90,11 @@ export default function ScoreSheet({
     v.currentTime = 0;
     v.load();
     const tryPlay = () => {
-      v.play().catch(() => {});
+      v.play().then(() => {
+        setNeedsUserPlay(false);
+      }).catch(() => {
+        setNeedsUserPlay(true);
+      });
     };
     tryPlay();
     const retryId = setInterval(() => {
@@ -335,7 +340,22 @@ export default function ScoreSheet({
             })}
           </div>
           {winVideoSrc ? (
-            <div style={{ width: "min(92vw, 920px)" }} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{ width: "min(92vw, 920px)" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!needsUserPlay) return;
+                const v = winVideoRef.current;
+                if (!v) return;
+                v.muted = false;
+                v.play().then(() => {
+                  setNeedsUserPlay(false);
+                }).catch(() => {
+                  v.muted = true;
+                  setNeedsUserPlay(true);
+                });
+              }}
+            >
               <div
                 style={{
                   position: "relative",
@@ -367,6 +387,22 @@ export default function ScoreSheet({
                     pointerEvents: "none",
                   }}
                 />
+                {needsUserPlay && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "grid",
+                      placeItems: "center",
+                      color: "white",
+                      fontWeight: 800,
+                      textShadow: "0 10px 30px rgba(0,0,0,.6)",
+                      background: "rgba(0,0,0,.28)",
+                    }}
+                  >
+                    Tryck för att spela upp
+                  </div>
+                )}
                 <div
                   aria-hidden="true"
                   style={{
