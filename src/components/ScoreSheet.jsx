@@ -269,10 +269,11 @@ export default function ScoreSheet({
 
       {showWin && (
         <div
+          onClick={onCloseWin}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,.55)",
+            background: "rgba(0,0,0,.6)",
             display: "grid",
             placeItems: "center",
             padding: 18,
@@ -301,7 +302,7 @@ export default function ScoreSheet({
             })}
           </div>
           {winVideoSrc ? (
-            <div style={{ width: "min(92vw, 920px)" }}>
+            <div style={{ width: "min(92vw, 920px)" }} onClick={(e) => e.stopPropagation()}>
               <div
                 style={{
                   position: "relative",
@@ -352,7 +353,9 @@ export default function ScoreSheet({
                     inset: 0,
                     borderRadius: 26,
                     background:
-                      "radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%)",
+                      "radial-gradient(130% 130% at 50% 50%, rgba(0,0,0,0) 35%, rgba(0,0,0,.45) 70%, rgba(0,0,0,.85) 100%)," +
+                      "linear-gradient(90deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(0,0,0,.6) 100%)," +
+                      "linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(0,0,0,.7) 100%)",
                   }}
                 />
               </div>
@@ -361,26 +364,10 @@ export default function ScoreSheet({
                   Videon kunde inte spelas. Testa att exportera den som MP4 (H.264/AAC).
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-                <button
-                  onClick={onCloseWin}
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    border: "1px solid var(--border)",
-                    background: "rgba(255,255,255,.04)",
-                    color: "var(--text)",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                  type="button"
-                >
-                  Stäng
-                </button>
-              </div>
             </div>
           ) : (
             <div
+              onClick={(e) => e.stopPropagation()}
               style={{
                 width: "min(520px, 100%)",
                 background: "var(--card)",
