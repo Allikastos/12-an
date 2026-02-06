@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { rowWeight } from "../utils/probability";
 
 const REQUIRED_PER_ROW = 7;
@@ -25,6 +25,7 @@ export default function ScoreSheet({
 }) {
   const safeProgress = progress ?? defaultProgress();
   const [videoFailed, setVideoFailed] = useState(false);
+  const winVideoRef = useRef(null);
 
   const stats = useMemo(() => {
     let done = 0;
@@ -78,6 +79,38 @@ export default function ScoreSheet({
     const stroke = String(color ?? "#f5d77b").replace("#", "%23");
     return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><path d='M6 46 L12 22 L26 36 L32 16 L38 36 L52 22 L58 46 Z' fill='none' stroke='${stroke}' stroke-width='3.2' stroke-linejoin='round'/><path d='M10 48 H54' stroke='${stroke}' stroke-width='3.2' stroke-linecap='round'/><path d='M16 44 H48' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-opacity='0.75'/><circle cx='12' cy='22' r='3' fill='${stroke}'/><circle cx='32' cy='16' r='3.2' fill='${stroke}'/><circle cx='52' cy='22' r='3' fill='${stroke}'/></svg>")`;
   };
+
+  useEffect(() => {
+    if (!showWin || !winVideoSrc) return;
+    const v = winVideoRef.current;
+    if (!v) return;
+    setVideoFailed(false);
+    v.muted = true;
+    v.currentTime = 0;
+    v.load();
+    const tryPlay = () => {
+      v.play().catch(() => {});
+    };
+    tryPlay();
+    const retryId = setInterval(() => {
+      if (!v || !v.paused) {
+        clearInterval(retryId);
+        return;
+      }
+      tryPlay();
+    }, 500);
+    const unmuteId = setTimeout(() => {
+      if (!v || v.paused) return;
+      v.muted = false;
+      v.play().catch(() => {
+        v.muted = true;
+      });
+    }, 1200);
+    return () => {
+      clearInterval(retryId);
+      clearTimeout(unmuteId);
+    };
+  }, [showWin, winVideoSrc]);
 
   return (
     <div>
@@ -315,6 +348,7 @@ export default function ScoreSheet({
                 }}
               >
                 <video
+                  ref={winVideoRef}
                   src={winVideoSrc}
                   autoPlay
                   playsInline
@@ -324,19 +358,6 @@ export default function ScoreSheet({
                   preload="auto"
                   disablePictureInPicture
                   controlsList="nodownload noplaybackrate noremoteplayback"
-                  onCanPlay={(e) => {
-                    const v = e.currentTarget;
-                    v.play()
-                      .then(() => {
-                        // Try to unmute after autoplay (may be blocked by browser policies).
-                        v.muted = false;
-                        v.play().catch(() => {});
-                      })
-                      .catch(() => {
-                        v.muted = true;
-                        v.play().catch(() => {});
-                      });
-                  }}
                   onError={() => setVideoFailed(true)}
                   style={{
                     width: "100%",
