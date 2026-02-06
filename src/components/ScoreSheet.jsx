@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { rowWeight } from "../utils/probability";
 
 const REQUIRED_PER_ROW = 7;
@@ -23,20 +23,7 @@ export default function ScoreSheet({
   showHeader = true,
   readOnly = false,
 }) {
-  const winVideoRef = useRef(null);
   const safeProgress = progress ?? defaultProgress();
-
-  useEffect(() => {
-    if (!showWin || !winVideoSrc || !winVideoRef.current) return;
-    const el = winVideoRef.current;
-    try {
-      el.currentTime = 0;
-      const p = el.play();
-      if (p && typeof p.catch === "function") p.catch(() => {});
-    } catch (_) {
-      // Ignore autoplay failures
-    }
-  }, [showWin, winVideoSrc]);
 
   const stats = useMemo(() => {
     let done = 0;
@@ -324,7 +311,6 @@ export default function ScoreSheet({
             {winVideoSrc && (
               <div style={{ marginBottom: 12 }}>
                 <video
-                  ref={winVideoRef}
                   src={winVideoSrc}
                   autoPlay
                   playsInline

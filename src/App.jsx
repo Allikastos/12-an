@@ -3096,6 +3096,17 @@ export default function App() {
               variant={hasJoinCode ? "primary" : "ghost"}
               onClick={() => joinRoom()}
               disabled={!canJoin}
+              style={
+                hasJoinCode
+                  ? {
+                      background:
+                        "linear-gradient(135deg, rgba(34,197,94,.95), rgba(16,185,129,.92))",
+                      color: "#0b1220",
+                      fontWeight: 900,
+                      boxShadow: "0 12px 26px rgba(34,197,94,.32), 0 0 0 1px rgba(255,255,255,.12)",
+                    }
+                  : undefined
+              }
             >
               Joina rum
             </Button>
@@ -3107,10 +3118,10 @@ export default function App() {
               onClick={() => setStep("solo")}
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(34,197,94,.95), rgba(56,189,248,.85) 70%)",
+                  "linear-gradient(135deg, rgba(251,191,36,.95), rgba(34,197,94,.85) 70%)",
                 color: "#0b1220",
                 fontWeight: 900,
-                boxShadow: "0 14px 28px rgba(34,197,94,.28), 0 0 0 1px rgba(255,255,255,.15)",
+                boxShadow: "0 14px 28px rgba(251,191,36,.28), 0 0 0 1px rgba(255,255,255,.15)",
               }}
             >
               Poängblad
