@@ -299,53 +299,103 @@ export default function ScoreSheet({
               );
             })}
           </div>
-          <div
-            style={{
-              width: "min(520px, 100%)",
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: 18,
-              padding: 18,
-            }}
-          >
-            {winVideoSrc && (
-              <div style={{ marginBottom: 12 }}>
+          {winVideoSrc ? (
+            <div style={{ width: "min(92vw, 920px)" }}>
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "min(82vh, 720px)",
+                  borderRadius: 26,
+                  overflow: "hidden",
+                  background: "#0b0b0b",
+                  boxShadow: "0 30px 80px rgba(0,0,0,.45)",
+                }}
+              >
                 <video
                   src={winVideoSrc}
                   autoPlay
                   playsInline
                   muted={false}
                   controls={false}
+                  loop={false}
                   preload="auto"
+                  disablePictureInPicture
+                  controlsList="nodownload noplaybackrate noremoteplayback"
+                  onCanPlay={(e) => {
+                    const v = e.currentTarget;
+                    if (v.paused) {
+                      v.play().catch(() => {});
+                    }
+                  }}
                   style={{
                     width: "100%",
-                    borderRadius: 12,
-                    background: "#0b0b0b",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
                     pointerEvents: "none",
                   }}
                 />
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: 26,
+                    background:
+                      "radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%)",
+                  }}
+                />
               </div>
-            )}
-            <div style={{ fontSize: 22, fontWeight: 950 }}>Grattis! Du Vann!!</div>
-
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
-              <button
-                onClick={onCloseWin}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid var(--border)",
-                  background: "rgba(255,255,255,.04)",
-                  color: "var(--text)",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-                type="button"
-              >
-                Stäng
-              </button>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                <button
+                  onClick={onCloseWin}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,.04)",
+                    color: "var(--text)",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                  type="button"
+                >
+                  Stäng
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              style={{
+                width: "min(520px, 100%)",
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                borderRadius: 18,
+                padding: 18,
+              }}
+            >
+              <div style={{ fontSize: 22, fontWeight: 950 }}>Grattis! Du Vann!!</div>
+
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
+                <button
+                  onClick={onCloseWin}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,.04)",
+                    color: "var(--text)",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                  type="button"
+                >
+                  Stäng
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
