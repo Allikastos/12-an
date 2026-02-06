@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { rowWeight } from "../utils/probability";
 
 const REQUIRED_PER_ROW = 7;
@@ -24,6 +24,7 @@ export default function ScoreSheet({
   readOnly = false,
 }) {
   const safeProgress = progress ?? defaultProgress();
+  const [videoFailed, setVideoFailed] = useState(false);
 
   const stats = useMemo(() => {
     let done = 0;
@@ -316,7 +317,7 @@ export default function ScoreSheet({
                   src={winVideoSrc}
                   autoPlay
                   playsInline
-                  muted={false}
+                  muted
                   controls={false}
                   loop={false}
                   preload="auto"
@@ -324,10 +325,18 @@ export default function ScoreSheet({
                   controlsList="nodownload noplaybackrate noremoteplayback"
                   onCanPlay={(e) => {
                     const v = e.currentTarget;
-                    if (v.paused) {
-                      v.play().catch(() => {});
-                    }
+                    v.play()
+                      .then(() => {
+                        // Try to unmute after autoplay (may be blocked by browser policies).
+                        v.muted = false;
+                        v.play().catch(() => {});
+                      })
+                      .catch(() => {
+                        v.muted = true;
+                        v.play().catch(() => {});
+                      });
                   }}
+                  onError={() => setVideoFailed(true)}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -347,6 +356,11 @@ export default function ScoreSheet({
                   }}
                 />
               </div>
+              {videoFailed && (
+                <div style={{ color: "var(--muted)", fontWeight: 700, marginTop: 10 }}>
+                  Videon kunde inte spelas. Testa att exportera den som MP4 (H.264/AAC).
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
                 <button
                   onClick={onCloseWin}
