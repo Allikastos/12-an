@@ -1453,6 +1453,13 @@ export default function App() {
       settings.dicePipLocked,
     ]
   );
+  const isSolo = step === "solo";
+  const isHost = roomState?.host_player_id && roomState.host_player_id === playerId;
+  const gameStarted = isSolo ? true : Boolean(roomState?.started);
+  const isMyTurn = isSolo
+    ? true
+    : gameStarted &&
+      String(roomState?.turn_player_id ?? "") === String(playerId ?? "");
   const isBlitzRoom = Boolean(roomId && blitzEvent?.room_id && roomId === blitzEvent.room_id);
   const blitzActiveCount = blitzParticipants.filter((p) => p.status === "active").length;
   const blitzEliminatedCount = blitzParticipants.filter((p) => p.status === "eliminated").length;
@@ -1700,14 +1707,6 @@ export default function App() {
   const [rolling, setRolling] = useState(false);
   const rollTimerRef = useRef(null);
   const [turnFlash, setTurnFlash] = useState(false);
-
-  const isSolo = step === "solo";
-  const isHost = roomState?.host_player_id && roomState.host_player_id === playerId;
-  const gameStarted = isSolo ? true : Boolean(roomState?.started);
-  const isMyTurn = isSolo
-    ? true
-    : gameStarted &&
-      String(roomState?.turn_player_id ?? "") === String(playerId ?? "");
 
   useEffect(() => {
     try {
