@@ -5,7 +5,7 @@ export async function leaveRoom(roomId, playerId) {
 
   const { data: roomState } = await supabase
     .from("room_state")
-    .select("turn_order,turn_player_id,started")
+    .select("turn_order,turn_player_id,started,round_counts,finish_winner_ids,finish_until_player_id,host_player_id")
     .eq("room_id", roomId)
     .maybeSingle();
 
@@ -35,6 +35,11 @@ export async function leaveRoom(roomId, playerId) {
       }
     }
 
+    const nextHost =
+      roomState.host_player_id === playerId
+        ? nextTurn ?? remaining[0] ?? null
+        : roomState.host_player_id ?? remaining[0] ?? null;
+
     await supabase
       .from("room_state")
       .update({
@@ -43,6 +48,7 @@ export async function leaveRoom(roomId, playerId) {
         round_counts: roundCounts,
         finish_winner_ids: winnerIds,
         finish_until_player_id: finishUntil,
+        host_player_id: nextHost,
         started: remaining.length ? roomState.started : false,
         updated_at: new Date().toISOString(),
       })
