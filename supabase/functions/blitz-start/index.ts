@@ -62,7 +62,7 @@ serve(async () => {
   const order = shuffleArray(playerIds);
   const first = order[0] ?? playerIds[0];
   const roundCounts: Record<string, number> = {};
-  for (const id of order) roundCounts[id] = 0;
+  for (const id of order) roundCounts[id] = id === first ? 1 : 0;
 
   await client.from("room_state").upsert(
     {

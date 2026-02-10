@@ -857,8 +857,12 @@ export default function App() {
       setIsKingReady(true);
       return;
     }
-    const eligibleKing =
-      currentUserId === currentLeaderId || currentUserId === previousMonthWinner?.id;
+    const currentUserKey = currentUserId != null ? String(currentUserId) : null;
+    const leaderKey = currentLeaderId != null ? String(currentLeaderId) : null;
+    const prevKey = previousMonthWinner?.id != null ? String(previousMonthWinner.id) : null;
+    const eligibleKing = Boolean(
+      currentUserKey && (currentUserKey === leaderKey || currentUserKey === prevKey)
+    );
     setIsKing(eligibleKing);
     setIsKingReady(true);
   }
@@ -1141,6 +1145,17 @@ export default function App() {
     return await loadBlitzEvent();
   }
 
+  async function maybeBootstrapBlitz(now) {
+    const times = getNextBlitzTimes(now);
+    if (now < times.lobby) return;
+    const dateKey = getDateKeySweden(now);
+    if (blitzEvent?.date_key === dateKey && blitzEvent?.room_id) return;
+    const last = blitzBootstrapRef.current;
+    if (last?.dateKey === dateKey && now.getTime() - (last?.lastAttempt ?? 0) < 60000) return;
+    blitzBootstrapRef.current = { dateKey, lastAttempt: now.getTime() };
+    await ensureBlitzEvent();
+  }
+
   async function maybeAutoStartBlitz(event, now) {
     if (!event?.id || event.status !== "lobby") return;
     const startAt = event.start_at ? new Date(event.start_at) : getNextBlitzTimes(now).start;
@@ -1333,7 +1348,29 @@ export default function App() {
   }, [user?.id]);
 
   useEffect(() => {
-    loadRoomInvites(user?.id ?? null);
+    if (!user?.id) {
+      setRoomInvites([]);
+      return;
+    }
+    let active = true;
+    const refresh = () => {
+      if (!active) return;
+      loadRoomInvites(user.id);
+    };
+    refresh();
+    const id = setInterval(refresh, 8000);
+    const onFocus = () => refresh();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [user?.id]);
 
   useEffect(() => {
@@ -1414,6 +1451,7 @@ export default function App() {
   const lastTurnActionRef = useRef(0);
   const autoEndWinRef = useRef(false);
   const blitzAutoStartRef = useRef({ dateKey: null, lastAttempt: 0 });
+  const blitzBootstrapRef = useRef({ dateKey: null, lastAttempt: 0 });
   const themes = THEMES;
   const kingLocked = isKingReady && !isKing && !UNLOCK_KING_FOR_PREVIEW;
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
@@ -1487,8 +1525,18 @@ export default function App() {
 
   useEffect(() => {
     loadBlitzEvent();
-    const id = setInterval(() => loadBlitzEvent(), 15000);
-    return () => clearInterval(id);
+    const id = setInterval(() => loadBlitzEvent(), 5000);
+    const onFocus = () => loadBlitzEvent();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadBlitzEvent();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -1540,11 +1588,23 @@ export default function App() {
       } else {
         setBlitzStatus("idle");
       }
+      if (blitzEvent?.status === "lobby") {
+        void maybeAutoStartBlitz(blitzEvent, now);
+      }
+      if (!blitzEvent?.id || !blitzEvent?.room_id) {
+        void maybeBootstrapBlitz(now);
+      }
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [blitzEvent?.start_at, blitzEvent?.lobby_open_at, blitzEvent?.status]);
+  }, [
+    blitzEvent?.id,
+    blitzEvent?.room_id,
+    blitzEvent?.start_at,
+    blitzEvent?.lobby_open_at,
+    blitzEvent?.status,
+  ]);
 
   useEffect(() => {
     if (!isBlitzRoom) {
@@ -2175,7 +2235,7 @@ export default function App() {
     };
   }, [user?.id]);
 
-  const hasJoinCode = useMemo(() => roomCode.trim().length >= 6, [roomCode]);
+  const joinCodeReady = useMemo(() => roomCode.trim().length === 6, [roomCode]);
   const canJoin = useMemo(() => {
     const hasName = name.trim().length >= 2 || Boolean(profile?.display_name || authName);
     return roomCode.trim().length >= 6 && hasName;
@@ -2366,7 +2426,7 @@ export default function App() {
     const order = shuffleArray(players.map((p) => p.id));
     const first = order[0] ?? playerId;
     const roundCounts = order.reduce((acc, id) => {
-      acc[id] = 0;
+      acc[id] = id === first ? 1 : 0;
       return acc;
     }, {});
 
@@ -2408,12 +2468,18 @@ export default function App() {
       : activeOrder[0];
     const idx = Math.max(0, activeOrder.indexOf(current));
     const next = activeOrder[(idx + 1) % activeOrder.length] ?? current;
+    const baseCounts = roomState?.round_counts ?? {};
+    const nextCounts = {
+      ...baseCounts,
+      [next]: (baseCounts?.[next] ?? 0) + 1,
+    };
 
     const { data: updated } = await supabase
       .from("room_state")
       .update({
         turn_player_id: next,
         turn_order: activeOrder,
+        round_counts: nextCounts,
         updated_at: new Date().toISOString(),
       })
       .eq("room_id", roomId)
@@ -2706,29 +2772,12 @@ export default function App() {
     }
   }
 
-  async function incrementRoundCount() {
-    if (!roomId || !playerId) return null;
-    const base = roomState?.round_counts ?? {};
-    const next = { ...base, [playerId]: (base[playerId] ?? 0) + 1 };
-    const { data: updated } = await supabase
-      .from("room_state")
-      .update({
-        round_counts: next,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("room_id", roomId)
-      .select("*")
-      .single();
-    if (updated) setRoomState(updated);
-    return next;
-  }
-
   async function signalWin() {
     if (!roomId || !playerId || !roomState?.started) return;
     const order = roomState.turn_order ?? [];
     const finishUntil = roomState.finish_until_player_id ?? order[order.length - 1] ?? playerId;
     const baseCounts = roomState.round_counts ?? {};
-    const finishUntilRound = (baseCounts[playerId] ?? 0) + 1;
+    const finishUntilRound = baseCounts[playerId] ?? 0;
     const winners = new Set(roomState.finish_winner_ids ?? []);
     winners.add(playerId);
 
@@ -2835,7 +2884,7 @@ export default function App() {
     resetTurnState();
     if (!isMyTurn) return;
     (async () => {
-      const counts = await incrementRoundCount();
+      const counts = roomState?.round_counts ?? {};
       const activeOrder = (roomState?.turn_order ?? []).filter((id) =>
         players.some((p) => p.id === id)
       );
@@ -3090,11 +3139,11 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
             <Button onClick={createRoom}>Skapa rum</Button>
             <Button
-              variant={hasJoinCode ? "primary" : "ghost"}
+              variant={joinCodeReady ? "primary" : "ghost"}
               onClick={() => joinRoom()}
               disabled={!canJoin}
               style={
-                hasJoinCode
+                joinCodeReady
                   ? {
                       background:
                         "linear-gradient(135deg, rgba(34,197,94,.95), rgba(16,185,129,.92))",
@@ -3115,10 +3164,12 @@ export default function App() {
               onClick={() => setStep("solo")}
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(251,191,36,.95), rgba(34,197,94,.85) 70%)",
+                  "linear-gradient(135deg, rgba(251,191,36,1), rgba(34,197,94,.95) 70%)",
                 color: "#0b1220",
                 fontWeight: 900,
-                boxShadow: "0 14px 28px rgba(251,191,36,.28), 0 0 0 1px rgba(255,255,255,.15)",
+                border: "1px solid rgba(251,191,36,.55)",
+                boxShadow:
+                  "0 16px 32px rgba(251,191,36,.32), 0 0 0 1px rgba(255,255,255,.18)",
               }}
             >
               Poängblad
@@ -3168,7 +3219,7 @@ export default function App() {
                 <Button
                   variant={blitzLobbyOpen && user?.id ? "primary" : "ghost"}
                   onClick={joinBlitz}
-                  disabled={!blitzLobbyOpen || !user?.id || blitzRunning || blitzFinished}
+                  disabled={!blitzLobbyOpen || !user?.id}
                   style={{ width: "auto", whiteSpace: "nowrap" }}
                 >
                   {blitzJoined ? "Du är med" : blitzLobbyOpen ? "Gå med" : "Väntar..."}

@@ -86,34 +86,45 @@ export default function ScoreSheet({
     const v = winVideoRef.current;
     if (!v) return;
     setVideoFailed(false);
+    setNeedsUserPlay(false);
     v.muted = true;
-    v.currentTime = 0;
-    v.load();
+    v.playsInline = true;
+    try {
+      v.currentTime = 0;
+    } catch {}
     const tryPlay = () => {
-      v.play().then(() => {
-        setNeedsUserPlay(false);
-      }).catch(() => {
-        setNeedsUserPlay(true);
-      });
+      const res = v.play();
+      if (res && typeof res.then === "function") {
+        res.then(() => {
+          if (!v.paused) setNeedsUserPlay(false);
+        }).catch(() => {
+          setNeedsUserPlay(true);
+        });
+      }
     };
+    const onCanPlay = () => {
+      if (!v.paused) return;
+      tryPlay();
+    };
+    v.addEventListener("loadeddata", onCanPlay);
+    v.addEventListener("canplay", onCanPlay);
     tryPlay();
+    const checkId = setTimeout(() => {
+      if (!v || !v.paused) return;
+      setNeedsUserPlay(true);
+    }, 1200);
     const retryId = setInterval(() => {
       if (!v || !v.paused) {
         clearInterval(retryId);
         return;
       }
       tryPlay();
-    }, 500);
-    const unmuteId = setTimeout(() => {
-      if (!v || v.paused) return;
-      v.muted = false;
-      v.play().catch(() => {
-        v.muted = true;
-      });
-    }, 1200);
+    }, 900);
     return () => {
+      v.removeEventListener("loadeddata", onCanPlay);
+      v.removeEventListener("canplay", onCanPlay);
+      clearTimeout(checkId);
       clearInterval(retryId);
-      clearTimeout(unmuteId);
     };
   }, [showWin, winVideoSrc]);
 
@@ -344,7 +355,6 @@ export default function ScoreSheet({
               style={{ width: "min(92vw, 920px)" }}
               onClick={(e) => {
                 e.stopPropagation();
-                if (!needsUserPlay) return;
                 const v = winVideoRef.current;
                 if (!v) return;
                 v.muted = false;
@@ -379,6 +389,10 @@ export default function ScoreSheet({
                   disablePictureInPicture
                   controlsList="nodownload noplaybackrate noremoteplayback"
                   onError={() => setVideoFailed(true)}
+                  onPlaying={() => setNeedsUserPlay(false)}
+                  onPause={() => {
+                    if (!videoFailed) setNeedsUserPlay(true);
+                  }}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -410,9 +424,9 @@ export default function ScoreSheet({
                     inset: 0,
                     borderRadius: 26,
                     background:
-                      "radial-gradient(130% 130% at 50% 50%, rgba(0,0,0,0) 35%, rgba(0,0,0,.45) 70%, rgba(0,0,0,.85) 100%)," +
-                      "linear-gradient(90deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(0,0,0,.6) 100%)," +
-                      "linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(0,0,0,.7) 100%)",
+                      "radial-gradient(150% 150% at 50% 50%, rgba(0,0,0,0) 28%, rgba(0,0,0,.5) 68%, rgba(0,0,0,.92) 100%)," +
+                      "linear-gradient(90deg, rgba(0,0,0,.7) 0%, rgba(0,0,0,0) 16%, rgba(0,0,0,0) 84%, rgba(0,0,0,.7) 100%)," +
+                      "linear-gradient(180deg, rgba(0,0,0,.65) 0%, rgba(0,0,0,0) 16%, rgba(0,0,0,0) 84%, rgba(0,0,0,.8) 100%)",
                   }}
                 />
               </div>
