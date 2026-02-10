@@ -2572,8 +2572,21 @@ export default function App() {
   }
 
   async function startGame() {
-    if (!roomId || !playerId || !players.length) return;
-    const order = shuffleArray(players.map((p) => p.id));
+    if (!roomId || !playerId) return;
+    const { data: latestPlayers, error: playersErr } = await supabase
+      .from("players")
+      .select("id")
+      .eq("room_id", roomId);
+    if (playersErr) {
+      alert("Kunde inte hämta spelare. Försök igen.");
+      return;
+    }
+    const ids = (latestPlayers ?? []).map((p) => p.id);
+    if (!ids.length) {
+      alert("Inga spelare i rummet ännu.");
+      return;
+    }
+    const order = shuffleArray(ids);
     const first = order[0] ?? playerId;
     const roundCounts = order.reduce((acc, id) => {
       acc[id] = 0;
