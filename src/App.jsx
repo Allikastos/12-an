@@ -4025,17 +4025,17 @@ export default function App() {
             Starta spelet
           </Button>
         )}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 8,
-            flexWrap: "nowrap",
-          }}
-        >
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {isSolo && (
+        {isSolo ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "nowrap",
+            }}
+          >
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <Button
                 variant="ghost"
                 style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
@@ -4043,35 +4043,48 @@ export default function App() {
               >
                 Tillbaka
               </Button>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!isSolo && (
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <Button
                 variant="ghost"
                 style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
-                onClick={() => {
-                  setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
-                  setShowInspect(true);
-                }}
+                onClick={() => setShowSettings(true)}
               >
-                Inspektera
+                Inställningar
               </Button>
-            )}
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
             <Button
               variant="ghost"
-              style={{ width: "auto", paddingInline: 10, fontSize: 14 }}
+              style={{ width: "100%", paddingInline: 10, fontSize: 14 }}
+              onClick={() => {
+                setInspectPlayerId(activePlayer?.id ?? players[0]?.id ?? null);
+                setShowInspect(true);
+              }}
+            >
+              Inspektera
+            </Button>
+            <Button
+              variant="ghost"
+              style={{ width: "100%", paddingInline: 10, fontSize: 14 }}
               onClick={() => setShowSettings(true)}
             >
               Inställningar
             </Button>
-            {!isSolo && (
-              <Button variant="danger" style={{ width: "auto", paddingInline: 10, fontSize: 14 }} onClick={handleLeave}>
-                Lämna
-              </Button>
-            )}
+            <Button variant="danger" style={{ width: "100%", paddingInline: 10, fontSize: 14 }} onClick={handleLeave}>
+              Lämna
+            </Button>
           </div>
-        </div>
+        )}
 
 
         {/* Avklarat / klara rader / ikryssade */}
