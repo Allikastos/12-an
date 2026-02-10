@@ -2573,6 +2573,7 @@ export default function App() {
 
   async function startGame() {
     if (!roomId || !playerId) return;
+    if (roomState?.started) return;
     const { data: latestPlayers, error: playersErr } = await supabase
       .from("players")
       .select("id")
@@ -2586,6 +2587,16 @@ export default function App() {
       alert("Inga spelare i rummet ännu.");
       return;
     }
+    const hostId = roomState?.host_player_id;
+    if (hostId && !ids.includes(hostId)) {
+      await supabase
+        .from("room_state")
+        .update({ host_player_id: playerId, updated_at: new Date().toISOString() })
+        .eq("room_id", roomId);
+    } else if (hostId && hostId !== playerId) {
+      alert("Endast host kan starta spelet.");
+      return;
+    }
     const order = shuffleArray(ids);
     const first = order[0] ?? playerId;
     const roundCounts = order.reduce((acc, id) => {
@@ -2594,7 +2605,7 @@ export default function App() {
     }, {});
     roundCounts[first] = (roundCounts[first] ?? 0) + 1;
 
-    const { data: updated } = await supabase
+    const { data: updated, error: startErr } = await supabase
       .from("room_state")
       .upsert(
         {
@@ -2619,6 +2630,11 @@ export default function App() {
       .select("*")
       .single();
 
+    if (startErr) {
+      console.error("startGame failed", startErr);
+      alert(startErr.message ?? "Kunde inte starta spelet.");
+      return;
+    }
     if (updated) setRoomState(updated);
   }
 
