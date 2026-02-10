@@ -4007,6 +4007,24 @@ export default function App() {
   return (
     <Container>
       <Card style={{ padding: 22 }}>
+        {!isSolo && !gameStarted && (
+          <Button
+            onClick={startGame}
+            style={{
+              width: "100%",
+              paddingInline: 10,
+              fontSize: 15,
+              marginBottom: 12,
+              background:
+                "linear-gradient(135deg, rgba(34,197,94,.95), rgba(16,185,129,.92))",
+              color: "#0b1220",
+              fontWeight: 900,
+              boxShadow: "0 12px 26px rgba(34,197,94,.32), 0 0 0 1px rgba(255,255,255,.12)",
+            }}
+          >
+            Starta spelet
+          </Button>
+        )}
         <div
           style={{
             display: "flex",
@@ -4028,11 +4046,6 @@ export default function App() {
             )}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!isSolo && !gameStarted && (
-              <Button onClick={startGame} style={{ width: "auto", paddingInline: 10, fontSize: 14 }}>
-                Starta spelet
-              </Button>
-            )}
             {!isSolo && (
               <Button
                 variant="ghost"
