@@ -4685,30 +4685,42 @@ export default function App() {
                         {friends.length === 0 && (
                           <div style={{ color: "var(--muted)" }}>Inga vänner att bjuda in ännu.</div>
                         )}
-                        {friends.map((f) => (
-                          <div
-                            key={f.id}
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr auto",
-                              alignItems: "center",
-                              gap: 10,
-                              padding: 8,
-                              borderRadius: 10,
-                              border: "1px solid var(--border)",
-                              background: "rgba(255,255,255,.02)",
-                            }}
-                          >
-                            <div style={{ fontWeight: 700 }}>{f.display_name}</div>
-                            <Button
-                              variant="ghost"
-                              onClick={() => sendRoomInvite(f.id)}
-                              style={{ width: "auto", padding: "6px 10px" }}
+                        {friends.map((f) => {
+                          const sent = Boolean(sentInvites?.[f.id]);
+                          return (
+                            <div
+                              key={f.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto",
+                                alignItems: "center",
+                                gap: 10,
+                                padding: 8,
+                                borderRadius: 10,
+                                border: "1px solid var(--border)",
+                                background: "rgba(255,255,255,.02)",
+                              }}
                             >
-                              Bjud in
-                            </Button>
-                          </div>
-                        ))}
+                              <div style={{ fontWeight: 700 }}>{f.display_name}</div>
+                              <Button
+                                variant={sent ? "primary" : "ghost"}
+                                disabled={sent}
+                                onClick={() => sendRoomInvite(f.id)}
+                                style={{
+                                  width: "auto",
+                                  padding: "6px 10px",
+                                  transform: sent ? "translateY(1px)" : "none",
+                                  boxShadow: sent
+                                    ? "inset 0 2px 6px rgba(15,23,42,.45), 0 0 0 1px rgba(255,255,255,.16)"
+                                    : undefined,
+                                  opacity: sent ? 0.95 : 1,
+                                }}
+                              >
+                                {sent ? "Skickat" : "Bjud in"}
+                              </Button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
