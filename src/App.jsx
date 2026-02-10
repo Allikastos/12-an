@@ -2755,6 +2755,16 @@ export default function App() {
           .single();
         setRoomState(created ?? null);
       } else {
+        if (!existing.host_player_id) {
+          const { data: updated } = await supabase
+            .from("room_state")
+            .update({ host_player_id: playerId, updated_at: new Date().toISOString() })
+            .eq("room_id", roomId)
+            .select("*")
+            .single();
+          setRoomState(updated ?? existing);
+          return;
+        }
         setRoomState(existing);
       }
     }
