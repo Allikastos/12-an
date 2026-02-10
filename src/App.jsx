@@ -27,6 +27,11 @@ function makeCode(len = 6) {
   return out;
 }
 
+function sanitizeRoomCode(value) {
+  if (!value) return "";
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
+
 function getOrCreateDeviceId() {
   const key = "scoreboard_device_id";
   let id = localStorage.getItem(key);
@@ -1197,6 +1202,16 @@ export default function App() {
       },
       { onConflict: "room_id,recipient_profile_id" }
     );
+    const sentAt = Date.now();
+    setSentInvites((prev) => ({ ...prev, [friendId]: sentAt }));
+    setTimeout(() => {
+      setSentInvites((prev) => {
+        if (prev?.[friendId] !== sentAt) return prev;
+        const next = { ...prev };
+        delete next[friendId];
+        return next;
+      });
+    }, 8000);
   }
 
   async function acceptRoomInvite(invite) {
@@ -1426,6 +1441,7 @@ export default function App() {
   const [friendResults, setFriendResults] = useState([]);
   const [friendStats, setFriendStats] = useState({});
   const [roomInvites, setRoomInvites] = useState([]);
+  const [sentInvites, setSentInvites] = useState({});
   const lastTurnNotifiedRef = useRef(null);
   const prevTurnPlayerRef = useRef(null);
   const seenInviteIdsRef = useRef(new Set());
@@ -1450,6 +1466,11 @@ export default function App() {
   const turnTimeoutRef = useRef(null);
   const lastTurnActionRef = useRef(0);
   const autoEndWinRef = useRef(false);
+  const [matchSummary, setMatchSummary] = useState(null);
+  const [showMatchSummary, setShowMatchSummary] = useState(false);
+  const [dismissedMatchId, setDismissedMatchId] = useState(null);
+  const rematchStartingRef = useRef(false);
+  const prevStartedAtRef = useRef(null);
   const blitzAutoStartRef = useRef({ dateKey: null, lastAttempt: 0 });
   const blitzBootstrapRef = useRef({ dateKey: null, lastAttempt: 0 });
   const themes = THEMES;
@@ -1516,6 +1537,12 @@ export default function App() {
   const blitzStartsIn = formatCountdown(blitzTimes.start.getTime() - blitzNow.getTime());
   const blitzRunning = blitzEvent?.status === "running";
   const blitzFinished = blitzEvent?.status === "finished";
+  const blitzElimIn = useMemo(() => {
+    if (!isBlitzRoom || !blitzRunning || !blitzEvent?.next_elim_at) return null;
+    const nextElim = new Date(blitzEvent.next_elim_at);
+    const diff = nextElim.getTime() - blitzNowState.getTime();
+    return formatCountdown(diff);
+  }, [isBlitzRoom, blitzRunning, blitzEvent?.next_elim_at, blitzNowState]);
   const turnTimeLeft = useMemo(() => {
     if (!isBlitzRoom || isSolo || !gameStarted || !isMyTurn) return null;
     const last = lastTurnActionRef.current || Date.now();
@@ -2042,6 +2069,25 @@ export default function App() {
     });
   }, [players, playerStates]);
 
+  const activeTurnOrder = useMemo(() => {
+    return (roomState?.turn_order ?? []).filter((id) => players.some((p) => p.id === id));
+  }, [roomState?.turn_order, players]);
+
+  const rematchVotes = useMemo(() => {
+    if (!roomState?.rematch_votes || typeof roomState.rematch_votes !== "object") return {};
+    return roomState.rematch_votes;
+  }, [roomState?.rematch_votes]);
+
+  const rematchVoteCount = useMemo(() => {
+    if (!activeTurnOrder.length) return 0;
+    return activeTurnOrder.filter((id) => rematchVotes?.[id]).length;
+  }, [activeTurnOrder, rematchVotes]);
+
+  const rematchReady = useMemo(() => {
+    if (!activeTurnOrder.length) return false;
+    return activeTurnOrder.every((id) => rematchVotes?.[id]);
+  }, [activeTurnOrder, rematchVotes]);
+
   const blitzRiskIds = useMemo(() => {
     if (!isBlitzRoom) return new Set();
     const activeCount = playerSummaries.length;
@@ -2054,6 +2100,42 @@ export default function App() {
     });
     return new Set(sorted.slice(0, eliminateCount).map((p) => p.id));
   }, [isBlitzRoom, playerSummaries]);
+
+  const matchPlacements = useMemo(() => {
+    if (!matchSummary?.matchId) return [];
+    const sorted = [...playerSummaries].sort((a, b) => {
+      if (a.percent !== b.percent) return b.percent - a.percent;
+      if (a.rows !== b.rows) return b.rows - a.rows;
+      return a.name.localeCompare(b.name);
+    });
+    const placements = [];
+    let currentRank = 1;
+    let prev = null;
+    sorted.forEach((p, idx) => {
+      if (prev && (p.percent !== prev.percent || p.rows !== prev.rows)) {
+        currentRank = idx + 1;
+      }
+      placements.push({ ...p, rank: currentRank });
+      prev = p;
+    });
+    return placements;
+  }, [matchSummary?.matchId, playerSummaries]);
+
+  const matchPointsByProfile = useMemo(() => {
+    const map = new Map();
+    (matchSummary?.rows ?? []).forEach((r) => {
+      if (r.profile_id) map.set(r.profile_id, r.points_awarded ?? 0);
+    });
+    return map;
+  }, [matchSummary?.rows]);
+
+  const matchPointsByName = useMemo(() => {
+    const map = new Map();
+    (matchSummary?.rows ?? []).forEach((r) => {
+      if (r.display_name) map.set(r.display_name, r.points_awarded ?? 0);
+    });
+    return map;
+  }, [matchSummary?.rows]);
 
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -2146,6 +2228,23 @@ export default function App() {
     setPlayerStates(data ?? []);
   }
 
+  async function loadMatchSummary(matchId) {
+    if (!matchId) {
+      setMatchSummary(null);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("match_players")
+      .select("profile_id, display_name, points_awarded, is_winner")
+      .eq("match_id", matchId);
+    if (error) {
+      console.error("match summary load failed", error);
+      return;
+    }
+    setMatchSummary({ matchId, rows: data ?? [] });
+    setShowMatchSummary(true);
+  }
+
   useEffect(() => {
     if (!roomId) return;
     loadPlayers(roomId);
@@ -2159,6 +2258,18 @@ export default function App() {
       loadPlayerStates(roomId);
       loadChat(roomId);
     }, 3000);
+
+    const onFocus = () => {
+      loadPlayers(roomId);
+      loadRoomState(roomId);
+      loadPlayerStates(roomId);
+      loadChat(roomId);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") onFocus();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
 
     const channel = supabase
       .channel(`room:${roomId}:state`)
@@ -2199,9 +2310,39 @@ export default function App() {
 
     return () => {
       clearInterval(pollId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [roomId]);
+
+  useEffect(() => {
+    if (!roomState?.match_id || !roomState?.finalized_at || isSolo) {
+      setMatchSummary(null);
+      setShowMatchSummary(false);
+      return;
+    }
+    if (dismissedMatchId === roomState.match_id) return;
+    loadMatchSummary(roomState.match_id);
+  }, [roomState?.match_id, roomState?.finalized_at, dismissedMatchId, isSolo]);
+
+  useEffect(() => {
+    if (!roomState?.started_at) return;
+    if (prevStartedAtRef.current && prevStartedAtRef.current !== roomState.started_at) {
+      resetProgress();
+      resetTurnState();
+      setShowMatchSummary(false);
+      setDismissedMatchId(null);
+    }
+    prevStartedAtRef.current = roomState.started_at;
+  }, [roomState?.started_at]);
+
+  useEffect(() => {
+    if (!roomState?.finalized_at || isSolo) return;
+    if (!rematchReady) return;
+    if (rematchStartingRef.current) return;
+    void startRematch();
+  }, [roomState?.finalized_at, rematchReady, isSolo]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -2235,16 +2376,25 @@ export default function App() {
     };
   }, [user?.id]);
 
-  const joinCodeReady = useMemo(() => roomCode.trim().length === 6, [roomCode]);
+  useEffect(() => {
+    if (!user?.id) return;
+    const id = setInterval(() => {
+      loadRoomInvites(user.id);
+      loadFriendsAndRequests(user.id);
+    }, 7000);
+    return () => clearInterval(id);
+  }, [user?.id]);
+
+  const joinCodeReady = useMemo(() => roomCode.length === 6, [roomCode]);
   const canJoin = useMemo(() => {
     const hasName = name.trim().length >= 2 || Boolean(profile?.display_name || authName);
-    return roomCode.trim().length >= 6 && hasName;
+    return roomCode.length === 6 && hasName;
   }, [roomCode, name, profile?.display_name, authName]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sharedCode = params.get("room");
-    if (sharedCode) setRoomCode(sharedCode.toUpperCase());
+    if (sharedCode) setRoomCode(sanitizeRoomCode(sharedCode));
   }, []);
 
   useEffect(() => {
@@ -2426,9 +2576,10 @@ export default function App() {
     const order = shuffleArray(players.map((p) => p.id));
     const first = order[0] ?? playerId;
     const roundCounts = order.reduce((acc, id) => {
-      acc[id] = id === first ? 1 : 0;
+      acc[id] = 0;
       return acc;
     }, {});
+    roundCounts[first] = (roundCounts[first] ?? 0) + 1;
 
     const { data: updated } = await supabase
       .from("room_state")
@@ -2444,6 +2595,7 @@ export default function App() {
           finish_until_player_id: null,
           finish_until_round: null,
           finish_winner_ids: [],
+          rematch_votes: {},
           match_id: null,
           finalized_at: null,
           started_at: new Date().toISOString(),
@@ -2457,7 +2609,61 @@ export default function App() {
     if (updated) setRoomState(updated);
   }
 
-  async function advanceTurn() {
+  async function voteRematch() {
+    if (!roomId || !playerId) return;
+    const nextVotes = { ...(roomState?.rematch_votes ?? {}) };
+    nextVotes[playerId] = true;
+    await supabase
+      .from("room_state")
+      .update({ rematch_votes: nextVotes, updated_at: new Date().toISOString() })
+      .eq("room_id", roomId);
+  }
+
+  async function startRematch() {
+    if (!roomId || !playerId || !players.length) return;
+    if (rematchStartingRef.current) return;
+    rematchStartingRef.current = true;
+    const now = new Date().toISOString();
+    try {
+      await supabase
+        .from("player_state")
+        .update({
+          progress: emptyProgress(),
+          last_dice: null,
+          last_target: null,
+          updated_at: now,
+        })
+        .eq("room_id", roomId);
+
+      await supabase
+        .from("room_state")
+        .update({
+          started: false,
+          turn_player_id: null,
+          turn_order: roomState?.turn_order ?? [],
+          round_counts: {},
+          finish_triggered: false,
+          finish_until_player_id: null,
+          finish_until_round: null,
+          finish_winner_ids: [],
+          rematch_votes: {},
+          match_id: null,
+          finalized_at: null,
+          updated_at: now,
+        })
+        .eq("room_id", roomId);
+
+      resetProgress();
+      resetTurnState();
+      setShowMatchSummary(false);
+      setDismissedMatchId(null);
+      await startGame();
+    } finally {
+      rematchStartingRef.current = false;
+    }
+  }
+
+  async function advanceTurn(roundCountsOverride) {
     if (!roomState?.turn_order?.length) return;
     const activeOrder = (roomState.turn_order ?? []).filter((id) =>
       players.some((p) => p.id === id)
@@ -2468,7 +2674,7 @@ export default function App() {
       : activeOrder[0];
     const idx = Math.max(0, activeOrder.indexOf(current));
     const next = activeOrder[(idx + 1) % activeOrder.length] ?? current;
-    const baseCounts = roomState?.round_counts ?? {};
+    const baseCounts = roundCountsOverride ?? roomState?.round_counts ?? {};
     const nextCounts = {
       ...baseCounts,
       [next]: (baseCounts?.[next] ?? 0) + 1,
@@ -2539,6 +2745,7 @@ export default function App() {
               finish_until_player_id: null,
               finish_until_round: null,
               finish_winner_ids: [],
+              rematch_votes: {},
               match_id: null,
               finalized_at: null,
               updated_at: new Date().toISOString(),
@@ -2777,7 +2984,7 @@ export default function App() {
     const order = roomState.turn_order ?? [];
     const finishUntil = roomState.finish_until_player_id ?? order[order.length - 1] ?? playerId;
     const baseCounts = roomState.round_counts ?? {};
-    const finishUntilRound = baseCounts[playerId] ?? 0;
+    const finishUntilRound = Math.max(1, baseCounts[playerId] ?? 1);
     const winners = new Set(roomState.finish_winner_ids ?? []);
     winners.add(playerId);
 
@@ -2830,6 +3037,7 @@ export default function App() {
         .update({
           started: false,
           turn_player_id: null,
+          rematch_votes: {},
           finalized_at: endedAt,
           updated_at: endedAt,
         })
@@ -2870,6 +3078,7 @@ export default function App() {
         turn_player_id: null,
         match_id: match.id,
         finalized_at: endedAt,
+        rematch_votes: {},
         updated_at: endedAt,
       })
       .eq("room_id", roomId)
@@ -2888,20 +3097,23 @@ export default function App() {
       const activeOrder = (roomState?.turn_order ?? []).filter((id) =>
         players.some((p) => p.id === id)
       );
-      const finishUntil = roomState?.finish_until_player_id ?? null;
-      const finishMissing = !finishUntil || !activeOrder.includes(finishUntil);
       const finishUntilRound = roomState?.finish_until_round ?? null;
       const reachedFinishRound =
         finishUntilRound != null &&
-        activeOrder.every((id) => (counts?.[id] ?? roomState?.round_counts?.[id] ?? 0) >= finishUntilRound);
-      const isFinalTurn =
-        roomState?.finish_triggered &&
-        (reachedFinishRound || finishUntil === playerId || finishMissing || activeOrder.length <= 1);
+        activeOrder.every((id) => (counts?.[id] ?? 0) >= finishUntilRound);
+      const isFinalTurn = roomState?.finish_triggered && (reachedFinishRound || activeOrder.length <= 1);
       if (isFinalTurn) {
+        await supabase
+          .from("room_state")
+          .update({
+            round_counts: counts,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("room_id", roomId);
         await finalizeMatch(counts);
         return;
       }
-      advanceTurn();
+      advanceTurn(counts);
     })();
   }
 
@@ -3130,7 +3342,7 @@ export default function App() {
             </label>
             <Input
               value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value)}
+              onChange={(e) => setRoomCode(sanitizeRoomCode(e.target.value))}
               placeholder="t.ex. A1B2C3"
               style={{ textTransform: "uppercase" }}
             />
@@ -3150,6 +3362,7 @@ export default function App() {
                       color: "#0b1220",
                       fontWeight: 900,
                       boxShadow: "0 12px 26px rgba(34,197,94,.32), 0 0 0 1px rgba(255,255,255,.12)",
+                      opacity: 0.95,
                     }
                   : undefined
               }
@@ -3164,17 +3377,60 @@ export default function App() {
               onClick={() => setStep("solo")}
               style={{
                 background:
-                  "linear-gradient(135deg, rgba(251,191,36,1), rgba(34,197,94,.95) 70%)",
-                color: "#0b1220",
+                  "linear-gradient(135deg, rgba(250,204,21,.95), rgba(34,197,94,.95) 70%)",
+                color: "#1f2937",
                 fontWeight: 900,
-                border: "1px solid rgba(251,191,36,.55)",
+                border: "1px solid rgba(250,204,21,.55)",
                 boxShadow:
-                  "0 16px 32px rgba(251,191,36,.32), 0 0 0 1px rgba(255,255,255,.18)",
+                  "0 16px 32px rgba(250,204,21,.32), 0 0 0 1px rgba(255,255,255,.18)",
               }}
             >
               Poängblad
             </Button>
           </div>
+
+          {roomInvites.length > 0 && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: "rgba(255,255,255,.02)",
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              {roomInvites.slice(0, 1).map((inv) => (
+                <div
+                  key={inv.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto auto",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>
+                    {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
+                  </div>
+                  <Button
+                    onClick={() => acceptRoomInvite(inv)}
+                    style={{ width: "auto", padding: "6px 10px" }}
+                  >
+                    Gå med
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => declineRoomInvite(inv.id)}
+                    style={{ width: "auto", padding: "6px 10px" }}
+                  >
+                    Neka
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div
             style={{
@@ -3235,49 +3491,6 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {roomInvites.length > 0 && (
-            <div
-              style={{
-                marginTop: 12,
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid var(--border)",
-                background: "rgba(255,255,255,.02)",
-                display: "grid",
-                gap: 8,
-              }}
-            >
-              {roomInvites.slice(0, 1).map((inv) => (
-                <div
-                  key={inv.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto auto",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ fontWeight: 700 }}>
-                    {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
-                  </div>
-                  <Button
-                    onClick={() => acceptRoomInvite(inv)}
-                    style={{ width: "auto", padding: "6px 10px" }}
-                  >
-                    Gå med
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => declineRoomInvite(inv.id)}
-                    style={{ width: "auto", padding: "6px 10px" }}
-                  >
-                    Neka
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
 
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
             {!isStandalone && installPrompt && (
