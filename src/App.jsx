@@ -4028,7 +4028,7 @@ export default function App() {
             )}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!isSolo && isHost && !gameStarted && (
+            {!isSolo && !gameStarted && (
               <Button onClick={startGame} style={{ width: "auto", paddingInline: 10, fontSize: 14 }}>
                 Starta spelet
               </Button>
