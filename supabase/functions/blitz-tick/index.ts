@@ -92,8 +92,9 @@ serve(async () => {
   const currentTurnId = activeOrder.includes(roomState?.turn_player_id)
     ? roomState?.turn_player_id
     : startPlayerId;
+  const gatePlayerId = startPlayerId ?? currentTurnId;
 
-  if (!startPlayerId || currentTurnId !== startPlayerId) {
+  if (!gatePlayerId || currentTurnId !== gatePlayerId) {
     return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
   }
 

@@ -1483,6 +1483,7 @@ export default function App() {
   const autoEndWinRef = useRef(false);
   const [matchSummary, setMatchSummary] = useState(null);
   const [showMatchSummary, setShowMatchSummary] = useState(false);
+  const [showBlitzSummary, setShowBlitzSummary] = useState(false);
   const [dismissedMatchId, setDismissedMatchId] = useState(null);
   const [dismissedBlitzId, setDismissedBlitzId] = useState(null);
   const [milestoneToast, setMilestoneToast] = useState(null);
@@ -1535,7 +1536,11 @@ export default function App() {
     ? true
     : gameStarted &&
       String(roomState?.turn_player_id ?? "") === String(playerId ?? "");
-  const isBlitzRoom = Boolean(roomId && blitzEvent?.room_id && roomId === blitzEvent.room_id);
+  const isBlitzRoom = Boolean(
+    roomId &&
+      ((blitzEvent?.room_id && roomId === blitzEvent.room_id) ||
+        (roomCode && roomCode.toUpperCase().startsWith("BLITZ-")))
+  );
   const blitzActiveCount = blitzParticipants.filter((p) => p.status === "active").length;
   const blitzEliminatedCount = blitzParticipants.filter((p) => p.status === "eliminated").length;
   const blitzJoined = Boolean(
@@ -2215,6 +2220,21 @@ export default function App() {
     return map;
   }, [matchSummary?.rows]);
 
+  const showSummary = showMatchSummary || showBlitzSummary;
+  const summaryTitle = showBlitzSummary ? "Blitz – resultat" : "Matchresultat";
+  const summaryRows = showBlitzSummary ? blitzPlacements : matchPlacements;
+  const hasVotedRematch = Boolean(rematchVotes?.[playerId ?? ""]);
+  const closeSummary = () => {
+    if (showMatchSummary && matchSummary?.matchId) {
+      setDismissedMatchId(matchSummary.matchId);
+    }
+    if (showBlitzSummary && blitzEvent?.id) {
+      setDismissedBlitzId(blitzEvent.id);
+    }
+    setShowMatchSummary(false);
+    setShowBlitzSummary(false);
+  };
+
   const [, forceTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => forceTick((x) => x + 1), 1000);
@@ -2403,6 +2423,15 @@ export default function App() {
     if (dismissedMatchId === roomState.match_id) return;
     loadMatchSummary(roomState.match_id);
   }, [roomState?.match_id, roomState?.finalized_at, dismissedMatchId, isSolo]);
+
+  useEffect(() => {
+    if (!blitzFinished || !blitzEvent?.id || !isBlitzRoom || !blitzJoined) {
+      setShowBlitzSummary(false);
+      return;
+    }
+    if (dismissedBlitzId === blitzEvent.id) return;
+    setShowBlitzSummary(true);
+  }, [blitzFinished, blitzEvent?.id, dismissedBlitzId, isBlitzRoom, blitzJoined]);
 
   useEffect(() => {
     if (!roomState?.started_at) return;
@@ -3303,7 +3332,14 @@ export default function App() {
         await finalizeMatch(counts);
         return;
       }
-      advanceTurn(counts);
+      await advanceTurn(counts);
+      if (isBlitzRoom) {
+        try {
+          await supabase.functions.invoke("blitz-tick");
+        } catch (err) {
+          console.error("blitz-tick invoke failed", err);
+        }
+      }
     })();
   }
 
@@ -4489,6 +4525,102 @@ export default function App() {
           </Button>
         </div>
       </Card>
+
+      {showSummary && (
+        <div
+          onClick={closeSummary}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.55)",
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+            zIndex: 80,
+          }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(720px, 100%)" }}>
+            <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <h3 style={{ margin: 0 }}>{summaryTitle}</h3>
+                <Button variant="ghost" style={{ width: "auto" }} onClick={closeSummary}>
+                  Stäng
+                </Button>
+              </div>
+
+              {showBlitzSummary && blitzEvent?.award_points === false && (
+                <div style={{ marginTop: 10, color: "var(--muted)", fontWeight: 700 }}>
+                  Testläge – inga poäng delas ut.
+                </div>
+              )}
+
+              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                {summaryRows.length === 0 && (
+                  <div style={{ color: "var(--muted)" }}>Inga resultat ännu.</div>
+                )}
+                {summaryRows.map((row) => {
+                  const points = showBlitzSummary
+                    ? blitzPointsByProfile.get(row.profileId ?? row.id) ?? 0
+                    : row.profileId
+                    ? matchPointsByProfile.get(row.profileId) ?? 0
+                    : matchPointsByName.get(row.name) ?? 0;
+                  return (
+                    <div
+                      key={`${row.id}-${row.rank}`}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "auto 1fr auto",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid var(--border)",
+                        background: row.rank === 1 ? "rgba(234,179,8,.14)" : "rgba(255,255,255,.02)",
+                      }}
+                    >
+                      <div style={{ fontWeight: 900, minWidth: 28 }}>#{row.rank}</div>
+                      <div style={{ display: "grid", gap: 2 }}>
+                        <div style={{ fontWeight: 800 }}>{row.name}</div>
+                        <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                          Viktad: {row.percent}%
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 900 }}>{Number(points).toFixed(1)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!showBlitzSummary && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,.02)",
+                    display: "grid",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontWeight: 800 }}>Spela igen</div>
+                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                      {rematchVoteCount}/{activeTurnOrder.length} röster
+                    </div>
+                  </div>
+                  <Button
+                    onClick={voteRematch}
+                    disabled={!rematchSupportedRef.current || hasVotedRematch || activeTurnOrder.length === 0}
+                  >
+                    {hasVotedRematch ? "Skickat" : "Spela igen"}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
 
       {showSettings && (
         <div
