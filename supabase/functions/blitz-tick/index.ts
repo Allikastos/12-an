@@ -86,7 +86,23 @@ serve(async () => {
     .maybeSingle();
 
   const roundCounts = roomState?.round_counts ?? {};
-  const rounds = playerIds.map((id) => Number(roundCounts?.[id] ?? 0));
+  const turnOrder = (roomState?.turn_order ?? []).filter((id: string) => playerIds.includes(id));
+  const activeOrder = turnOrder.length ? turnOrder : playerIds;
+  const startPlayerId = activeOrder[0] ?? null;
+  const currentTurnId = activeOrder.includes(roomState?.turn_player_id)
+    ? roomState?.turn_player_id
+    : startPlayerId;
+
+  if (!startPlayerId || currentTurnId !== startPlayerId) {
+    return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
+  }
+
+  const adjustedCounts = { ...roundCounts };
+  if (currentTurnId) {
+    const currentCount = Number(adjustedCounts[currentTurnId] ?? 0);
+    adjustedCounts[currentTurnId] = Math.max(0, currentCount - 1);
+  }
+  const rounds = activeOrder.map((id) => Number(adjustedCounts?.[id] ?? 0));
   const minRound = Math.min(...rounds);
   const maxRound = Math.max(...rounds);
   if (minRound !== maxRound) {
@@ -112,13 +128,20 @@ serve(async () => {
     };
   });
 
-  const eliminateCount = active.length > 10 && active.length > 4 ? 2 : 1;
+  const eliminateCount = active.length > 10 ? 2 : 1;
   const sorted = [...scored].sort((a, b) => {
     if (a.percent !== b.percent) return a.percent - b.percent;
     if (a.boxes !== b.boxes) return a.boxes - b.boxes;
     return String(a.participant.profile_id).localeCompare(String(b.participant.profile_id));
   });
-  const toEliminate = sorted.slice(0, Math.min(eliminateCount, sorted.length - 1));
+  const cutoffIndex = Math.min(eliminateCount, sorted.length - 1) - 1;
+  const cutoff = sorted[Math.max(0, cutoffIndex)];
+  let toEliminate = sorted.filter(
+    (p) => p.percent < cutoff.percent || (p.percent === cutoff.percent && p.boxes <= cutoff.boxes)
+  );
+  if (toEliminate.length >= sorted.length) {
+    toEliminate = sorted.slice(0, Math.max(1, sorted.length - 1));
+  }
   if (toEliminate.length === 0) {
     return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
   }
@@ -137,12 +160,15 @@ serve(async () => {
   if (remaining.length <= 1) {
     await finalizeBlitz(client, event, participants ?? []);
   } else {
-    const nextTurnOrder = remainingIds;
-    const nextTurn = nextTurnOrder.includes(roomState?.turn_player_id)
-      ? roomState.turn_player_id
-      : nextTurnOrder[0] ?? null;
+    const nextTurnOrder = (roomState?.turn_order ?? []).filter((id: string) =>
+      remainingIds.includes(id)
+    );
+    const fallbackOrder = nextTurnOrder.length ? nextTurnOrder : remainingIds;
+    const nextTurn = fallbackOrder.includes(roomState?.turn_player_id)
+      ? roomState?.turn_player_id
+      : fallbackOrder[0] ?? null;
     await client.from("room_state").update({
-      turn_order: nextTurnOrder,
+      turn_order: fallbackOrder,
       turn_player_id: nextTurn,
       updated_at: now.toISOString(),
     }).eq("room_id", event.room_id);
@@ -157,57 +183,92 @@ serve(async () => {
 });
 
 async function finalizeBlitz(client: ReturnType<typeof createClient>, event: any, participants: any[]) {
-  const active = participants.filter((p) => p.status === "active");
-  const eliminated = participants.filter((p) => p.status === "eliminated");
-  const maxSeq = Math.max(0, ...eliminated.map((p) => p.eliminated_seq ?? 0));
+  const { data: playerRows } = await client
+    .from("players")
+    .select("id, profile_id, name")
+    .eq("room_id", event.room_id);
 
-  let winnerIds = active.map((p) => p.profile_id).filter(Boolean);
-  if (winnerIds.length === 0) return;
+  const eligiblePlayers = (playerRows ?? []).filter((p) => p.profile_id);
+  const entries =
+    eligiblePlayers.length > 0
+      ? eligiblePlayers.map((p) => ({ player_id: p.id, profile_id: p.profile_id, name: p.name }))
+      : (participants ?? []).filter((p) => p.profile_id && p.player_id);
 
-  const groups: string[][] = [];
-  groups.push(winnerIds);
+  const playerIds = entries.map((p) => p.player_id).filter(Boolean);
+  if (!playerIds.length) return;
 
-  const bySeq = new Map<number, string[]>();
-  eliminated.forEach((p) => {
-    const seq = p.eliminated_seq ?? 0;
-    const list = bySeq.get(seq) ?? [];
-    if (p.profile_id) list.push(p.profile_id);
-    bySeq.set(seq, list);
+  const { data: states } = await client
+    .from("player_state")
+    .select("player_id, progress")
+    .eq("room_id", event.room_id)
+    .in("player_id", playerIds);
+
+  const progressByPlayer = new Map((states ?? []).map((s) => [s.player_id, s.progress]));
+  const scored = entries.map((p: any) => {
+    const prog = progressByPlayer.get(p.player_id) ?? null;
+    const weighted = calcWeightedProgress(prog);
+    const boxes = countBoxes(prog);
+    return {
+      participant: p,
+      percent: Math.round(weighted * 100),
+      boxes,
+    };
   });
 
-  for (let seq = maxSeq; seq >= 1 && groups.length < 3; seq--) {
-    const list = bySeq.get(seq);
-    if (list && list.length) groups.push(list);
-  }
+  const sorted = [...scored].sort((a, b) => {
+    if (a.percent !== b.percent) return b.percent - a.percent;
+    if (a.boxes !== b.boxes) return b.boxes - a.boxes;
+    return String(a.participant.profile_id).localeCompare(String(b.participant.profile_id));
+  });
+
+  const placements: { profile_id: string; rank: number }[] = [];
+  let currentRank = 1;
+  let prev: typeof sorted[number] | null = null;
+  sorted.forEach((entry, idx) => {
+    if (prev && (entry.percent !== prev.percent || entry.boxes !== prev.boxes)) {
+      currentRank = idx + 1;
+    }
+    const profileId = entry.participant.profile_id;
+    if (profileId) {
+      placements.push({ profile_id: profileId, rank: currentRank });
+    }
+    prev = entry;
+  });
 
   const pointsByRank: Record<number, number> = { 1: 10, 2: 5, 3: 3 };
   const pointsByProfile = new Map<string, number>();
-  let rank = 1;
-  for (const group of groups) {
+  let idx = 0;
+  while (idx < placements.length) {
+    const rank = placements[idx].rank;
+    const group = placements.filter((p) => p.rank === rank);
     if (rank > 3) break;
     const span = Math.min(3, rank + group.length - 1);
     let total = 0;
     for (let r = rank; r <= span; r++) total += pointsByRank[r] ?? 0;
     const per = group.length ? total / group.length : 0;
-    group.forEach((id) => pointsByProfile.set(id, per));
-    rank += group.length;
+    group.forEach((p) => pointsByProfile.set(p.profile_id, per));
+    idx += group.length;
   }
 
-  const profileIds = Array.from(pointsByProfile.keys());
+  const profileIds = Array.from(new Set(placements.map((p) => p.profile_id)));
   const { data: profiles } = await client
     .from("profiles")
     .select("id, display_name")
     .in("id", profileIds);
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name]));
+  const playerNameByProfile = new Map(
+    (eligiblePlayers ?? []).filter((p) => p.profile_id).map((p) => [p.profile_id, p.name])
+  );
+  const winners = new Set(placements.filter((p) => p.rank === 1).map((p) => p.profile_id));
 
   if (event?.award_points) {
-    const monthKey = getStockholmDateKey().slice(0, 7);
+    const monthKey = (event?.date_key ?? getStockholmDateKey()).slice(0, 7);
     const rows = profileIds.map((id) => ({
       match_id: null,
       room_id: event.room_id,
       profile_id: id,
-      display_name: nameById.get(id) ?? "Spelare",
-      is_winner: false,
+      display_name: nameById.get(id) ?? playerNameByProfile.get(id) ?? "Spelare",
+      is_winner: winners.has(id),
       rounds: null,
       points_awarded: pointsByProfile.get(id) ?? 0,
       month_key: monthKey,

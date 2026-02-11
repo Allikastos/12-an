@@ -884,20 +884,26 @@ export default function App() {
 
     const matches = new Set();
     let wins = 0;
+    let blitzWins = 0;
     let totalRounds = 0;
     let winRoundsCount = 0;
     let fastestWinRounds = null;
 
     (myRows ?? []).forEach((r) => {
-      if (r.match_id) matches.add(r.match_id);
+      const isNormal = Boolean(r.match_id);
+      if (isNormal) matches.add(r.match_id);
       if (r.is_winner) {
-        wins += 1;
-        if (typeof r.rounds === "number") {
-          totalRounds += r.rounds;
-          winRoundsCount += 1;
-          if (fastestWinRounds == null || r.rounds < fastestWinRounds) {
-            fastestWinRounds = r.rounds;
+        if (isNormal) {
+          wins += 1;
+          if (typeof r.rounds === "number") {
+            totalRounds += r.rounds;
+            winRoundsCount += 1;
+            if (fastestWinRounds == null || r.rounds < fastestWinRounds) {
+              fastestWinRounds = r.rounds;
+            }
           }
+        } else {
+          blitzWins += 1;
         }
       }
     });
@@ -929,6 +935,7 @@ export default function App() {
 
     setStats({
       wins,
+      blitzWins,
       matchCount,
       winRatio,
       avgRoundsToWin,
@@ -1063,16 +1070,22 @@ export default function App() {
 
     const matches = new Set();
     let wins = 0;
+    let blitzWins = 0;
     let totalRounds = 0;
     let winRoundsCount = 0;
 
     (rows ?? []).forEach((r) => {
-      if (r.match_id) matches.add(r.match_id);
+      const isNormal = Boolean(r.match_id);
+      if (isNormal) matches.add(r.match_id);
       if (r.is_winner) {
-        wins += 1;
-        if (typeof r.rounds === "number") {
-          totalRounds += r.rounds;
-          winRoundsCount += 1;
+        if (isNormal) {
+          wins += 1;
+          if (typeof r.rounds === "number") {
+            totalRounds += r.rounds;
+            winRoundsCount += 1;
+          }
+        } else {
+          blitzWins += 1;
         }
       }
     });
@@ -1084,7 +1097,7 @@ export default function App() {
 
     setFriendStats((prev) => ({
       ...prev,
-      [friendId]: { wins, winRatio, avgRoundsToWin, kingCount },
+      [friendId]: { wins, blitzWins, winRatio, avgRoundsToWin, kingCount },
     }));
   }
 
@@ -1451,6 +1464,8 @@ export default function App() {
   const [blitzNowState, setBlitzNowState] = useState(new Date());
   const [blitzStatus, setBlitzStatus] = useState("idle");
   const [blitzJoinError, setBlitzJoinError] = useState(null);
+  const [startGameBusy, setStartGameBusy] = useState(false);
+  const [startGameError, setStartGameError] = useState(null);
   const prevShowDiceRef = useRef(null);
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
@@ -1469,7 +1484,10 @@ export default function App() {
   const [matchSummary, setMatchSummary] = useState(null);
   const [showMatchSummary, setShowMatchSummary] = useState(false);
   const [dismissedMatchId, setDismissedMatchId] = useState(null);
+  const [dismissedBlitzId, setDismissedBlitzId] = useState(null);
+  const [milestoneToast, setMilestoneToast] = useState(null);
   const rematchStartingRef = useRef(false);
+  const rematchSupportedRef = useRef(true);
   const prevStartedAtRef = useRef(null);
   const blitzAutoStartRef = useRef({ dateKey: null, lastAttempt: 0 });
   const blitzBootstrapRef = useRef({ dateKey: null, lastAttempt: 0 });
@@ -1523,6 +1541,27 @@ export default function App() {
   const blitzJoined = Boolean(
     user?.id && blitzParticipants.some((p) => p.profile_id === user.id && p.status === "active")
   );
+  useEffect(() => {
+    if (!isBlitzRoom || !user?.id || !playerId || !blitzEvent?.id) return;
+    if (blitzJoined) return;
+    let cancelled = false;
+    (async () => {
+      await supabase.from("blitz_participants").upsert(
+        {
+          event_id: blitzEvent.id,
+          profile_id: user.id,
+          player_id: playerId,
+          status: "active",
+          joined_at: new Date().toISOString(),
+        },
+        { onConflict: "event_id,profile_id" }
+      );
+      if (!cancelled) await loadBlitzParticipants(blitzEvent.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBlitzRoom, user?.id, playerId, blitzEvent?.id, blitzJoined]);
   const blitzTimes = useMemo(() => {
     if (blitzEvent?.start_at && blitzEvent?.lobby_open_at) {
       return {
@@ -2121,6 +2160,45 @@ export default function App() {
     return placements;
   }, [matchSummary?.matchId, playerSummaries]);
 
+  const blitzPlacements = useMemo(() => {
+    if (!blitzFinished) return [];
+    const sorted = [...playerSummaries].sort((a, b) => {
+      if (a.percent !== b.percent) return b.percent - a.percent;
+      if (a.rows !== b.rows) return b.rows - a.rows;
+      return a.name.localeCompare(b.name);
+    });
+    const placements = [];
+    let currentRank = 1;
+    let prev = null;
+    sorted.forEach((p, idx) => {
+      if (prev && (p.percent !== prev.percent || p.rows !== prev.rows)) {
+        currentRank = idx + 1;
+      }
+      placements.push({ ...p, rank: currentRank });
+      prev = p;
+    });
+    return placements;
+  }, [blitzFinished, playerSummaries]);
+
+  const blitzPointsByProfile = useMemo(() => {
+    if (!blitzPlacements.length) return new Map();
+    const pointsByRank = { 1: 10, 2: 5, 3: 3 };
+    const map = new Map();
+    let idx = 0;
+    while (idx < blitzPlacements.length) {
+      const rank = blitzPlacements[idx].rank;
+      const group = blitzPlacements.filter((p) => p.rank === rank);
+      if (rank > 3) break;
+      const span = Math.min(3, rank + group.length - 1);
+      let total = 0;
+      for (let r = rank; r <= span; r++) total += pointsByRank[r] ?? 0;
+      const per = group.length ? total / group.length : 0;
+      group.forEach((p) => map.set(p.profileId ?? p.id, per));
+      idx += group.length;
+    }
+    return map;
+  }, [blitzPlacements]);
+
   const matchPointsByProfile = useMemo(() => {
     const map = new Map();
     (matchSummary?.rows ?? []).forEach((r) => {
@@ -2571,81 +2649,170 @@ export default function App() {
     }
   }
 
-  async function startGame() {
-    if (!roomId || !playerId) return;
-    if (roomState?.started) return;
-    const { data: latestPlayers, error: playersErr } = await supabase
-      .from("players")
-      .select("id")
-      .eq("room_id", roomId);
-    if (playersErr) {
-      alert("Kunde inte hämta spelare. Försök igen.");
-      return;
-    }
-    const ids = (latestPlayers ?? []).map((p) => p.id);
-    if (!ids.length) {
-      alert("Inga spelare i rummet ännu.");
-      return;
-    }
-    const hostId = roomState?.host_player_id;
-    if (hostId && !ids.includes(hostId)) {
-      await supabase
-        .from("room_state")
-        .update({ host_player_id: playerId, updated_at: new Date().toISOString() })
-        .eq("room_id", roomId);
-    } else if (hostId && hostId !== playerId) {
-      alert("Endast host kan starta spelet.");
-      return;
-    }
-    const order = shuffleArray(ids);
-    const first = order[0] ?? playerId;
-    const roundCounts = order.reduce((acc, id) => {
-      acc[id] = 0;
-      return acc;
-    }, {});
-    roundCounts[first] = (roundCounts[first] ?? 0) + 1;
+  function stripRematchVotes(payload) {
+    if (!payload || typeof payload !== "object") return payload;
+    if (!Object.prototype.hasOwnProperty.call(payload, "rematch_votes")) return payload;
+    const { rematch_votes, ...rest } = payload;
+    return rest;
+  }
 
-    const { data: updated, error: startErr } = await supabase
+  function isRematchColumnError(error) {
+    const msg = error?.message ?? "";
+    return msg.includes("rematch_votes") || msg.includes("schema cache");
+  }
+
+  async function upsertRoomStateSafe(payload, options) {
+    const base = rematchSupportedRef.current ? payload : stripRematchVotes(payload);
+    let result = await supabase.from("room_state").upsert(base, options).select("*").single();
+    if (result.error && rematchSupportedRef.current && isRematchColumnError(result.error)) {
+      rematchSupportedRef.current = false;
+      result = await supabase
+        .from("room_state")
+        .upsert(stripRematchVotes(payload), options)
+        .select("*")
+        .single();
+    }
+    return result;
+  }
+
+  async function updateRoomStateSafe(payload) {
+    const base = rematchSupportedRef.current ? payload : stripRematchVotes(payload);
+    let result = await supabase
       .from("room_state")
-      .upsert(
-        {
-          room_id: roomId,
-          host_player_id: roomState?.host_player_id ?? playerId,
-          started: true,
-          turn_player_id: first,
-          turn_order: order,
-          round_counts: roundCounts,
-          finish_triggered: false,
-          finish_until_player_id: null,
-          finish_until_round: null,
-          finish_winner_ids: [],
-          rematch_votes: {},
-          match_id: null,
-          finalized_at: null,
-          started_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "room_id" }
-      )
+      .update(base)
+      .eq("room_id", roomId)
       .select("*")
       .single();
-
-    if (startErr) {
-      console.error("startGame failed", startErr);
-      alert(startErr.message ?? "Kunde inte starta spelet.");
-      return;
+    if (result.error && rematchSupportedRef.current && isRematchColumnError(result.error)) {
+      rematchSupportedRef.current = false;
+      result = await supabase
+        .from("room_state")
+        .update(stripRematchVotes(payload))
+        .eq("room_id", roomId)
+        .select("*")
+        .single();
     }
-    if (updated) setRoomState(updated);
+    return result;
+  }
+
+  async function insertRoomStateSafe(payload) {
+    const base = rematchSupportedRef.current ? payload : stripRematchVotes(payload);
+    let result = await supabase.from("room_state").insert([base]).select("*").single();
+    if (result.error && rematchSupportedRef.current && isRematchColumnError(result.error)) {
+      rematchSupportedRef.current = false;
+      result = await supabase
+        .from("room_state")
+        .insert([stripRematchVotes(payload)])
+        .select("*")
+        .single();
+    }
+    return result;
+  }
+
+  async function ensurePlayerIdForRoom() {
+    if (playerId) return playerId;
+    if (!roomId) return null;
+    const stored = localStorage.getItem("scoreboard_player_id");
+    if (stored) {
+      setPlayerId(stored);
+      return stored;
+    }
+    const { data: existing } = await getPlayerByDevice(roomId, deviceId);
+    if (existing?.id) {
+      setPlayerId(existing.id);
+      localStorage.setItem("scoreboard_player_id", existing.id);
+      return existing.id;
+    }
+    return null;
+  }
+
+  async function startGame() {
+    if (isBlitzRoom) return;
+    if (startGameBusy) return;
+    setStartGameBusy(true);
+    setStartGameError(null);
+    try {
+      if (!roomId) {
+        alert("Rummet saknas. Gå tillbaka och gå in igen.");
+        return;
+      }
+      const currentPlayerId = playerId ?? (await ensurePlayerIdForRoom());
+      if (!currentPlayerId) {
+        alert("Kunde inte hitta din spelare i rummet. Gå ut och gå in igen.");
+        return;
+      }
+      if (roomState?.started) return;
+      const { data: latestPlayers, error: playersErr } = await supabase
+        .from("players")
+        .select("id")
+        .eq("room_id", roomId);
+      if (playersErr) {
+        alert("Kunde inte hämta spelare. Försök igen.");
+        return;
+      }
+      const ids = (latestPlayers ?? []).map((p) => p.id);
+      if (!ids.length) {
+        alert("Inga spelare i rummet ännu.");
+        return;
+      }
+      const hostId =
+        roomState?.host_player_id && ids.includes(roomState.host_player_id)
+          ? roomState.host_player_id
+          : currentPlayerId;
+      const order = shuffleArray(ids);
+      const first = order[0] ?? currentPlayerId;
+      const roundCounts = order.reduce((acc, id) => {
+        acc[id] = 0;
+        return acc;
+      }, {});
+      roundCounts[first] = (roundCounts[first] ?? 0) + 1;
+
+      const payload = {
+        room_id: roomId,
+        host_player_id: hostId,
+        started: true,
+        turn_player_id: first,
+        turn_order: order,
+        round_counts: roundCounts,
+        finish_triggered: false,
+        finish_until_player_id: null,
+        finish_until_round: null,
+        finish_winner_ids: [],
+        rematch_votes: {},
+        match_id: null,
+        finalized_at: null,
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: updated, error: startErr } = await upsertRoomStateSafe(payload, {
+        onConflict: "room_id",
+      });
+
+      if (startErr) {
+        console.error("startGame failed", startErr);
+        const msg = startErr.message ?? "Kunde inte starta spelet.";
+        setStartGameError(msg);
+        alert(msg);
+        return;
+      }
+      if (updated) setRoomState(updated);
+    } catch (err) {
+      console.error("startGame failed", err);
+      const msg = err?.message ?? "Kunde inte starta spelet.";
+      setStartGameError(msg);
+      alert(msg);
+    } finally {
+      setStartGameBusy(false);
+    }
   }
 
   async function voteRematch() {
     if (!roomId || !playerId) return;
+    if (!rematchSupportedRef.current) return;
     const nextVotes = { ...(roomState?.rematch_votes ?? {}) };
     nextVotes[playerId] = true;
-    await supabase
-      .from("room_state")
-      .update({ rematch_votes: nextVotes, updated_at: new Date().toISOString() })
-      .eq("room_id", roomId);
+    await updateRoomStateSafe({ rematch_votes: nextVotes, updated_at: new Date().toISOString() });
   }
 
   async function startRematch() {
@@ -2664,23 +2831,20 @@ export default function App() {
         })
         .eq("room_id", roomId);
 
-      await supabase
-        .from("room_state")
-        .update({
-          started: false,
-          turn_player_id: null,
-          turn_order: roomState?.turn_order ?? [],
-          round_counts: {},
-          finish_triggered: false,
-          finish_until_player_id: null,
-          finish_until_round: null,
-          finish_winner_ids: [],
-          rematch_votes: {},
-          match_id: null,
-          finalized_at: null,
-          updated_at: now,
-        })
-        .eq("room_id", roomId);
+      await updateRoomStateSafe({
+        started: false,
+        turn_player_id: null,
+        turn_order: roomState?.turn_order ?? [],
+        round_counts: {},
+        finish_triggered: false,
+        finish_until_player_id: null,
+        finish_until_round: null,
+        finish_winner_ids: [],
+        rematch_votes: {},
+        match_id: null,
+        finalized_at: null,
+        updated_at: now,
+      });
 
       resetProgress();
       resetTurnState();
@@ -2760,37 +2924,32 @@ export default function App() {
         .maybeSingle();
 
       if (!existing) {
-        const { data: created } = await supabase
-          .from("room_state")
-          .insert([
-            {
-              room_id: roomId,
-              host_player_id: playerId,
-              started: false,
-              turn_player_id: null,
-              turn_order: [],
-              round_counts: {},
-              finish_triggered: false,
-              finish_until_player_id: null,
-              finish_until_round: null,
-              finish_winner_ids: [],
-              rematch_votes: {},
-              match_id: null,
-              finalized_at: null,
-              updated_at: new Date().toISOString(),
-            },
-          ])
-          .select("*")
-          .single();
+        const { data: created } = await insertRoomStateSafe({
+          room_id: roomId,
+          host_player_id: playerId,
+          started: false,
+          turn_player_id: null,
+          turn_order: [],
+          round_counts: {},
+          finish_triggered: false,
+          finish_until_player_id: null,
+          finish_until_round: null,
+          finish_winner_ids: [],
+          rematch_votes: {},
+          match_id: null,
+          finalized_at: null,
+          updated_at: new Date().toISOString(),
+        });
         setRoomState(created ?? null);
       } else {
+        if (!Object.prototype.hasOwnProperty.call(existing, "rematch_votes")) {
+          rematchSupportedRef.current = false;
+        }
         if (!existing.host_player_id) {
-          const { data: updated } = await supabase
-            .from("room_state")
-            .update({ host_player_id: playerId, updated_at: new Date().toISOString() })
-            .eq("room_id", roomId)
-            .select("*")
-            .single();
+          const { data: updated } = await updateRoomStateSafe({
+            host_player_id: playerId,
+            updated_at: new Date().toISOString(),
+          });
           setRoomState(updated ?? existing);
           return;
         }
@@ -3071,16 +3230,13 @@ export default function App() {
 
     if (error || !match) {
       console.error("match insert failed", error);
-      await supabase
-        .from("room_state")
-        .update({
-          started: false,
-          turn_player_id: null,
-          rematch_votes: {},
-          finalized_at: endedAt,
-          updated_at: endedAt,
-        })
-        .eq("room_id", roomId);
+      await updateRoomStateSafe({
+        started: false,
+        turn_player_id: null,
+        rematch_votes: {},
+        finalized_at: endedAt,
+        updated_at: endedAt,
+      });
       return;
     }
 
@@ -3110,19 +3266,14 @@ export default function App() {
     const { error: mpErr } = await supabase.from("match_players").insert(rows);
     if (mpErr) console.error("match_players insert failed", mpErr);
 
-    const { data: updated } = await supabase
-      .from("room_state")
-      .update({
-        started: false,
-        turn_player_id: null,
-        match_id: match.id,
-        finalized_at: endedAt,
-        rematch_votes: {},
-        updated_at: endedAt,
-      })
-      .eq("room_id", roomId)
-      .select("*")
-      .single();
+    const { data: updated } = await updateRoomStateSafe({
+      started: false,
+      turn_player_id: null,
+      match_id: match.id,
+      finalized_at: endedAt,
+      rematch_votes: {},
+      updated_at: endedAt,
+    });
     if (updated) setRoomState(updated);
     await loadLeaderboardData(user?.id ?? null, profile?.display_name ?? authName ?? name ?? null);
     if (user?.id) await loadStats(user.id);
@@ -3289,6 +3440,10 @@ export default function App() {
                         <div>
                           <div style={{ fontWeight: 900 }}>{stats.wins}</div>
                           <div style={{ color: "var(--muted)", fontWeight: 700 }}>vinster</div>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 900 }}>{stats.blitzWins ?? 0}</div>
+                          <div style={{ color: "var(--muted)", fontWeight: 700 }}>blitzvinster</div>
                         </div>
                         <div>
                           <div style={{ fontWeight: 900 }}>
@@ -4036,9 +4191,10 @@ export default function App() {
   return (
     <Container>
       <Card style={{ padding: 22 }}>
-        {!isSolo && !gameStarted && (
+        {!isSolo && !gameStarted && !isBlitzRoom && (
           <Button
             onClick={startGame}
+            disabled={startGameBusy}
             style={{
               width: "100%",
               paddingInline: 10,
@@ -4051,8 +4207,11 @@ export default function App() {
               boxShadow: "0 12px 26px rgba(34,197,94,.32), 0 0 0 1px rgba(255,255,255,.12)",
             }}
           >
-            Starta spelet
+            {startGameBusy ? "Startar..." : "Starta spelet"}
           </Button>
+        )}
+        {startGameError && !isSolo && !gameStarted && !isBlitzRoom && (
+          <div style={{ marginBottom: 8, color: "salmon", fontWeight: 700 }}>{startGameError}</div>
         )}
         {isSolo ? (
           <div
@@ -4226,7 +4385,22 @@ export default function App() {
               background: "rgba(255,255,255,.02)",
             }}
           >
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Ställning</div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <div style={{ fontWeight: 800 }}>Ställning</div>
+              {isBlitzRoom && blitzRunning && (
+                <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>
+                  Nästa eliminering om {blitzElimIn ?? "—"}
+                </div>
+              )}
+            </div>
             <div style={{ display: "grid", gap: 8 }}>
               {playerSummaries.map((p) => (
                 <div
