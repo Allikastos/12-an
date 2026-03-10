@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo } from "react";
 import { THEMES } from "../config/themes";
 import { UNLOCK_KING_FOR_PREVIEW } from "../lib/appUtils";
 
-// Temporary preview mode: unlock all themes so they can be reviewed visually.
-const FORCE_UNLOCK_ALL_THEMES_PREVIEW = true;
+// Keep this false in normal gameplay so theme unlock rules are enforced.
+const FORCE_UNLOCK_ALL_THEMES_PREVIEW = false;
 
 export function useThemeManager({
   settings,
