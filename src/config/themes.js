@@ -1,0 +1,387 @@
+/* Extracted from App.jsx for maintainability */
+export const BG_PATTERNS = {
+  none: { image: "none", size: "160px", repeat: "repeat", position: "0 0" },
+  moon: { image: "none", size: "160px", repeat: "repeat", position: "0 0" },
+  waves: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'120\' viewBox=\'0 0 200 120\'><path d=\'M0 40 Q25 20 50 40 T100 40 T150 40 T200 40\' fill=\'none\' stroke=\'%23a5f3fc\' stroke-opacity=\'0.35\' stroke-width=\'2\'/><path d=\'M0 80 Q25 60 50 80 T100 80 T150 80 T200 80\' fill=\'none\' stroke=\'%2393c5fd\' stroke-opacity=\'0.35\' stroke-width=\'2\'/></svg>")',
+    size: "220px",
+  },
+  forest: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'200\' viewBox=\'0 0 220 200\'><g fill=\'%2316a34a\' fill-opacity=\'0.28\'><path d=\'M30 170 L55 110 L80 170 Z\'/><path d=\'M90 175 L120 105 L150 175 Z\'/><path d=\'M150 170 L175 120 L200 170 Z\'/></g><g fill=\'%2322c55e\' fill-opacity=\'0.2\'><path d=\'M40 150 L58 120 L76 150 Z\'/><path d=\'M110 155 L125 120 L140 155 Z\'/><path d=\'M165 152 L180 125 L195 152 Z\'/></g><rect x=\'0\' y=\'170\' width=\'220\' height=\'30\' fill=\'%230b2a18\' fill-opacity=\'0.35\'/></svg>")',
+    size: "220px",
+  },
+  embers: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\' viewBox=\'0 0 140 140\'><circle cx=\'30\' cy=\'30\' r=\'2\' fill=\'%23f97316\' fill-opacity=\'0.45\'/><circle cx=\'90\' cy=\'50\' r=\'1.5\' fill=\'%23f59e0b\' fill-opacity=\'0.45\'/><circle cx=\'60\' cy=\'100\' r=\'2\' fill=\'%23f97316\' fill-opacity=\'0.35\'/></svg>")',
+    size: "160px",
+  },
+  petals: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'160\' height=\'160\' viewBox=\'0 0 160 160\'><ellipse cx=\'40\' cy=\'40\' rx=\'8\' ry=\'4\' fill=\'%23fb7185\' fill-opacity=\'0.22\'/><ellipse cx=\'120\' cy=\'70\' rx=\'6\' ry=\'3\' fill=\'%23f472b6\' fill-opacity=\'0.22\'/><ellipse cx=\'80\' cy=\'120\' rx=\'7\' ry=\'3.5\' fill=\'%23fb7185\' fill-opacity=\'0.2\'/></svg>")',
+    size: "180px",
+  },
+  "blossom-trees": {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'800\' height=\'500\' viewBox=\'0 0 800 500\'><defs><linearGradient id=\'sky\' x1=\'0\' y1=\'0\' x2=\'0\' y2=\'1\'><stop offset=\'0\' stop-color=\'%23fbcfe8\'/><stop offset=\'1\' stop-color=\'%23f9a8d4\'/></linearGradient></defs><rect width=\'800\' height=\'500\' fill=\'url(%23sky)\' fill-opacity=\'0.45\'/><circle cx=\'400\' cy=\'90\' r=\'52\' fill=\'%23fff7ed\' fill-opacity=\'0.65\'/><path d=\'M-40 140 C120 60 220 80 320 120\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.35\' stroke-width=\'10\'/><path d=\'M-20 220 C140 140 250 160 340 210\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.3\' stroke-width=\'8\'/><path d=\'M840 160 C680 80 560 90 460 130\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.35\' stroke-width=\'10\'/><path d=\'M820 240 C660 160 560 180 480 230\' fill=\'none\' stroke=\'%238b5e3c\' stroke-opacity=\'0.3\' stroke-width=\'8\'/><g fill=\'%23f9a8d4\' fill-opacity=\'0.35\'><circle cx=\'120\' cy=\'140\' r=\'6\'/><circle cx=\'160\' cy=\'120\' r=\'5\'/><circle cx=\'210\' cy=\'150\' r=\'5\'/><circle cx=\'580\' cy=\'150\' r=\'6\'/><circle cx=\'630\' cy=\'130\' r=\'5\'/><circle cx=\'680\' cy=\'160\' r=\'5\'/></g><g fill=\'%23f472b6\' fill-opacity=\'0.28\'><circle cx=\'180\' cy=\'220\' r=\'4\'/><circle cx=\'260\' cy=\'240\' r=\'4\'/><circle cx=\'540\' cy=\'230\' r=\'4\'/><circle cx=\'620\' cy=\'250\' r=\'4\'/></g></svg>")',
+    size: "cover",
+    repeat: "no-repeat",
+    position: "center top",
+  },
+  snow: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><g stroke=\'%23e0f2fe\' stroke-opacity=\'0.5\' stroke-width=\'1\' fill=\'none\'><path d=\'M30 30 L30 45\'/><path d=\'M24 36 L36 36\'/><path d=\'M26 32 L34 40\'/><path d=\'M34 32 L26 40\'/></g><g stroke=\'%23bae6fd\' stroke-opacity=\'0.45\' stroke-width=\'1\' fill=\'none\'><path d=\'M120 60 L120 74\'/><path d=\'M113 67 L127 67\'/><path d=\'M115 63 L125 71\'/><path d=\'M125 63 L115 71\'/></g><circle cx=\'70\' cy=\'120\' r=\'1.6\' fill=\'%23e0f2fe\' fill-opacity=\'0.5\'/><circle cx=\'140\' cy=\'130\' r=\'1.2\' fill=\'%23bae6fd\' fill-opacity=\'0.5\'/></svg>")',
+    size: "220px",
+  },
+  paws: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><g fill=\'%23cbd5f5\' fill-opacity=\'0.22\'><circle cx=\'40\' cy=\'40\' r=\'6\'/><circle cx=\'55\' cy=\'35\' r=\'4\'/><circle cx=\'25\' cy=\'35\' r=\'4\'/><circle cx=\'40\' cy=\'55\' r=\'4\'/></g><g fill=\'%23e2e8f0\' fill-opacity=\'0.18\'><circle cx=\'120\' cy=\'110\' r=\'6\'/><circle cx=\'135\' cy=\'105\' r=\'4\'/><circle cx=\'105\' cy=\'105\' r=\'4\'/><circle cx=\'120\' cy=\'125\' r=\'4\'/></g></svg>")',
+    size: "200px",
+  },
+  stars: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'900\' height=\'1600\' viewBox=\'0 0 900 1600\'><g stroke=\'%23c4b5fd\' stroke-opacity=\'0.25\' stroke-width=\'1\' fill=\'none\'><polyline points=\'120,220 180,205 250,225 320,215 380,235\'/><polyline points=\'520,360 560,330 610,300 670,275 740,255\'/><polyline points=\'240,520 270,500 320,485 360,470\'/><polyline points=\'480,720 520,700 580,675 640,655 700,635\'/><polyline points=\'200,980 250,950 300,930 360,910\'/><polyline points=\'640,980 680,950 720,920\'/><polyline points=\'140,1260 190,1240 240,1220 300,1210\'/><polyline points=\'520,1320 560,1290 610,1260 670,1240\'/></g><g fill=\'%23ddd6fe\' fill-opacity=\'0.7\'><circle cx=\'120\' cy=\'220\' r=\'3\'/><circle cx=\'180\' cy=\'205\' r=\'3\'/><circle cx=\'250\' cy=\'225\' r=\'3\'/><circle cx=\'320\' cy=\'215\' r=\'3\'/><circle cx=\'380\' cy=\'235\' r=\'3\'/><circle cx=\'520\' cy=\'360\' r=\'3\'/><circle cx=\'560\' cy=\'330\' r=\'3\'/><circle cx=\'610\' cy=\'300\' r=\'3\'/><circle cx=\'670\' cy=\'275\' r=\'3\'/><circle cx=\'740\' cy=\'255\' r=\'3\'/><circle cx=\'240\' cy=\'520\' r=\'3\'/><circle cx=\'270\' cy=\'500\' r=\'3\'/><circle cx=\'320\' cy=\'485\' r=\'3\'/><circle cx=\'360\' cy=\'470\' r=\'3\'/><circle cx=\'480\' cy=\'720\' r=\'3\'/><circle cx=\'520\' cy=\'700\' r=\'3\'/><circle cx=\'580\' cy=\'675\' r=\'3\'/><circle cx=\'640\' cy=\'655\' r=\'3\'/><circle cx=\'700\' cy=\'635\' r=\'3\'/><circle cx=\'200\' cy=\'980\' r=\'3\'/><circle cx=\'250\' cy=\'950\' r=\'3\'/><circle cx=\'300\' cy=\'930\' r=\'3\'/><circle cx=\'360\' cy=\'910\' r=\'3\'/><circle cx=\'640\' cy=\'980\' r=\'3\'/><circle cx=\'680\' cy=\'950\' r=\'3\'/><circle cx=\'720\' cy=\'920\' r=\'3\'/><circle cx=\'140\' cy=\'1260\' r=\'3\'/><circle cx=\'190\' cy=\'1240\' r=\'3\'/><circle cx=\'240\' cy=\'1220\' r=\'3\'/><circle cx=\'300\' cy=\'1210\' r=\'3\'/><circle cx=\'520\' cy=\'1320\' r=\'3\'/><circle cx=\'560\' cy=\'1290\' r=\'3\'/><circle cx=\'610\' cy=\'1260\' r=\'3\'/><circle cx=\'670\' cy=\'1240\' r=\'3\'/></g><g fill=\'%23c4b5fd\' fill-opacity=\'0.35\'><circle cx=\'80\' cy=\'120\' r=\'2\'/><circle cx=\'360\' cy=\'120\' r=\'2\'/><circle cx=\'780\' cy=\'140\' r=\'2\'/><circle cx=\'100\' cy=\'620\' r=\'2\'/><circle cx=\'760\' cy=\'660\' r=\'2\'/><circle cx=\'300\' cy=\'1500\' r=\'2\'/><circle cx=\'780\' cy=\'1500\' r=\'2\'/></g></svg>")',
+    size: "cover",
+    repeat: "no-repeat",
+    position: "center top",
+  },
+  galaxy: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'1200\' height=\'1600\' viewBox=\'0 0 1200 1600\'><defs><radialGradient id=\'mw\' cx=\'0\' cy=\'0\' r=\'1\' gradientTransform=\'translate(1020 140) rotate(-18) scale(430 150)\'><stop offset=\'0\' stop-color=\'%23ffffff\' stop-opacity=\'0.58\'/><stop offset=\'0.55\' stop-color=\'%2393c5fd\' stop-opacity=\'0.28\'/><stop offset=\'1\' stop-color=\'%230f172a\' stop-opacity=\'0\'/></radialGradient></defs><ellipse cx=\'1020\' cy=\'140\' rx=\'430\' ry=\'150\' transform=\'rotate(-18 1020 140)\' fill=\'url(%23mw)\'/><g stroke=\'%2393c5fd\' stroke-opacity=\'0.28\' stroke-width=\'1.4\' fill=\'none\'><polyline points=\'170,250 250,230 330,240 395,290 470,360 540,430 620,500\'/><polyline points=\'560,300 620,260 690,285 760,255 830,290\'/><polyline points=\'760,620 810,670 860,620 890,730 940,820\'/><polyline points=\'760,620 720,700 680,770\'/><polyline points=\'890,730 940,760 980,790\'/></g><g fill=\'%23e2e8f0\' fill-opacity=\'0.85\'><circle cx=\'170\' cy=\'250\' r=\'3.2\'/><circle cx=\'250\' cy=\'230\' r=\'3.2\'/><circle cx=\'330\' cy=\'240\' r=\'3\'/><circle cx=\'395\' cy=\'290\' r=\'3\'/><circle cx=\'470\' cy=\'360\' r=\'3\'/><circle cx=\'540\' cy=\'430\' r=\'3\'/><circle cx=\'620\' cy=\'500\' r=\'2.8\'/><circle cx=\'560\' cy=\'300\' r=\'2.8\'/><circle cx=\'620\' cy=\'260\' r=\'2.8\'/><circle cx=\'690\' cy=\'285\' r=\'2.8\'/><circle cx=\'760\' cy=\'255\' r=\'2.8\'/><circle cx=\'830\' cy=\'290\' r=\'2.8\'/><circle cx=\'760\' cy=\'620\' r=\'3.1\'/><circle cx=\'810\' cy=\'670\' r=\'3.1\'/><circle cx=\'860\' cy=\'620\' r=\'3.1\'/><circle cx=\'890\' cy=\'730\' r=\'3\'/><circle cx=\'940\' cy=\'820\' r=\'3\'/><circle cx=\'720\' cy=\'700\' r=\'2.8\'/><circle cx=\'680\' cy=\'770\' r=\'2.8\'/><circle cx=\'940\' cy=\'760\' r=\'2.8\'/><circle cx=\'980\' cy=\'790\' r=\'2.8\'/></g><g fill=\'%23c4b5fd\' fill-opacity=\'0.36\'><circle cx=\'100\' cy=\'120\' r=\'1.9\'/><circle cx=\'260\' cy=\'90\' r=\'2.1\'/><circle cx=\'410\' cy=\'150\' r=\'1.8\'/><circle cx=\'640\' cy=\'120\' r=\'2\'/><circle cx=\'880\' cy=\'110\' r=\'2.1\'/><circle cx=\'1100\' cy=\'240\' r=\'1.9\'/><circle cx=\'180\' cy=\'520\' r=\'1.8\'/><circle cx=\'360\' cy=\'600\' r=\'2\'/><circle cx=\'590\' cy=\'700\' r=\'1.8\'/><circle cx=\'760\' cy=\'980\' r=\'2.1\'/><circle cx=\'1020\' cy=\'1140\' r=\'2\'/><circle cx=\'300\' cy=\'1320\' r=\'1.8\'/><circle cx=\'560\' cy=\'1460\' r=\'2.1\'/><circle cx=\'980\' cy=\'1480\' r=\'2\'/></g></svg>")',
+    size: "cover",
+    repeat: "no-repeat",
+    position: "center top",
+  },
+  "ghost-mist": {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'1200\' height=\'1600\' viewBox=\'0 0 1200 1600\'><defs><radialGradient id=\'fogA\' cx=\'0\' cy=\'0\' r=\'1\' gradientTransform=\'translate(220 320) scale(420 240)\'><stop offset=\'0\' stop-color=\'%23c4b5fd\' stop-opacity=\'0.34\'/><stop offset=\'1\' stop-color=\'%2307090f\' stop-opacity=\'0\'/></radialGradient><radialGradient id=\'fogB\' cx=\'0\' cy=\'0\' r=\'1\' gradientTransform=\'translate(930 390) scale(440 260)\'><stop offset=\'0\' stop-color=\'%2367e8f9\' stop-opacity=\'0.28\'/><stop offset=\'1\' stop-color=\'%2307090f\' stop-opacity=\'0\'/></radialGradient><radialGradient id=\'fogC\' cx=\'0\' cy=\'0\' r=\'1\' gradientTransform=\'translate(620 1150) scale(540 300)\'><stop offset=\'0\' stop-color=\'%23a78bfa\' stop-opacity=\'0.24\'/><stop offset=\'1\' stop-color=\'%2307090f\' stop-opacity=\'0\'/></radialGradient><linearGradient id=\'ghostFill\' x1=\'0\' y1=\'0\' x2=\'0\' y2=\'1\'><stop offset=\'0\' stop-color=\'%23e2e8f0\' stop-opacity=\'0.3\'/><stop offset=\'1\' stop-color=\'%23a5b4fc\' stop-opacity=\'0.08\'/></linearGradient><linearGradient id=\'ghostTeal\' x1=\'0\' y1=\'0\' x2=\'1\' y2=\'1\'><stop offset=\'0\' stop-color=\'%2367e8f9\' stop-opacity=\'0.36\'/><stop offset=\'1\' stop-color=\'%23dbeafe\' stop-opacity=\'0.08\'/></linearGradient></defs><ellipse cx=\'220\' cy=\'320\' rx=\'420\' ry=\'240\' fill=\'url(%23fogA)\'/><ellipse cx=\'930\' cy=\'390\' rx=\'440\' ry=\'260\' fill=\'url(%23fogB)\'/><ellipse cx=\'620\' cy=\'1150\' rx=\'540\' ry=\'300\' fill=\'url(%23fogC)\'/><g stroke=\'%2393c5fd\' stroke-opacity=\'0.12\' stroke-width=\'1.7\' fill=\'none\'><path d=\'M20 340 C210 270 390 296 560 354 C740 416 910 406 1090 352\'/><path d=\'M10 620 C230 548 420 574 602 650 C782 726 965 712 1138 652\'/><path d=\'M30 910 C230 848 430 874 630 952 C826 1030 1008 1016 1170 960\'/><path d=\'M22 1200 C220 1138 412 1160 612 1238 C804 1312 988 1302 1160 1246\'/></g><g fill=\'url(%23ghostFill)\'><path d=\'M208 188 C186 226 186 286 204 338 C224 398 258 448 310 476 C360 502 426 494 460 446 C496 392 500 320 484 258 C470 198 426 150 368 140 C300 128 236 142 208 188 Z M234 464 C248 448 264 444 280 460 C296 476 314 476 330 460 C346 444 364 444 380 460 C396 476 414 476 430 460 C446 444 462 444 478 462\'/><path d=\'M852 250 C858 214 886 188 922 180 C958 170 996 182 1018 212 C1040 242 1048 286 1042 330 C1034 382 1004 432 958 452 C914 470 866 458 838 420 C810 380 806 314 824 274 C832 256 846 260 852 250 Z M848 424 C862 412 878 410 892 424 C906 438 924 438 938 424 C952 410 970 410 984 424 C998 438 1016 438 1032 424\'/><path d=\'M530 914 C554 886 590 870 626 876 C660 882 690 904 702 936 C714 966 712 1004 694 1034 C676 1066 644 1090 608 1090 C572 1090 540 1068 520 1038 C500 1008 498 958 520 930 Z M520 1042 C536 1028 554 1028 570 1042 C586 1056 604 1056 620 1042 C636 1028 654 1028 670 1042 C686 1056 704 1056 720 1040\'/></g><g fill=\'url(%23ghostTeal)\'><path d=\'M178 540 C166 500 178 466 206 440 C236 412 282 402 324 410 C364 418 398 438 416 470 C434 502 436 546 420 584 C404 620 372 652 332 664 C292 676 246 666 214 638 C198 624 188 608 178 540 Z\'/><path d=\'M770 700 C760 666 770 636 794 614 C820 590 860 580 894 586 C928 592 956 612 970 640 C984 668 984 702 970 730 C956 758 928 782 894 790 C860 798 822 790 796 768 C780 754 774 738 770 700 Z\'/></g><g fill=\'none\' stroke=\'%23dbeafe\' stroke-opacity=\'0.28\' stroke-width=\'1.6\'><ellipse cx=\'312\' cy=\'264\' rx=\'12\' ry=\'15\'/><ellipse cx=\'362\' cy=\'266\' rx=\'10\' ry=\'13\'/><path d=\'M294 320 C316 348 348 350 372 324\'/><circle cx=\'918\' cy=\'292\' r=\'11\'/><ellipse cx=\'960\' cy=\'294\' rx=\'9\' ry=\'12\'/><path d=\'M902 344 C926 336 950 336 972 350\'/><ellipse cx=\'586\' cy=\'952\' rx=\'9\' ry=\'11\'/><ellipse cx=\'626\' cy=\'952\' rx=\'9\' ry=\'11\'/><path d=\'M572 988 C592 1012 622 1010 642 986\'/></g></svg>")',
+    size: "cover",
+    repeat: "no-repeat",
+    position: "center top",
+  },
+  crystals: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'180\' height=\'180\' viewBox=\'0 0 180 180\'><path d=\'M40 140 L60 90 L80 140 Z\' fill=\'%2393c5fd\' fill-opacity=\'0.22\'/><path d=\'M100 140 L120 80 L140 140 Z\' fill=\'%2360a5fa\' fill-opacity=\'0.2\'/></svg>")',
+    size: "200px",
+  },
+  lava: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'240\' height=\'180\' viewBox=\'0 0 240 180\'><path d=\'M0 140 L60 120 L90 150 L140 110 L190 145 L240 120\' fill=\'none\' stroke=\'%23fb923c\' stroke-opacity=\'0.35\' stroke-width=\'10\' stroke-linecap=\'round\'/><path d=\'M-10 100 L50 90 L80 110 L130 80 L170 110 L230 90\' fill=\'none\' stroke=\'%23f97316\' stroke-opacity=\'0.28\' stroke-width=\'8\' stroke-linecap=\'round\'/><circle cx=\'40\' cy=\'40\' r=\'4\' fill=\'%23f97316\' fill-opacity=\'0.35\'/><circle cx=\'120\' cy=\'30\' r=\'3\' fill=\'%23fb923c\' fill-opacity=\'0.35\'/><circle cx=\'200\' cy=\'50\' r=\'3.5\' fill=\'%23ef4444\' fill-opacity=\'0.35\'/></svg>")',
+    size: "260px",
+  },
+  royal: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'240\' height=\'240\' viewBox=\'0 0 240 240\'><defs><linearGradient id=\'g\' x1=\'0\' y1=\'0\' x2=\'1\' y2=\'1\'><stop offset=\'0\' stop-color=\'%23f5d77b\' stop-opacity=\'0.35\'/><stop offset=\'1\' stop-color=\'%23f59e0b\' stop-opacity=\'0.15\'/></linearGradient></defs><g fill=\'none\' stroke=\'url(%23g)\' stroke-width=\'2.6\' stroke-linejoin=\'round\'><path d=\'M26 164 L42 104 L72 142 L96 84 L120 140 L144 100 L170 164 Z\'/><path d=\'M36 170 H160\' stroke-width=\'2.2\' stroke-linecap=\'round\'/></g><g fill=\'%23f5d77b\' fill-opacity=\'0.35\'><circle cx=\'42\' cy=\'104\' r=\'4\'/><circle cx=\'96\' cy=\'84\' r=\'4.6\'/><circle cx=\'144\' cy=\'100\' r=\'4\'/></g><g stroke=\'%23f59e0b\' stroke-opacity=\'0.12\' stroke-width=\'1.4\'><path d=\'M20 40 C50 20 90 20 120 40\'/><path d=\'M120 40 C150 20 190 20 220 40\'/><path d=\'M20 210 C50 190 90 190 120 210\'/><path d=\'M120 210 C150 190 190 190 220 210\'/></g></svg>")',
+    size: "240px",
+  },
+  reggae: {
+    image:
+      'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'240\' viewBox=\'0 0 300 240\'><g fill=\'%23ef4444\' fill-opacity=\'0.24\'><circle cx=\'40\' cy=\'40\' r=\'3\'/><circle cx=\'90\' cy=\'70\' r=\'5\'/><circle cx=\'150\' cy=\'30\' r=\'3\'/><circle cx=\'230\' cy=\'90\' r=\'4\'/><circle cx=\'260\' cy=\'60\' r=\'3\'/></g><g fill=\'%23facc15\' fill-opacity=\'0.24\'><circle cx=\'60\' cy=\'120\' r=\'3\'/><circle cx=\'130\' cy=\'160\' r=\'5\'/><circle cx=\'200\' cy=\'140\' r=\'3\'/><circle cx=\'250\' cy=\'190\' r=\'4\'/><circle cx=\'30\' cy=\'200\' r=\'3\'/></g><g fill=\'%2322c55e\' fill-opacity=\'0.24\'><circle cx=\'20\' cy=\'180\' r=\'3\'/><circle cx=\'110\' cy=\'210\' r=\'5\'/><circle cx=\'180\' cy=\'200\' r=\'3\'/><circle cx=\'270\' cy=\'40\' r=\'4\'/><circle cx=\'210\' cy=\'30\' r=\'3\'/></g><g stroke-opacity=\'0.12\' stroke-width=\'6\' stroke-linecap=\'round\'><path d=\'M10 20 L120 60\' stroke=\'%23ef4444\'/><path d=\'M140 80 L240 110\' stroke=\'%23facc15\'/><path d=\'M60 160 L180 190\' stroke=\'%2322c55e\'/></g><g stroke-opacity=\'0.08\' stroke-width=\'4\' stroke-linecap=\'round\'><path d=\'M-20 140 L80 170\' stroke=\'%23ef4444\'/><path d=\'M120 10 L220 40\' stroke=\'%23facc15\'/><path d=\'M200 160 L300 190\' stroke=\'%2322c55e\'/></g></svg>")',
+    size: "300px",
+  },
+};
+
+
+
+export const THEMES = [
+    {
+      name: "Standard",
+      key: "Standard",
+      category: "standard",
+      bgColor: "#0b1020",
+      accentColor: "#22c55e",
+      rowCompleteBg: "#1f3b2e",
+      bgGlow1: "#38bdf8",
+      bgGlow2: "#22c55e",
+      bgPattern: "none",
+      bgPatternOpacity: 0.35,
+      diceBg: "#f8fafc",
+      dicePip: "#0f172a",
+      diceBorder: "rgba(255,255,255,.12)",
+      diceLocked: "rgba(34,197,94,.18)",
+      dicePipLocked: "var(--accent)",
+      btnPrimaryBg: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
+      btnPrimaryText: "#07110b",
+      btnPrimaryBorder: "rgba(0,0,0,.12)",
+      btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
+      buttonIcon: "",
+    },
+    {
+      name: "King of the Month",
+      key: "King",
+      category: "special",
+      requiresKing: true,
+      bgColor: "#0e0a04",
+      accentColor: "#f5d77b",
+      rowCompleteBg: "#3b2a12",
+      bgGlow1: "#f5d77b",
+      bgGlow2: "#f59e0b",
+      bgPattern: "royal",
+      bgPatternOpacity: 0.4,
+      diceBg: "#fff7ed",
+      dicePip: "#3b2a12",
+      diceBorder: "rgba(245,215,123,.4)",
+      diceLocked: "rgba(245,215,123,.28)",
+      dicePipLocked: "#f5d77b",
+      btnPrimaryBg: "linear-gradient(180deg, #f5d77b 0%, #f59e0b 100%)",
+      btnPrimaryText: "#3b2a12",
+      btnPrimaryBorder: "rgba(245,215,123,.4)",
+      btnPrimaryShadow: "0 10px 24px rgba(245,215,123,.35)",
+      buttonIcon: "crown-outline",
+    },
+    {
+      name: "Midnight",
+      key: "Midnight",
+      category: "standard",
+      bgColor: "#0c0b06",
+      accentColor: "#f5c542",
+      rowCompleteBg: "#3a2a12",
+      bgGlow1: "#f5c542",
+      bgGlow2: "#f59e0b",
+      bgPattern: "moon",
+      bgPatternOpacity: 0.35,
+      diceBg: "#fef3c7",
+      dicePip: "#3a2a12",
+      diceBorder: "rgba(245,197,66,.35)",
+      diceLocked: "rgba(245,197,66,.22)",
+      dicePipLocked: "#f59e0b",
+      buttonIcon: "",
+    },
+    {
+      name: "Ocean",
+      key: "Ocean",
+      category: "standard",
+      bgColor: "#0b1220",
+      accentColor: "#38bdf8",
+      rowCompleteBg: "#0f2b3a",
+      bgGlow1: "#0ea5e9",
+      bgGlow2: "#14b8a6",
+      bgPattern: "waves",
+      bgPatternOpacity: 0.32,
+      diceBg: "#e0f2fe",
+      dicePip: "#0b1220",
+      diceBorder: "rgba(56,189,248,.35)",
+      diceLocked: "rgba(56,189,248,.2)",
+      dicePipLocked: "#0ea5e9",
+      buttonIcon: "",
+    },
+    {
+      name: "Forest",
+      key: "Forest",
+      category: "standard",
+      bgColor: "#0b1110",
+      accentColor: "#34d399",
+      rowCompleteBg: "#123326",
+      bgGlow1: "#14532d",
+      bgGlow2: "#22c55e",
+      bgPattern: "forest",
+      bgPatternOpacity: 0.3,
+      diceBg: "#ecfdf5",
+      dicePip: "#0b1110",
+      diceBorder: "rgba(34,197,94,.35)",
+      diceLocked: "rgba(34,197,94,.2)",
+      dicePipLocked: "#22c55e",
+      buttonIcon: "",
+    },
+    {
+      name: "Amber",
+      key: "Amber",
+      category: "standard",
+      bgColor: "#15100a",
+      accentColor: "#f59e0b",
+      rowCompleteBg: "#3a250f",
+      bgGlow1: "#f97316",
+      bgGlow2: "#f59e0b",
+      bgPattern: "embers",
+      bgPatternOpacity: 0.38,
+      diceBg: "#ffedd5",
+      dicePip: "#3a250f",
+      diceBorder: "rgba(245,158,11,.35)",
+      diceLocked: "rgba(245,158,11,.22)",
+      dicePipLocked: "#f59e0b",
+      buttonIcon: "",
+    },
+    {
+      name: "Cherry Blossom",
+      key: "Cherry Blossom",
+      category: "special",
+      unlock: { metric: "wins", value: 3, label: "Vinn 3 matcher" },
+      bgColor: "#160c10",
+      accentColor: "#f9a8d4",
+      rowCompleteBg: "#3a1820",
+      bgGlow1: "#f9a8d4",
+      bgGlow2: "#f472b6",
+      bgPattern: "blossom-trees",
+      bgPatternOpacity: 0.4,
+      diceBg: "#ffe4e6",
+      dicePip: "#3a1820",
+      diceBorder: "rgba(249,168,212,.35)",
+      diceLocked: "rgba(249,168,212,.22)",
+      dicePipLocked: "#f472b6",
+      buttonIcon: "✿",
+      checkShape: "square",
+      cellStyle: "solid",
+      checkColor: "#fda4af",
+      filledRingColor: "#f472b6",
+    },
+    {
+      name: "Reggae",
+      key: "Reggae",
+      category: "standard",
+      bgColor: "#0b0f0b",
+      accentColor: "#22c55e",
+      rowCompleteBg: "#1f3b2e",
+      bgGlow1: "#ef4444",
+      bgGlow2: "#facc15",
+      bgPattern: "reggae",
+      bgPatternOpacity: 0.35,
+      diceBg: "#fef9c3",
+      dicePip: "#052e16",
+      diceBorder: "rgba(250,204,21,.35)",
+      diceLocked: "rgba(34,197,94,.22)",
+      dicePipLocked: "#22c55e",
+      btnPrimaryBg: "linear-gradient(180deg, rgba(34,197,94,1), rgba(16,185,129,1))",
+      btnPrimaryText: "#07110b",
+      btnPrimaryBorder: "rgba(0,0,0,.12)",
+      btnPrimaryShadow: "0 10px 24px rgba(16,185,129,.25)",
+      ringColorMode: "cycle",
+      ringColors: ["#ef4444", "#facc15", "#22c55e"],
+      buttonIcon: "✶",
+      checkShape: "square",
+      cellStyle: "solid",
+      checkColor: "#fef08a",
+      filledRingColor: "#facc15",
+    },
+    {
+      name: "Otis",
+      key: "Otis",
+      category: "special",
+      unlock: { metric: "matchCount", value: 10, label: "Spela 10 matcher" },
+      bgColor: "#0b0b0b",
+      accentColor: "#f8fafc",
+      rowCompleteBg: "#1f1f1f",
+      bgGlow1: "#94a3b8",
+      bgGlow2: "#f8fafc",
+      bgPattern: "paws",
+      bgPatternOpacity: 0.28,
+      diceBg: "#f8fafc",
+      dicePip: "#0f172a",
+      diceBorder: "rgba(148,163,184,.35)",
+      diceLocked: "rgba(148,163,184,.22)",
+      dicePipLocked: "#f8fafc",
+      checkColor: "#f8fafc",
+      filledRingColor: "#cbd5e1",
+      checkShape: "circle",
+      cellStyle: "glass",
+      buttonIcon:
+        "data:image/svg+xml;utf8," +
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>" +
+        "<g stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>" +
+        "<path d='M10 26 C4 22 3 14 8 12 C14 10 20 16 22 22' fill='%23000'/>" +
+        "<path d='M54 26 C60 22 61 14 56 12 C50 10 44 16 42 22' fill='%23000'/>" +
+        "<path d='M12 30 C12 18 22 10 32 10 C42 10 52 18 52 30 C52 42 42 52 32 52 C22 52 12 42 12 30 Z' fill='%23000'/>" +
+        "<path d='M18 18 q2 2 0 4 q-2 2 0 4' fill='none'/>" +
+        "<path d='M46 18 q-2 2 0 4 q2 2 0 4' fill='none'/>" +
+        "<path d='M24 14 q2 2 0 4 q-2 2 0 4' fill='none'/>" +
+        "<path d='M40 14 q-2 2 0 4 q2 2 0 4' fill='none'/>" +
+        "<path d='M18 40 C20 34 24 30 32 30 C40 30 44 34 46 40 C44 46 38 50 32 50 C26 50 20 46 18 40 Z' fill='%23fff'/>" +
+        "<path d='M20 38 C22 36 26 34 32 34 C38 34 42 36 44 38' fill='none' stroke='%23fff'/>" +
+        "<circle cx='24' cy='28' r='2.2' fill='%23fff'/>" +
+        "<circle cx='40' cy='28' r='2.2' fill='%23fff'/>" +
+        "<circle cx='32' cy='36' r='3' fill='%23000'/>" +
+        "<path d='M32 39 Q32 42 28 44' stroke='%23000' fill='none'/>" +
+        "<path d='M32 39 Q32 42 36 44' stroke='%23000' fill='none'/>" +
+        "<path d='M16 50 Q22 46 28 50' fill='%23fff'/>" +
+        "<path d='M36 50 Q42 46 48 50' fill='%23fff'/>" +
+        "</g>" +
+        "</svg>",
+    },
+    {
+      name: "Ice",
+      key: "Ice",
+      category: "standard",
+      bgColor: "#0b1218",
+      accentColor: "#93c5fd",
+      rowCompleteBg: "#16263a",
+      bgGlow1: "#93c5fd",
+      bgGlow2: "#38bdf8",
+      bgPattern: "snow",
+      bgPatternOpacity: 0.36,
+      diceBg: "#e0f2fe",
+      dicePip: "#0b1220",
+      diceBorder: "rgba(147,197,253,.35)",
+      diceLocked: "rgba(147,197,253,.22)",
+      dicePipLocked: "#93c5fd",
+      buttonIcon: "snowflake",
+      checkShape: "hex",
+      cellStyle: "glass",
+    },
+    {
+      name: "Galax",
+      key: "Galax",
+      category: "special",
+      unlock: { metric: "blitzWins", value: 5, label: "Vinn 5 Blitz" },
+      bgColor: "#050b1a",
+      accentColor: "#67e8f9",
+      rowCompleteBg: "#1a2a52",
+      bgGlow1: "#22d3ee",
+      bgGlow2: "#c084fc",
+      bgPattern: "galaxy",
+      bgPatternOpacity: 0.45,
+      diceBg: "#dbeafe",
+      dicePip: "#0f172a",
+      diceBorder: "rgba(103,232,249,.5)",
+      diceLocked: "rgba(192,132,252,.3)",
+      dicePipLocked: "#67e8f9",
+      btnPrimaryBg: "linear-gradient(135deg, #22d3ee 0%, #6366f1 48%, #c084fc 100%)",
+      btnPrimaryText: "#04111d",
+      btnPrimaryBorder: "rgba(192,132,252,.38)",
+      btnPrimaryShadow: "0 16px 34px rgba(99,102,241,.42)",
+      ringColorMode: "cycle",
+      ringColors: ["#22d3ee", "#818cf8", "#c084fc"],
+      buttonIcon: "✦",
+      checkShape: "diamond",
+      cellStyle: "neon",
+      checkColor: "#67e8f9",
+      filledRingColor: "#c084fc",
+    },
+    {
+      name: "Ghost",
+      key: "Ghost",
+      category: "special",
+      unlock: { metric: "kingCount", value: 1, label: "Bli King minst 1 gång" },
+      bgColor: "#07090f",
+      accentColor: "#c4b5fd",
+      rowCompleteBg: "#1a2233",
+      bgGlow1: "#93c5fd",
+      bgGlow2: "#a78bfa",
+      bgPattern: "ghost-mist",
+      bgPatternOpacity: 0.42,
+      diceBg: "#e2e8f0",
+      dicePip: "#111827",
+      diceBorder: "rgba(196,181,253,.42)",
+      diceLocked: "rgba(99,102,241,.26)",
+      dicePipLocked: "#c4b5fd",
+      btnPrimaryBg: "linear-gradient(135deg, #111827 0%, #312e81 52%, #93c5fd 100%)",
+      btnPrimaryText: "#f8fafc",
+      btnPrimaryBorder: "rgba(147,197,253,.36)",
+      btnPrimaryShadow: "0 14px 30px rgba(49,46,129,.45)",
+      ringColorMode: "cycle",
+      ringColors: ["#c4b5fd", "#93c5fd", "#e2e8f0"],
+      buttonIcon: "",
+      checkShape: "skull",
+      cellStyle: "skull",
+      checkColor: "#67e8f9",
+      filledRingColor: "#67e8f9",
+    },
+  ];
+
+export function normalizePatternKey(key) {
+  if (!key) return "none";
+  if (BG_PATTERNS[key]) return key;
+  const legacyMap = {
+    blossom: "blossom-trees",
+  };
+  return BG_PATTERNS[legacyMap[key]] ? legacyMap[key] : "none";
+}

@@ -98,17 +98,9 @@ serve(async () => {
     return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
   }
 
-  const adjustedCounts = { ...roundCounts };
-  if (currentTurnId) {
-    const currentCount = Number(adjustedCounts[currentTurnId] ?? 0);
-    adjustedCounts[currentTurnId] = Math.max(0, currentCount - 1);
-  }
-  const rounds = activeOrder.map((id) => Number(adjustedCounts?.[id] ?? 0));
-  const minRound = Math.min(...rounds);
-  const maxRound = Math.max(...rounds);
-  if (minRound !== maxRound) {
-    return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
-  }
+  // Rounds are counted on turn start in the app, so when the turn returns to the
+  // start player we know everyone has had their turn this cycle. No extra round
+  // sync check is needed here.
 
   const { data: states } = await client
     .from("player_state")
@@ -184,56 +176,39 @@ serve(async () => {
 });
 
 async function finalizeBlitz(client: ReturnType<typeof createClient>, event: any, participants: any[]) {
-  const { data: playerRows } = await client
-    .from("players")
-    .select("id, profile_id, name")
-    .eq("room_id", event.room_id);
+  const active = (participants ?? []).filter((p) => p.status === "active" && p.profile_id);
+  const eliminated = (participants ?? []).filter((p) => p.status === "eliminated" && p.profile_id);
 
-  const eligiblePlayers = (playerRows ?? []).filter((p) => p.profile_id);
-  const entries =
-    eligiblePlayers.length > 0
-      ? eligiblePlayers.map((p) => ({ player_id: p.id, profile_id: p.profile_id, name: p.name }))
-      : (participants ?? []).filter((p) => p.profile_id && p.player_id);
+  if (!active.length && !eliminated.length) return;
 
-  const playerIds = entries.map((p) => p.player_id).filter(Boolean);
-  if (!playerIds.length) return;
-
-  const { data: states } = await client
-    .from("player_state")
-    .select("player_id, progress")
-    .eq("room_id", event.room_id)
-    .in("player_id", playerIds);
-
-  const progressByPlayer = new Map((states ?? []).map((s) => [s.player_id, s.progress]));
-  const scored = entries.map((p: any) => {
-    const prog = progressByPlayer.get(p.player_id) ?? null;
-    const weighted = calcWeightedProgress(prog);
-    const boxes = countBoxes(prog);
-    return {
-      participant: p,
-      percent: Math.round(weighted * 100),
-      boxes,
-    };
+  const eliminatedGroups = new Map<number, any[]>();
+  eliminated.forEach((p) => {
+    const seq = Number(p.eliminated_seq ?? 0);
+    const group = eliminatedGroups.get(seq) ?? [];
+    group.push(p);
+    eliminatedGroups.set(seq, group);
   });
 
-  const sorted = [...scored].sort((a, b) => {
-    if (a.percent !== b.percent) return b.percent - a.percent;
-    if (a.boxes !== b.boxes) return b.boxes - a.boxes;
-    return String(a.participant.profile_id).localeCompare(String(b.participant.profile_id));
-  });
+  const orderedElims = Array.from(eliminatedGroups.entries())
+    .sort((a, b) => b[0] - a[0])
+    .map(([, group]) => group);
+
+  const rankGroups: any[][] = [];
+  if (active.length) {
+    rankGroups.push(active);
+  } else if (orderedElims.length) {
+    // If no active players left, last eliminated group becomes rank 1
+    rankGroups.push(orderedElims.shift() ?? []);
+  }
+  rankGroups.push(...orderedElims);
 
   const placements: { profile_id: string; rank: number }[] = [];
   let currentRank = 1;
-  let prev: typeof sorted[number] | null = null;
-  sorted.forEach((entry, idx) => {
-    if (prev && (entry.percent !== prev.percent || entry.boxes !== prev.boxes)) {
-      currentRank = idx + 1;
-    }
-    const profileId = entry.participant.profile_id;
-    if (profileId) {
-      placements.push({ profile_id: profileId, rank: currentRank });
-    }
-    prev = entry;
+  rankGroups.forEach((group) => {
+    group.forEach((entry) => {
+      placements.push({ profile_id: entry.profile_id, rank: currentRank });
+    });
+    currentRank += group.length;
   });
 
   const pointsByRank: Record<number, number> = { 1: 10, 2: 5, 3: 3 };
@@ -257,9 +232,6 @@ async function finalizeBlitz(client: ReturnType<typeof createClient>, event: any
     .select("id, display_name")
     .in("id", profileIds);
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name]));
-  const playerNameByProfile = new Map(
-    (eligiblePlayers ?? []).filter((p) => p.profile_id).map((p) => [p.profile_id, p.name])
-  );
   const winners = new Set(placements.filter((p) => p.rank === 1).map((p) => p.profile_id));
 
   if (event?.award_points) {
@@ -268,7 +240,7 @@ async function finalizeBlitz(client: ReturnType<typeof createClient>, event: any
       match_id: null,
       room_id: event.room_id,
       profile_id: id,
-      display_name: nameById.get(id) ?? playerNameByProfile.get(id) ?? "Spelare",
+      display_name: nameById.get(id) ?? "Spelare",
       is_winner: winners.has(id),
       rounds: null,
       points_awarded: pointsByProfile.get(id) ?? 0,

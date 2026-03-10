@@ -30,7 +30,7 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
     },
     glass: {
       borderRadius: 14,
-      background: (locked, isPreview) =>
+      background: (locked) =>
         locked
           ? "linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.05)), linear-gradient(180deg, color-mix(in srgb, var(--dice-locked) 60%, transparent), color-mix(in srgb, var(--dice-locked) 20%, transparent))"
           : "linear-gradient(145deg, rgba(255,255,255,.45), rgba(255,255,255,.08)), linear-gradient(180deg, color-mix(in srgb, var(--dice-bg) 60%, transparent), color-mix(in srgb, var(--dice-bg) 20%, transparent))",
@@ -40,7 +40,7 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
     },
     neon: {
       borderRadius: 10,
-      background: (locked, isPreview) =>
+      background: (locked) =>
         locked
           ? "linear-gradient(180deg, rgba(10,10,14,.8), color-mix(in srgb, var(--dice-locked) 35%, transparent))"
           : "linear-gradient(180deg, rgba(10,10,14,.9), color-mix(in srgb, var(--dice-bg) 35%, transparent))",
@@ -50,7 +50,7 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
     },
     etched: {
       borderRadius: 8,
-      background: (locked, isPreview) =>
+      background: (locked) =>
         locked
           ? "linear-gradient(180deg, #6b7280, #374151)"
           : "linear-gradient(180deg, #9ca3af, #4b5563)",
@@ -145,10 +145,6 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
   );
 }
 
-function rollDie() {
-  return Math.floor(Math.random() * 6) + 1;
-}
-
 function formatTargetLabel(target) {
   return `${target}`;
 }
@@ -168,7 +164,6 @@ export default function DiceTray({
   diceStyle = "classic",
   onSetTarget,
   onRoll,
-  onReroll,
   onEndRound,
   onInspect,
   showInspect = false,

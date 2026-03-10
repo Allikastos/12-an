@@ -73,6 +73,8 @@ export default function ScoreSheet({
   const checkIcon = settings?.buttonIcon ?? "";
   const ringColors = Array.isArray(settings?.ringColors) ? settings.ringColors : null;
   const filledRingColor = settings?.filledRingColor ?? checkColor;
+  const checkShape = settings?.checkShape ?? "circle";
+  const cellStyle = settings?.cellStyle ?? "ring";
   const isSnowflake = checkIcon === "snowflake";
   const isCrownOutline = checkIcon === "crown-outline";
   const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
@@ -85,13 +87,17 @@ export default function ScoreSheet({
     if (!showWin || !winVideoSrc) return;
     const v = winVideoRef.current;
     if (!v) return;
-    setVideoFailed(false);
-    setNeedsUserPlay(false);
+    const resetId = setTimeout(() => {
+      setVideoFailed(false);
+      setNeedsUserPlay(false);
+    }, 0);
     v.muted = true;
     v.playsInline = true;
     try {
       v.currentTime = 0;
-    } catch {}
+    } catch {
+      // Ignore seek issues on some browsers/devices.
+    }
     const tryPlay = () => {
       const res = v.play();
       if (res && typeof res.then === "function") {
@@ -121,6 +127,7 @@ export default function ScoreSheet({
       tryPlay();
     }, 900);
     return () => {
+      clearTimeout(resetId);
       v.removeEventListener("loadeddata", onCanPlay);
       v.removeEventListener("canplay", onCanPlay);
       clearTimeout(checkId);
@@ -211,6 +218,54 @@ export default function ScoreSheet({
                       : null;
                   const checkedRing = ringColor ?? filledRingColor;
                   const crownStroke = ringColor ?? (checked ? checkedRing : "rgba(148,163,184,.7)");
+                  const shapeStyles = {
+                    circle: { borderRadius: 999 },
+                    square: { borderRadius: 8 },
+                    diamond: { borderRadius: 10, transform: "rotate(45deg)" },
+                    hex: { borderRadius: 10, clipPath: "polygon(25% 6%, 75% 6%, 94% 50%, 75% 94%, 25% 94%, 6% 50%)" },
+                    skull: { borderRadius: 8 },
+                  };
+                  const resolvedShape = shapeStyles[checkShape] ?? shapeStyles.circle;
+                  const cellStyleMap = {
+                    ring: {
+                      bg: "transparent",
+                      border: `2px solid ${ringColor ?? (checked ? checkedRing : "rgba(148,163,184,.7)")}`,
+                      shadow: "none",
+                    },
+                    solid: {
+                      bg: checked
+                        ? `color-mix(in srgb, ${checkedRing} 28%, rgba(15,23,42,.45))`
+                        : "rgba(15,23,42,.28)",
+                      border: `1px solid ${checked ? checkedRing : "rgba(148,163,184,.45)"}`,
+                      shadow: checked ? `0 0 0 1px color-mix(in srgb, ${checkedRing} 35%, transparent)` : "none",
+                    },
+                    glass: {
+                      bg: checked
+                        ? `linear-gradient(160deg, color-mix(in srgb, ${checkedRing} 24%, rgba(255,255,255,.35)), rgba(15,23,42,.42))`
+                        : "linear-gradient(160deg, rgba(255,255,255,.26), rgba(15,23,42,.28))",
+                      border: `1px solid ${checked ? "rgba(255,255,255,.7)" : "rgba(148,163,184,.5)"}`,
+                      shadow: "inset 0 1px 0 rgba(255,255,255,.38), 0 8px 14px rgba(2,6,23,.26)",
+                    },
+                    neon: {
+                      bg: checked
+                        ? `linear-gradient(180deg, rgba(8,10,18,.92), color-mix(in srgb, ${checkedRing} 24%, rgba(8,10,18,.92)))`
+                        : "linear-gradient(180deg, rgba(8,10,18,.85), rgba(15,23,42,.8))",
+                      border: `1px solid ${checked ? checkedRing : "rgba(148,163,184,.38)"}`,
+                      shadow: checked
+                        ? `0 0 14px color-mix(in srgb, ${checkedRing} 65%, transparent), inset 0 0 10px rgba(0,0,0,.35)`
+                        : "inset 0 0 8px rgba(0,0,0,.25)",
+                    },
+                    skull: {
+                      bg: checked ? "rgba(8,10,18,.92)" : "rgba(8,10,18,.72)",
+                      border: "none",
+                      shadow: checked
+                        ? `0 0 14px color-mix(in srgb, ${checkedRing} 70%, transparent), inset 0 0 10px rgba(0,0,0,.35)`
+                        : "inset 0 0 8px rgba(0,0,0,.35)",
+                    },
+                  };
+                  const cellPreset = cellStyleMap[cellStyle] ?? cellStyleMap.ring;
+                  const isSkullShape = checkShape === "skull";
+                  const skullGlow = checked ? checkedRing : "#67e8f9";
                   return (
                     <button
                       key={i}
@@ -218,27 +273,210 @@ export default function ScoreSheet({
                       style={{
                         width: "var(--box)",
                         height: "var(--box)",
-                        borderRadius: isCrownOutline ? 10 : 999,
-                        border: isCrownOutline
+                        borderRadius: isCrownOutline || isSkullShape ? 0 : resolvedShape.borderRadius,
+                        border: isCrownOutline || isSkullShape
                           ? "none"
-                          : `2px solid ${ringColor ?? (checked ? checkedRing : "rgba(148,163,184,.7)")}`,
-                        background: "transparent",
+                          : cellPreset.border,
+                        background: isCrownOutline
+                          ? "transparent"
+                          : isSkullShape
+                          ? "transparent"
+                          : cellPreset.bg,
                         backgroundImage: isCrownOutline ? crownOutlineData(crownStroke) : "none",
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center",
-                        backgroundSize: "85% 85%",
+                        backgroundSize: isSkullShape ? "92% 92%" : "85% 85%",
                         cursor: readOnly ? "default" : "pointer",
                         position: "relative",
+                        overflow: "visible",
                         outline: "none",
-                        boxShadow: isCrownOutline && checked
-                          ? "0 0 10px color-mix(in srgb, var(--accent) 40%, transparent)"
-                          : "none",
+                        transform: isCrownOutline || isSkullShape ? "none" : resolvedShape.transform,
+                        clipPath: isCrownOutline || isSkullShape ? "none" : resolvedShape.clipPath,
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        WebkitTapHighlightColor: "transparent",
+                        isolation: "isolate",
+                        padding: 0,
+                        boxShadow:
+                          isCrownOutline && checked
+                            ? "0 0 10px color-mix(in srgb, var(--accent) 40%, transparent)"
+                            : isSkullShape
+                            ? "none"
+                            : cellPreset.shadow,
                       }}
                       aria-label={`Rad ${row}, ruta ${i + 1}`}
                       type="button"
                       disabled={readOnly}
                     >
-                      {checked && !isCrownOutline && (checkIcon || isSnowflake) && (
+                      {isSkullShape && !checked && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            inset: "8%",
+                            display: "grid",
+                            placeItems: "center",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true" focusable="false">
+                            <g
+                              fill="none"
+                              stroke={skullGlow}
+                              strokeWidth="2.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeOpacity="0.62"
+                            >
+                              <path d="M32 7 C19.5 7 9 17 9 30 C9 40 15 47 21.5 50.5 V57 H28 V53 H36 V57 H42.5 V50.5 C49 47 55 40 55 30 C55 17 44.5 7 32 7 Z" />
+                              <circle cx="24" cy="29" r="4.2" />
+                              <circle cx="40" cy="29" r="4.2" />
+                              <path d="M30 38 L34 38 L32 42 Z" />
+                              <path d="M24 47 H40" />
+                            </g>
+                          </svg>
+                        </span>
+                      )}
+
+                      {checked && isSkullShape && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            inset: "8%",
+                            display: "grid",
+                            placeItems: "center",
+                            pointerEvents: "none",
+                            background: "transparent",
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 64 64"
+                            width="100%"
+                            height="100%"
+                            aria-hidden="true"
+                            focusable="false"
+                            style={{ background: "transparent", overflow: "visible" }}
+                          >
+                            <g
+                              fill="none"
+                              stroke={skullGlow}
+                              strokeWidth="2.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <g
+                                strokeWidth="3.4"
+                                strokeOpacity="0.24"
+                                transform="translate(32 34) scale(1.13) translate(-32 -34)"
+                              >
+                                <circle cx="32" cy="14.5" r="6" />
+                                <circle cx="29.2" cy="13.8" r="1.2" />
+                                <circle cx="34.8" cy="13.8" r="1.2" />
+                                <path d="M30 17.5 H34" />
+                                <path d="M28 22 H36" />
+                                <path d="M32 21 L32 36" />
+                                <path d="M32 28 L23 32" />
+                                <path d="M32 28 L41 32" />
+                                <path d="M23 32 L18 25" />
+                                <path d="M18 25 L15 30" />
+                                <path d="M41 32 L46 25" />
+                                <path d="M46 25 L49 30" />
+                                <path d="M32 36 L26 46" />
+                                <path d="M32 36 L38 46" />
+                                <path d="M26 46 L22 56" />
+                                <path d="M22 56 L28 56" />
+                                <path d="M38 46 L42 56" />
+                                <path d="M42 56 L36 56" />
+                              </g>
+                              <g>
+                                <animateTransform
+                                  attributeName="transform"
+                                  type="translate"
+                                  values="0 0; 0 -1.4; 0 0; 0 1.2; 0 0"
+                                  dur="0.72s"
+                                  repeatCount="indefinite"
+                                />
+                                <circle cx="32" cy="14.5" r="6" />
+                                <circle cx="29.2" cy="13.8" r="1.2" />
+                                <circle cx="34.8" cy="13.8" r="1.2" />
+                                <path d="M30 17.5 H34" />
+                                <path d="M28 22 H36" />
+                              </g>
+
+                              <g>
+                                <animateTransform
+                                  attributeName="transform"
+                                  type="rotate"
+                                  values="-9 32 30; 9 32 30; -9 32 30"
+                                  dur="0.7s"
+                                  repeatCount="indefinite"
+                                />
+                                <path d="M32 21 L32 36" />
+                                <path d="M32 28 L23 32" />
+                                <path d="M32 28 L41 32" />
+                              </g>
+
+                              <g>
+                                <animateTransform
+                                  attributeName="transform"
+                                  type="rotate"
+                                  values="24 23 32; -18 23 32; 24 23 32"
+                                  dur="0.42s"
+                                  repeatCount="indefinite"
+                                />
+                                <path d="M23 32 L18 25" />
+                                <path d="M18 25 L15 30" />
+                              </g>
+                              <g>
+                                <animateTransform
+                                  attributeName="transform"
+                                  type="rotate"
+                                  values="-24 41 32; 18 41 32; -24 41 32"
+                                  dur="0.42s"
+                                  repeatCount="indefinite"
+                                />
+                                <path d="M41 32 L46 25" />
+                                <path d="M46 25 L49 30" />
+                              </g>
+
+                              <g>
+                                <animateTransform
+                                  attributeName="transform"
+                                  type="translate"
+                                  values="0 0; 0 1.2; 0 0; 0 -1; 0 0"
+                                  dur="0.6s"
+                                  repeatCount="indefinite"
+                                />
+                                <path d="M32 36 L26 46" />
+                                <path d="M32 36 L38 46" />
+                              </g>
+                              <g>
+                                <animateTransform
+                                  attributeName="transform"
+                                  type="rotate"
+                                  values="-15 26 46; 15 26 46; -15 26 46"
+                                  dur="0.44s"
+                                  repeatCount="indefinite"
+                                />
+                                <path d="M26 46 L22 56" />
+                                <path d="M22 56 L28 56" />
+                              </g>
+                              <g>
+                                <animateTransform
+                                  attributeName="transform"
+                                  type="rotate"
+                                  values="15 38 46; -15 38 46; 15 38 46"
+                                  dur="0.44s"
+                                  repeatCount="indefinite"
+                                />
+                                <path d="M38 46 L42 56" />
+                                <path d="M42 56 L36 56" />
+                              </g>
+                            </g>
+                          </svg>
+                        </span>
+                      )}
+
+                      {checked && !isCrownOutline && !isSkullShape && (checkIcon || isSnowflake) && (
                         <span
                           style={{
                             position: "absolute",
@@ -252,6 +490,7 @@ export default function ScoreSheet({
                             color: checkColor,
                             lineHeight: 1,
                             textAlign: "center",
+                            transform: checkShape === "diamond" ? "rotate(-45deg)" : "none",
                           }}
                         >
                           {isSnowflake ? (

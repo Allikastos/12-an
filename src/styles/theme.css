@@ -104,6 +104,15 @@ body[data-theme="moon"]::after {
   background-size: 120px 120px;
 }
 
+#root::after {
+  content: "";
+  position: fixed;
+  inset: -8%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+}
+
 #root > * {
   position: relative;
   z-index: 1;
@@ -232,6 +241,65 @@ body[data-theme="reggae"]::before {
   animation: reggaeShift 12s linear infinite;
 }
 
+body[data-theme="ghost-mist"]::before {
+  animation:
+    ghostMistDrift 18s ease-in-out infinite,
+    ghostBreath 7.2s ease-in-out infinite,
+    ghostLayerRoll 31s linear infinite;
+  filter: brightness(1.08) contrast(1.06) saturate(1.04);
+}
+
+body[data-theme="ghost-mist"]::after {
+  opacity: 0.34;
+  background:
+    radial-gradient(260px 210px at 16% 24%, rgba(147,197,253,.25), transparent 70%),
+    radial-gradient(320px 240px at 76% 34%, rgba(167,139,250,.23), transparent 72%),
+    radial-gradient(280px 230px at 50% 70%, rgba(103,232,249,.2), transparent 72%),
+    radial-gradient(220px 180px at 84% 78%, rgba(196,181,253,.16), transparent 74%);
+  mix-blend-mode: screen;
+  filter: blur(6px);
+  animation:
+    ghostOrbs 11s ease-in-out infinite,
+    ghostSheetDrift 20s ease-in-out infinite;
+}
+
+body[data-theme="ghost-mist"] #root::after {
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(300px 210px at 22% 34%, rgba(103,232,249,.16), transparent 70%),
+    radial-gradient(360px 250px at 72% 58%, rgba(167,139,250,.15), transparent 74%),
+    radial-gradient(260px 180px at 48% 82%, rgba(196,181,253,.13), transparent 72%),
+    radial-gradient(180px 120px at 60% 20%, rgba(226,232,240,.1), transparent 72%);
+  filter: blur(10px);
+  animation:
+    ghostParallaxA 22s ease-in-out infinite,
+    ghostFlicker 5.8s steps(1, end) infinite;
+}
+
+body[data-theme="ghost-mist"] #root::before {
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='1600' viewBox='0 0 1400 1600'>\
+<g fill='none' stroke='%2367e8f9' stroke-opacity='0.52' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'>\
+<path d='M188 252 C170 296 178 360 214 406 C246 446 304 456 350 438 C398 418 430 372 434 322 C438 272 412 224 368 204 C304 176 216 192 188 252 Z'/>\
+<path d='M212 430 C228 414 246 414 262 430 C278 446 296 446 312 430 C328 414 346 414 362 430 C378 446 396 446 414 428'/>\
+<circle cx='274' cy='278' r='10'/><circle cx='328' cy='278' r='8'/><path d='M262 334 Q300 360 338 334'/>\
+<path d='M892 340 C904 286 946 248 998 246 C1048 244 1092 280 1106 332 C1122 386 1096 446 1048 474 C998 504 934 496 894 452 C860 412 854 372 892 340 Z'/>\
+<path d='M900 466 C918 448 936 448 954 466 C972 484 992 484 1010 466 C1028 448 1048 448 1066 466 C1084 484 1104 484 1122 464'/>\
+<ellipse cx='980' cy='312' rx='8' ry='12'/><ellipse cx='1022' cy='312' rx='8' ry='12'/><path d='M970 360 C988 346 1010 346 1030 360'/>\
+<path d='M520 978 C500 936 504 884 538 850 C572 816 628 804 674 822 C716 838 748 876 754 922 C760 968 744 1016 706 1048 C666 1082 604 1090 558 1068 C528 1054 516 1028 520 978 Z'/>\
+<path d='M536 1062 C554 1046 572 1046 590 1062 C608 1078 628 1078 646 1062 C664 1046 684 1046 702 1062 C720 1078 740 1078 758 1060'/>\
+<circle cx='602' cy='900' r='9'/><circle cx='646' cy='900' r='9'/><path d='M590 946 C608 972 640 972 658 946'/>\
+</g></svg>");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center top;
+  filter: drop-shadow(0 0 8px rgba(103,232,249,.38));
+  animation: ghostGlyphDrift 24s ease-in-out infinite;
+}
+
 body[data-theme="lava"]::before {
   animation: lavaFlow 7s ease-in-out infinite;
 }
@@ -320,6 +388,64 @@ body[data-theme="royal"]::after {
   50% { background-position: -20px 90px; }
   75% { background-position: 80px 30px; }
   100% { background-position: -30px 10px; }
+}
+
+@keyframes ghostMistDrift {
+  0% { background-position: center top; opacity: calc(var(--bg-pattern-opacity) * 0.9); }
+  30% { background-position: 48px 12px; opacity: calc(var(--bg-pattern-opacity) * 1.05); }
+  60% { background-position: -36px 26px; opacity: calc(var(--bg-pattern-opacity) * 0.96); }
+  100% { background-position: center top; opacity: calc(var(--bg-pattern-opacity) * 0.9); }
+}
+
+@keyframes ghostBreath {
+  0% { transform: scale(1) translate3d(0, 0, 0); }
+  50% { transform: scale(1.02) translate3d(0, -4px, 0); }
+  100% { transform: scale(1) translate3d(0, 0, 0); }
+}
+
+@keyframes ghostLayerRoll {
+  0% { background-position: center top; }
+  50% { background-position: 30px 16px; }
+  100% { background-position: center top; }
+}
+
+@keyframes ghostOrbs {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.18; }
+  35% { transform: translate3d(16px, -12px, 0) scale(1.04); opacity: 0.34; }
+  68% { transform: translate3d(-14px, 10px, 0) scale(0.98); opacity: 0.24; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.18; }
+}
+
+@keyframes ghostSheetDrift {
+  0% { background-position: 0 0; }
+  40% { background-position: -24px 18px; }
+  70% { background-position: 18px -14px; }
+  100% { background-position: 0 0; }
+}
+
+@keyframes ghostParallaxA {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  30% { transform: translate3d(18px, -10px, 0) scale(1.03); }
+  65% { transform: translate3d(-14px, 12px, 0) scale(0.99); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes ghostFlicker {
+  0% { opacity: 0.32; }
+  58% { opacity: 0.32; }
+  61% { opacity: 0.52; }
+  64% { opacity: 0.36; }
+  84% { opacity: 0.36; }
+  87% { opacity: 0.5; }
+  90% { opacity: 0.34; }
+  100% { opacity: 0.32; }
+}
+
+@keyframes ghostGlyphDrift {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.16; }
+  28% { transform: translate3d(14px, -10px, 0) scale(1.015); opacity: 0.2; }
+  64% { transform: translate3d(-12px, 8px, 0) scale(0.99); opacity: 0.17; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.16; }
 }
 
 @keyframes lavaPulse {
