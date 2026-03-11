@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const SUITS = ["spades", "hearts", "diamonds", "clubs"];
-const CARD_WIDTH = 72;
-const CARD_HEIGHT = 101; // 2.5:3.5 ratio (real playing-card proportion)
-const CARD_STACK_OFFSET = 24;
+const CARD_WIDTH = "clamp(34px, 11vw, 72px)";
+const CARD_HEIGHT = "clamp(48px, 15.4vw, 101px)"; // 2.5:3.5 ratio
+const CARD_STACK_OFFSET = 16;
 const HARPAN_WINS_KEY = "scoreboard_harpan_wins_v1";
 const HARPAN_STATE_KEY = "scoreboard_harpan_state_v1";
 const SUIT_SYMBOL = {
@@ -455,10 +455,10 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                 marginTop: 14,
                 display: "grid",
                 gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                gap: 8,
+                gap: 6,
               }}
             >
-              <div style={{ gridColumn: "span 2", display: "flex", gap: 8 }}>
+              <div style={{ gridColumn: "span 2", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 <button
                   type="button"
                   onClick={drawFromStock}
@@ -563,10 +563,10 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
               style={{
                 marginTop: 12,
                 display: "grid",
-                gridTemplateColumns: "repeat(7, minmax(88px, 1fr))",
-                gap: 8,
+                gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                gap: 6,
                 alignItems: "start",
-                minHeight: 260,
+                minHeight: "clamp(190px, 42vw, 260px)",
               }}
             >
               {game.tableau.map((pile, pileIndex) => (
@@ -577,7 +577,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                   }}
                   style={{
                     position: "relative",
-                    minHeight: CARD_HEIGHT + 130,
+                    minHeight: "clamp(180px, 42vw, 240px)",
                     borderRadius: 12,
                     border: "1px dashed rgba(148,163,184,.24)",
                     background: "rgba(15,23,42,.24)",
@@ -612,8 +612,8 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                         }}
                         style={{
                           position: "absolute",
-                          left: 6,
-                          right: 6,
+                          left: 2,
+                          right: 2,
                           top: 8 + cardIndex * CARD_STACK_OFFSET,
                           height: CARD_HEIGHT,
                           borderRadius: 11,
