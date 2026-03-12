@@ -200,7 +200,6 @@ export default function App() {
   const turnTimeoutRef = useRef(null);
   const prevIsMyTurnRef = useRef(false);
   const lastTurnActionRef = useRef(0);
-  const autoEndWinRef = useRef(false);
   const rematchStartingRef = useRef(false);
   const rematchSupportedRef = useRef(true);
   const prevStartedAtRef = useRef(null);
@@ -303,7 +302,6 @@ export default function App() {
   const [target, setTarget] = useState(null); // 1..12, null until chosen
   const [lastGain, setLastGain] = useState(0);
   const [diceStatus, setDiceStatus] = useState("idle"); // idle | choose | running | stopped | all
-  const [mustCommitSelection, setMustCommitSelection] = useState(false);
   const [targetLocked, setTargetLocked] = useState(false);
   const [rolling, setRolling] = useState(false);
   const [rollNonce, setRollNonce] = useState(0);
@@ -336,17 +334,12 @@ export default function App() {
     if (!hasSignaledWin && isProgressWin(progress)) {
       setHasSignaledWin(true);
       signalWin();
-      if (isMyTurn && !autoEndWinRef.current) {
-        autoEndWinRef.current = true;
-        endRound();
-      }
     }
   }, [progress, isSolo, gameStarted, hasSignaledWin, isMyTurn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!gameStarted) {
       setHasSignaledWin(false);
-      autoEndWinRef.current = false;
     }
   }, [gameStarted]);
 
@@ -373,7 +366,6 @@ export default function App() {
 
   const resetTurnState = useCallback(() => {
     setDiceStatus("idle");
-    setMustCommitSelection(false);
     setTarget(null);
     setLocked(Array(6).fill(false));
     setPreviewLocked(Array(6).fill(false));
@@ -967,23 +959,8 @@ export default function App() {
     markTurnActivity();
     if (diceStatus === "choose") {
       const { nextLocked } = computeLocks(dice, Array(6).fill(false), value);
-      const lockedCount = nextLocked.filter(Boolean).length;
-      const gained = value >= 7 ? Math.floor(lockedCount / 2) : lockedCount;
-      if (gained <= 0) return;
-      addToProgress(value, gained);
-      triggerDiceHitFlash(nextLocked.map((v, i) => (v ? i : -1)).filter((i) => i >= 0));
-      setMustCommitSelection(false);
       setTarget(value);
-      setTargetLocked(true);
-      setLocked(nextLocked);
       setPreviewLocked(nextLocked);
-      setLastGain(gained);
-      const rowFilled = ((progress?.[value] ?? []).filter(Boolean).length + gained) >= 7;
-      if (rowFilled) {
-        resetTurnState();
-        return;
-      }
-      setDiceStatus(nextLocked.every(Boolean) ? "all" : "running");
       return;
     }
 
@@ -998,7 +975,6 @@ export default function App() {
     triggerRollAnimation();
     setDice(Array(6).fill(0).map(() => rollDie()));
     setDiceStatus("choose");
-    setMustCommitSelection(true);
     setTarget(null);
     setTargetLocked(false);
     setLocked(Array(6).fill(false));
@@ -1025,7 +1001,6 @@ export default function App() {
 
   function rollOnce() {
     markTurnActivity();
-    if (mustCommitSelection) return;
     if (diceStatus === "all") {
       rerollAll();
       return;
@@ -1039,7 +1014,6 @@ export default function App() {
       setPreviewLocked(Array(6).fill(false));
       setLastGain(0);
       setDiceStatus("choose");
-      setMustCommitSelection(true);
       setTargetLocked(false);
       return;
     }
@@ -1053,7 +1027,7 @@ export default function App() {
     triggerRollAnimation();
     const baseLocked =
       diceStatus === "choose"
-        ? computeLocks(dice, locked, target).nextLocked
+        ? computeLocks(dice, Array(6).fill(false), target).nextLocked
         : locked;
     if (diceStatus === "choose") {
       setPreviewLocked(baseLocked);
@@ -1103,14 +1077,7 @@ export default function App() {
     if (gain === 0) {
       setDiceStatus("stopped");
     } else {
-      // Force a new value selection after each successful roll.
-      // This prevents endless rerolls without committing a target.
-      setDiceStatus("choose");
-      setMustCommitSelection(true);
-      setTarget(null);
-      setTargetLocked(false);
-      setLocked(Array(6).fill(false));
-      setPreviewLocked(Array(6).fill(false));
+      setDiceStatus("running");
     }
   }
 
@@ -2448,7 +2415,6 @@ export default function App() {
           showInspect={!isSolo}
           lastGain={lastGain}
           status={diceStatus}
-          mustCommitSelection={mustCommitSelection}
         />
 
         {!isSolo && (
