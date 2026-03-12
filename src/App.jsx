@@ -371,7 +371,7 @@ export default function App() {
     })();
   }, [roomId, playerId, progress, dice, target, themeSnapshot]);
 
-  const resetTurnState = () => {
+  const resetTurnState = useCallback(() => {
     setDiceStatus("idle");
     setMustCommitSelection(false);
     setTarget(null);
@@ -379,7 +379,7 @@ export default function App() {
     setPreviewLocked(Array(6).fill(false));
     setLastGain(0);
     setTargetLocked(false);
-  };
+  }, []);
 
   const {
     TOTAL_BOXES,
