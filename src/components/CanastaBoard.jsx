@@ -498,7 +498,6 @@ function makeGame({ names, mode, playersConfig = null }) {
     Array.isArray(playersConfig) && playersConfig.length > 0
       ? playersConfig
       : names.map((name, idx) => ({ name, isBot: mode === "single" && idx > 0 }));
-  const playerCount = resolvedPlayers.length;
   const teamCount = mode === "team" ? 2 : 0;
   const players = resolvedPlayers.map((playerCfg, idx) => ({
     id: `p${idx + 1}`,
@@ -1021,6 +1020,7 @@ export default function CanastaBoard({
 }) {
   const [stage, setStage] = useState("setup");
   const [mode, setMode] = useState("single");
+  const [targetScore, setTargetScore] = useState(10000);
   const [lobbyPlayers, setLobbyPlayers] = useState(() => [
     { id: "human-1", name: initialPlayerName || "Spelare 1", isBot: false },
   ]);
@@ -1210,7 +1210,7 @@ export default function CanastaBoard({
     setGame((prev) => discardState(prev, cardId));
   }
 
-  function moveHandCard(fromId, toId) {
+  const moveHandCard = useCallback((fromId, toId) => {
     if (!fromId || !toId || fromId === toId) return;
     setHandOrder((prev) => {
       const base = prev.length ? [...prev] : orderedHand.map((c) => c.id);
@@ -1224,7 +1224,7 @@ export default function CanastaBoard({
     });
     setHoverCardId(null);
     setHandDropSide(null);
-  }
+  }, [orderedHand]);
 
   function tryDiscardSelected() {
     if (!game || !isMyTurn || isBotTurn || game.phase !== "discard" || game.roundEnded) return;
@@ -1336,13 +1336,14 @@ export default function CanastaBoard({
     pointsAwardedRef.current = true;
     const humans = game.players.filter((p) => !p.isBot).length;
     const bots = game.players.filter((p) => p.isBot).length;
-    const points = humans * 4 + bots;
+    const basePoints = humans * 4 + bots;
+    const points = targetScore === 5000 ? basePoints / 2 : basePoints;
     const payload = { points, humans, bots, totalPlayers: game.players.length };
     setRoundLeaderboardPoints(payload);
     if (typeof onLeaderboardPointsAwarded === "function") {
       onLeaderboardPointsAwarded(payload);
     }
-  }, [game, onLeaderboardPointsAwarded]);
+  }, [game, onLeaderboardPointsAwarded, targetScore]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -1464,7 +1465,7 @@ export default function CanastaBoard({
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
     };
-  }, [isMobile, dragCardId, game?.roundEnded, orderedHand, moveHandCard]);
+  }, [isMobile, dragCardId, game?.roundEnded, orderedHand, moveHandCard, handStep]);
 
   useEffect(
     () => () => {
@@ -1512,6 +1513,7 @@ export default function CanastaBoard({
     const canStart = isHost && lobbyCount >= 1 && lobbyCount <= 4 && (mode === "single" || lobbyCount === 4);
     const humansInLobby = lobbyPlayers.filter((p) => !p.isBot).length;
     const botsInLobby = lobbyPlayers.filter((p) => p.isBot).length;
+    const lobbySeats = seatTemplateList(Math.max(1, Math.min(4, lobbyCount)), isMobile);
     return (
       <Card
         style={{
@@ -1556,6 +1558,78 @@ export default function CanastaBoard({
               </div>
             </div>
 
+            <div
+              style={{
+                position: "relative",
+                minHeight: isMobile ? 300 : 360,
+                borderRadius: isMobile ? 18 : 24,
+                border: "1px solid rgba(34,197,94,.28)",
+                backgroundImage: [
+                  "radial-gradient(circle at 18% 18%, rgba(56,189,248,.18), transparent 34%)",
+                  "radial-gradient(circle at 82% 12%, rgba(34,197,94,.14), transparent 30%)",
+                  "linear-gradient(180deg, rgba(8,40,48,.96), rgba(3,20,34,.98))",
+                ].join(", "),
+                boxShadow: "inset 0 0 0 2px rgba(16,185,129,.16), 0 16px 40px rgba(2,6,23,.3)",
+                overflow: "hidden",
+              }}
+            >
+              {lobbyPlayers.map((player, idx) => {
+                const seat = lobbySeats[idx] ?? lobbySeats[0] ?? { top: "90%", left: "50%" };
+                return (
+                  <div
+                    key={`seat-${player.id}`}
+                    style={{
+                      position: "absolute",
+                      left: seat.left,
+                      top: seat.top,
+                      transform: "translate(-50%, -50%)",
+                      minWidth: isMobile ? 104 : 132,
+                      padding: isMobile ? "10px 10px" : "12px 12px",
+                      borderRadius: 16,
+                      border: idx === 0
+                        ? "1px solid rgba(56,189,248,.55)"
+                        : "1px solid rgba(148,163,184,.24)",
+                      background: idx === 0
+                        ? "linear-gradient(180deg, rgba(8,47,73,.88), rgba(8,24,40,.92))"
+                        : "linear-gradient(180deg, rgba(15,23,42,.88), rgba(5,12,18,.92))",
+                      boxShadow: "0 10px 24px rgba(2,6,23,.34)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div style={{ fontWeight: 900, fontSize: isMobile ? 14 : 15 }}>
+                      {player.name || (player.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`)}
+                    </div>
+                    <div style={{ color: player.isBot ? "#fde68a" : "#93c5fd", fontWeight: 800, fontSize: 11, marginTop: 4 }}>
+                      {idx === 0 ? (isHost ? "Värd" : "Du") : player.isBot ? "Bot" : "Spelare"}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: isMobile ? 128 : 170,
+                  height: isMobile ? 88 : 112,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,.18)",
+                  background: "rgba(255,255,255,.03)",
+                  display: "grid",
+                  placeItems: "center",
+                  textAlign: "center",
+                  padding: 12,
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: isMobile ? 16 : 18 }}>Match till</div>
+                <div style={{ color: "#fde68a", fontWeight: 900, fontSize: isMobile ? 22 : 28 }}>
+                  {targetScore.toLocaleString("sv-SE")}
+                </div>
+              </div>
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
               <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
                 <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Spellage</div>
@@ -1573,6 +1647,12 @@ export default function CanastaBoard({
                 <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Bottar</div>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>{botsInLobby}</div>
               </div>
+              <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
+                <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Leaderboardbonus</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>
+                  {targetScore === 5000 ? "Halv" : "Full"}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1585,6 +1665,18 @@ export default function CanastaBoard({
             </Button>
             <Button onClick={addBotToLobby} disabled={lobbyCount >= 4}>
               Lägg till bot
+            </Button>
+            <Button
+              variant={targetScore === 5000 ? "primary" : "ghost"}
+              onClick={() => setTargetScore(5000)}
+            >
+              5 000 poäng
+            </Button>
+            <Button
+              variant={targetScore === 10000 ? "primary" : "ghost"}
+              onClick={() => setTargetScore(10000)}
+            >
+              10 000 poäng
             </Button>
             <Button
               variant="ghost"
@@ -1702,10 +1794,15 @@ export default function CanastaBoard({
               Laglage kraver exakt 4 spelare. Singel kan startas direkt och fyllas pa senare.
             </div>
           )}
+          {targetScore === 5000 && (
+            <div style={{ color: "#bfdbfe", fontWeight: 700, fontSize: 12 }}>
+              5 000-poängsmatch ger halva leaderboardbonusen jämfört med 10 000.
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button onClick={start} disabled={!canStart}>
-              {lobbyCount < 2 ? "Skapa lobby" : "Starta Canasta"}
+              {lobbyCount < 2 ? "Skapa lobby" : "Starta match"}
             </Button>
             <Button variant="ghost" onClick={onBack}>
               Tillbaka

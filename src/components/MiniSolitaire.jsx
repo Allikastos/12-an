@@ -273,10 +273,13 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
       // ignore persistence issues
     }
   }, [game]);
+  const displayNotice =
+    isOpen && autoFinishReady && !won
+      ? "Autofinish: lägger korten i esshögarna..."
+      : notice;
 
   useEffect(() => {
     if (!isOpen || !autoFinishReady || won) return undefined;
-    setNotice("Autofinish: lägger korten i esshögarna...");
     const id = setTimeout(() => {
       setSelected(null);
       setGame((prev) => applyAutoFinishStep(prev));
@@ -552,7 +555,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                 fontSize: 13,
               }}
             >
-              {won ? "Snyggt, du vann Harpan! Poäng sparad i räknaren." : notice}
+              {won ? "Snyggt, du vann Harpan! Poäng sparad i räknaren." : displayNotice}
             </div>
 
             <div
