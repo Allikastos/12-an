@@ -1123,6 +1123,15 @@ export default function CanastaBoard({
     return ordered;
   }, [myPlayer, handOrder]);
 
+  const ids = orderedHand.map((c) => c.id);
+  const handCount = Math.max(orderedHand.length, 1);
+  const handCenter = (handCount - 1) / 2;
+  const handCardWidth = isMobile ? 64 : 80;
+  const handCardHeight = isMobile ? 96 : 120;
+  const handAreaHeight = isMobile ? 150 : 192;
+  const handSpan = isMobile ? 320 : 680;
+  const handStep = Math.min(isMobile ? 34 : 46, handCount > 1 ? handSpan / (handCount - 1) : 0);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem("canasta_settings_v1");
@@ -1851,14 +1860,6 @@ export default function CanastaBoard({
     "repeating-linear-gradient(45deg, rgba(255,255,255,.11) 0 6px, rgba(255,255,255,0) 6px 12px)",
     "linear-gradient(180deg, #14532d, #052e16)",
   ].join(", ");
-  const ids = orderedHand.map((c) => c.id);
-  const handCount = Math.max(orderedHand.length, 1);
-  const handCenter = (handCount - 1) / 2;
-  const handCardWidth = isMobile ? 64 : 80;
-  const handCardHeight = isMobile ? 96 : 120;
-  const handAreaHeight = isMobile ? 150 : 192;
-  const handSpan = isMobile ? 320 : 680;
-  const handStep = Math.min(isMobile ? 34 : 46, handCount > 1 ? handSpan / (handCount - 1) : 0);
   const dragIndex = dragCardId ? ids.indexOf(dragCardId) : -1;
   const hoverIndex = hoverCardId ? ids.indexOf(hoverCardId) : -1;
   const handOffsetAt = (i) => {
