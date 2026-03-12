@@ -303,6 +303,7 @@ export default function App() {
   const [target, setTarget] = useState(null); // 1..12, null until chosen
   const [lastGain, setLastGain] = useState(0);
   const [diceStatus, setDiceStatus] = useState("idle"); // idle | choose | running | stopped | all
+  const [mustCommitSelection, setMustCommitSelection] = useState(false);
   const [targetLocked, setTargetLocked] = useState(false);
   const [rolling, setRolling] = useState(false);
   const [rollNonce, setRollNonce] = useState(0);
@@ -372,6 +373,7 @@ export default function App() {
 
   const resetTurnState = () => {
     setDiceStatus("idle");
+    setMustCommitSelection(false);
     setTarget(null);
     setLocked(Array(6).fill(false));
     setPreviewLocked(Array(6).fill(false));
@@ -970,6 +972,7 @@ export default function App() {
       if (gained <= 0) return;
       addToProgress(value, gained);
       triggerDiceHitFlash(nextLocked.map((v, i) => (v ? i : -1)).filter((i) => i >= 0));
+      setMustCommitSelection(false);
       setTarget(value);
       setTargetLocked(true);
       setLocked(nextLocked);
@@ -995,6 +998,7 @@ export default function App() {
     triggerRollAnimation();
     setDice(Array(6).fill(0).map(() => rollDie()));
     setDiceStatus("choose");
+    setMustCommitSelection(true);
     setTarget(null);
     setTargetLocked(false);
     setLocked(Array(6).fill(false));
@@ -1021,6 +1025,7 @@ export default function App() {
 
   function rollOnce() {
     markTurnActivity();
+    if (mustCommitSelection) return;
     if (diceStatus === "all") {
       rerollAll();
       return;
@@ -1034,6 +1039,7 @@ export default function App() {
       setPreviewLocked(Array(6).fill(false));
       setLastGain(0);
       setDiceStatus("choose");
+      setMustCommitSelection(true);
       setTargetLocked(false);
       return;
     }
@@ -1100,6 +1106,7 @@ export default function App() {
       // Force a new value selection after each successful roll.
       // This prevents endless rerolls without committing a target.
       setDiceStatus("choose");
+      setMustCommitSelection(true);
       setTarget(null);
       setTargetLocked(false);
       setLocked(Array(6).fill(false));
@@ -2441,6 +2448,7 @@ export default function App() {
           showInspect={!isSolo}
           lastGain={lastGain}
           status={diceStatus}
+          mustCommitSelection={mustCommitSelection}
         />
 
         {!isSolo && (

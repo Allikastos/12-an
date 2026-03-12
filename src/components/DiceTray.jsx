@@ -193,6 +193,7 @@ export default function DiceTray({
   showInspect = false,
   lastGain,
   status,
+  mustCommitSelection = false,
 }) {
   if (!show) return null;
 
@@ -201,7 +202,7 @@ export default function DiceTray({
   const statusText =
     (!canAct && "Vänta på din tur.") ||
     (status === "idle" && "Slå för att börja. Välj vad du vill samla på efter första slaget.") ||
-    (status === "choose" && "Välj vad du vill samla på.") ||
+    (status === "choose" && "Välj vad du vill samla på för att spara slaget.") ||
     (status === "running" && `Nya träffar: ${lastGain}`) ||
     (status === "stopped" && "Inga nya träffar. Avsluta runda.") ||
     (status === "all" && "Alla tärningar låsta. Slå om för ny omgång.");
@@ -314,6 +315,7 @@ export default function DiceTray({
             disabled={
               !canAct ||
               rolling ||
+              mustCommitSelection ||
               status === "choose" ||
               status === "stopped"
             }
