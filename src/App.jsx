@@ -197,6 +197,7 @@ export default function App() {
   const prevShowDiceRef = useRef(null);
   const [showChat, setShowChat] = useState(false);
   const [authNotice, setAuthNotice] = useState(null);
+  const [canastaNotice, setCanastaNotice] = useState(null);
   const [selectedStandingPlayerId, setSelectedStandingPlayerId] = useState(null);
   const [miniSolitaireCloseSignal, setMiniSolitaireCloseSignal] = useState(0);
   const turnTimeoutRef = useRef(null);
@@ -570,36 +571,53 @@ export default function App() {
     return roomCode.length === 6 && hasName;
   }, [roomCode, name, profile?.display_name, authName]);
 
+  function getResolvedPlayerName() {
+    const emailLocal = String(user?.email ?? "")
+      .split("@")[0]
+      .trim();
+    return (name.trim() || profile?.display_name || authName || emailLocal || "Spelare").trim();
+  }
+
+  function formatDbError(err, fallback) {
+    if (!err) return fallback;
+    const details = [err.message, err.details, err.hint, err.code].filter(Boolean).join(" | ");
+    return details || fallback;
+  }
+
   async function createRoom() {
+    const playerName = getResolvedPlayerName();
+    if (!user?.id && playerName.length < 2) {
+      alert("Skriv ett namn (minst 2 tecken) innan du skapar rum.");
+      return;
+    }
     const code = makeCode(6);
     const { error } = await createRoomWithCode(code);
-    if (error) return alert(error.message);
+    if (error) return alert(formatDbError(error, "Kunde inte skapa rummet."));
 
     setRoomCode(code);
     await joinRoom(code);
   }
 
   function handleCreateFromPlayMenu() {
+    setShowPlayMenu(false);
     if (selectedPlayMode === "canasta") {
-      setShowPlayMenu(false);
-      setStep("canasta");
+      void createCanastaLobby();
       return;
     }
-    setShowPlayMenu(false);
     void createRoom();
   }
 
   function handleJoinFromPlayMenu() {
+    setShowPlayMenu(false);
     if (selectedPlayMode === "canasta") {
-      setShowPlayMenu(false);
-      setStep("canasta");
+      void joinCanastaLobby();
       return;
     }
     void joinRoom();
   }
 
-  async function joinRoomWithRoom(room, codeOverride = "") {
-    const playerName = (name.trim() || profile?.display_name || authName || "").trim();
+  async function joinRoomWithRoom(room, codeOverride = "", nextStep = "room") {
+    const playerName = getResolvedPlayerName();
 
     let player = null;
     const { data: existing, error: existingErr } = await getPlayerByDevice(room.id, deviceId);
@@ -621,12 +639,30 @@ export default function App() {
         deviceId,
         user?.id ?? null
       );
-      if (playerErr) return { room: null, player: null, error: playerErr };
+      if (playerErr) {
+        return {
+          room: null,
+          player: null,
+          error: {
+            ...playerErr,
+            message: formatDbError(playerErr, "Kunde inte skapa spelaren i rummet."),
+          },
+        };
+      }
       player = created;
     }
 
     const { error: scoreErr } = await ensureScore(room.id, player.id);
-    if (scoreErr) return { room: null, player: null, error: scoreErr };
+    if (scoreErr) {
+      return {
+        room: null,
+        player: null,
+        error: {
+          ...scoreErr,
+          message: formatDbError(scoreErr, "Kunde inte skapa poängrad."),
+        },
+      };
+    }
 
     await supabase.from("player_state").upsert(
       {
@@ -666,7 +702,7 @@ export default function App() {
     setRoomCode((codeOverride || room.code || "").toUpperCase());
     setRoomId(room.id);
     setPlayerId(player.id);
-    setStep("room");
+    setStep(nextStep);
 
     return { room, player, error: null };
   }
@@ -674,11 +710,53 @@ export default function App() {
   async function joinRoom(codeParam) {
     const code = (codeParam ?? roomCode).trim().toUpperCase();
 
-    const { data: room, error: roomErr } = await getRoomByCode(code);
-    if (roomErr || !room) return alert("Rummet hittades inte. Kontrollera koden.");
+    const playerName = getResolvedPlayerName();
+    if (!user?.id && playerName.length < 2) {
+      alert("Skriv ett namn (minst 2 tecken) innan du joinar rum.");
+      return;
+    }
 
-    const { error } = await joinRoomWithRoom(room, code);
-    if (error) return alert(error.message);
+    const { data: room, error: roomErr } = await getRoomByCode(code);
+    if (roomErr || !room) return alert(formatDbError(roomErr, "Rummet hittades inte. Kontrollera koden."));
+
+    const { error } = await joinRoomWithRoom(room, code, "room");
+    if (error) return alert(formatDbError(error, "Kunde inte joina rummet."));
+  }
+
+  async function createCanastaLobby() {
+    const playerName = getResolvedPlayerName();
+    if (!user?.id && playerName.length < 2) {
+      alert("Skriv ett namn (minst 2 tecken) innan du skapar lobby.");
+      return;
+    }
+    const code = makeCode(6);
+    const { data: room, error } = await createRoomWithCode(code);
+    if (error || !room) {
+      alert(formatDbError(error, "Kunde inte skapa Canasta-lobbyn."));
+      return;
+    }
+    const joined = await joinRoomWithRoom(room, code, "canasta");
+    if (joined?.error) {
+      alert(formatDbError(joined.error, "Kunde inte joina Canasta-lobbyn."));
+    }
+  }
+
+  async function joinCanastaLobby(codeParam) {
+    const code = (codeParam ?? roomCode).trim().toUpperCase();
+    const playerName = getResolvedPlayerName();
+    if (!user?.id && playerName.length < 2) {
+      alert("Skriv ett namn (minst 2 tecken) innan du joinar lobby.");
+      return;
+    }
+    const { data: room, error: roomErr } = await getRoomByCode(code);
+    if (roomErr || !room) {
+      alert(formatDbError(roomErr, "Canasta-lobbyn hittades inte. Kontrollera koden."));
+      return;
+    }
+    const joined = await joinRoomWithRoom(room, code, "canasta");
+    if (joined?.error) {
+      alert(formatDbError(joined.error, "Kunde inte joina Canasta-lobbyn."));
+    }
   }
 
   async function joinBlitz() {
@@ -1228,6 +1306,21 @@ export default function App() {
       const activeOrder = (roomState?.turn_order ?? []).filter((id) =>
         players.some((p) => p.id === id)
       );
+      if (isBlitzRoom) {
+        const elimTargetRound = roomState?.finish_until_round ?? null;
+        const reachedElimRound =
+          elimTargetRound != null &&
+          activeOrder.length > 0 &&
+          activeOrder.every((id) => (counts?.[id] ?? 0) >= elimTargetRound);
+        if (reachedElimRound) {
+          try {
+            await supabase.functions.invoke("blitz-tick");
+          } catch (err) {
+            console.error("blitz-tick invoke failed", err);
+          }
+          return;
+        }
+      }
       const finishUntilRound = roomState?.finish_until_round ?? null;
       const reachedFinishRound =
         finishUntilRound != null &&
@@ -1325,16 +1418,39 @@ export default function App() {
   const showHarpanThemeVideo = settings.themeKey === "Harpan";
 
   if (step === "canasta") {
+    const canastaInitialName = getResolvedPlayerName();
+    const canastaHostName =
+      players.find((p) => p.id === roomState?.host_player_id)?.name ??
+      (roomState?.host_player_id === playerId ? canastaInitialName : "");
+    const canastaIsHost = roomState?.host_player_id ? roomState.host_player_id === playerId : true;
     return (
       <>
         <HarpanThemeBackground active={showHarpanThemeVideo} />
         <Container>
+          {canastaNotice && (
+            <Card style={{ marginBottom: 10, padding: 10 }}>
+              <div style={{ color: "#86efac", fontWeight: 800 }}>{canastaNotice}</div>
+            </Card>
+          )}
           <CanastaBoard
             onBack={() => setStep("home")}
             settings={settings}
             setSettings={setSettings}
             themes={themes}
             applyTheme={applyTheme}
+            initialPlayerName={canastaInitialName}
+            roomCode={roomCode}
+            friends={friends}
+            sentInvites={sentInvites}
+            onSendRoomInvite={(friendId) => sendRoomInvite(friendId)}
+            onShareRoom={shareRoomLink}
+            isHost={canastaIsHost}
+            hostName={canastaHostName}
+            onLeaderboardPointsAwarded={({ points, humans, bots }) => {
+              setCanastaNotice(
+                `Canasta leaderboardpoäng: +${points} (${humans} spelare ×4${bots > 0 ? `, ${bots} bottar ×1` : ""})`
+              );
+            }}
           />
         </Container>
       </>

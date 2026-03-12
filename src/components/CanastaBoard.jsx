@@ -3,6 +3,8 @@ import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 
+const MOBILE_QUERY = "(max-width: 1024px), (pointer: coarse)";
+
 const SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const SUIT_SYMBOL = {
   spades: "♠",
@@ -96,71 +98,80 @@ function drawOneWithRedThreeRule(state, playerIndex) {
   return { ...state, stock, players };
 }
 
-function seatPosition(index, total) {
-  const map = {
+function seatTemplateList(total, isMobile) {
+  const desktop = {
+    1: [
+      { top: "92%", left: "50%", angle: 0 },
+    ],
     2: [
-      { top: "6%", left: "50%" },
-      { top: "92%", left: "50%" },
+      { top: "92%", left: "50%", angle: 0 },
+      { top: "9%", left: "50%", angle: 0 },
     ],
     3: [
-      { top: "7%", left: "50%" },
-      { top: "76%", left: "14%" },
-      { top: "76%", left: "86%" },
+      { top: "92%", left: "50%", angle: 0 },
+      { top: "14%", left: "24%", angle: 7 },
+      { top: "14%", left: "76%", angle: -7 },
     ],
     4: [
-      { top: "7%", left: "50%" },
-      { top: "34%", left: "93%" },
-      { top: "92%", left: "50%" },
-      { top: "34%", left: "7%" },
+      { top: "92%", left: "50%", angle: 0 },
+      { top: "9%", left: "50%", angle: 0 },
+      { top: "34%", left: "90%", angle: -9 },
+      { top: "34%", left: "10%", angle: 9 },
     ],
     5: [
-      { top: "6%", left: "50%" },
-      { top: "24%", left: "90%" },
-      { top: "79%", left: "82%" },
-      { top: "79%", left: "18%" },
-      { top: "24%", left: "10%" },
+      { top: "92%", left: "50%", angle: 0 },
+      { top: "10%", left: "50%", angle: 0 },
+      { top: "20%", left: "82%", angle: -8 },
+      { top: "52%", left: "86%", angle: -10 },
+      { top: "52%", left: "14%", angle: 10 },
     ],
     6: [
-      { top: "6%", left: "50%" },
-      { top: "22%", left: "89%" },
-      { top: "80%", left: "89%" },
-      { top: "92%", left: "50%" },
-      { top: "80%", left: "11%" },
-      { top: "22%", left: "11%" },
+      { top: "92%", left: "50%", angle: 0 },
+      { top: "10%", left: "50%", angle: 0 },
+      { top: "20%", left: "82%", angle: -8 },
+      { top: "50%", left: "88%", angle: -11 },
+      { top: "50%", left: "12%", angle: 11 },
+      { top: "20%", left: "18%", angle: 8 },
     ],
   };
-  return map[total]?.[index] ?? { top: "50%", left: "50%" };
-}
 
-function meldZonePlacement(anchorIndex, total, zoneCount) {
-  const anchor = seatPosition(anchorIndex, total);
-  const leftPct = Number.parseFloat(String(anchor.left).replace("%", ""));
-  const topPct = Number.parseFloat(String(anchor.top).replace("%", ""));
-  const baseWidth = zoneCount >= 5 ? 164 : zoneCount === 4 ? 176 : 192;
+  const mobile = {
+    1: [
+      { top: "90%", left: "50%", angle: 0 },
+    ],
+    2: [
+      { top: "90%", left: "50%", angle: 0 },
+      { top: "12%", left: "50%", angle: 0 },
+    ],
+    3: [
+      { top: "90%", left: "50%", angle: 0 },
+      { top: "12%", left: "50%", angle: 0 },
+      { top: "46%", left: "90%", angle: 0 },
+    ],
+    4: [
+      { top: "90%", left: "50%", angle: 0 },
+      { top: "12%", left: "50%", angle: 0 },
+      { top: "46%", left: "90%", angle: 0 },
+      { top: "46%", left: "14%", angle: 0 },
+    ],
+    5: [
+      { top: "90%", left: "50%", angle: 0 },
+      { top: "12%", left: "50%", angle: 0 },
+      { top: "30%", left: "90%", angle: 0 },
+      { top: "62%", left: "90%", angle: 0 },
+      { top: "46%", left: "14%", angle: 0 },
+    ],
+    6: [
+      { top: "90%", left: "50%", angle: 0 },
+      { top: "12%", left: "50%", angle: 0 },
+      { top: "24%", left: "90%", angle: 0 },
+      { top: "58%", left: "90%", angle: 0 },
+      { top: "58%", left: "14%", angle: 0 },
+      { top: "24%", left: "14%", angle: 0 },
+    ],
+  };
 
-  let x = leftPct + 14;
-  let y = topPct;
-  // Requested layout:
-  // - Left-side player: zone below
-  // - Right-side player: zone above
-  // - Top player: zone to the left
-  if (topPct <= 14) {
-    x = leftPct - 24;
-    y = topPct + 2;
-  } else if (leftPct <= 24) {
-    x = leftPct + 4;
-    y = topPct + 22;
-  } else if (leftPct >= 76) {
-    x = leftPct - 4;
-    y = topPct - 22;
-  } else if (topPct >= 84) {
-    x = leftPct + 24;
-    y = topPct - 2;
-  }
-
-  const clampedX = Math.max(9, Math.min(94, x));
-  const clampedY = Math.max(10, Math.min(90, y));
-  return { left: clampedX, top: clampedY, width: baseWidth };
+  return (isMobile ? mobile : desktop)[total] ?? [{ top: "50%", left: "50%", angle: 0 }];
 }
 
 function buildMeldPreviewCards(title, meld) {
@@ -181,8 +192,27 @@ function buildMeldPreviewCards(title, meld) {
   return [frontValueCard, ...restNaturals, ...wilds];
 }
 
-function TeamMelds({ title, redThreeCount, melds }) {
+function TeamMelds({
+  title,
+  redThreeCount,
+  melds,
+  orientation = "horizontal",
+  compact = false,
+  showStackLayers = true,
+  noWrap = false,
+}) {
+  const canastaMelds = melds.filter((m) => (m.cards?.length ?? 0) >= 7);
+  const activeMelds = melds.filter((m) => (m.cards?.length ?? 0) < 7);
+  const canastaCount = canastaMelds.length;
+
   function getMeldCardMetrics(meld, totalMelds) {
+    if (compact) {
+      // Mobile readability: keep meld previews clearly visible.
+      if ((meld?.cards?.length ?? 0) >= 10 || totalMelds >= 6) return { w: 28, h: 42, step: 7 };
+      if ((meld?.cards?.length ?? 0) >= 8 || totalMelds >= 5) return { w: 30, h: 46, step: 8 };
+      return { w: 32, h: 50, step: 9 };
+    }
+
     let density = 0;
     if ((meld?.cards?.length ?? 0) > 7) density += 1;
     if ((meld?.cards?.length ?? 0) > 9) density += 1;
@@ -207,67 +237,150 @@ function TeamMelds({ title, redThreeCount, melds }) {
         gap: 6,
       }}
     >
-      <div style={{ color: "#bfdbfe", fontWeight: 800, fontSize: 12 }}>{title}</div>
-      {redThreeCount > 0 ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-          {Array.from({ length: Math.min(4, redThreeCount) }, (_, idx) => (
-            <span
-              key={`${title}-r3-${idx}`}
-              style={{
-                width: 18,
-                height: 24,
-                borderRadius: 4,
-                border: "1px solid rgba(15,23,42,.25)",
-                background: "#fff",
-                color: "#b91c1c",
-                display: "grid",
-                placeItems: "center",
-                fontWeight: 800,
-                fontSize: 11,
-                lineHeight: 1,
-              }}
-            >
-              3♥
-            </span>
-          ))}
-          {redThreeCount > 4 ? (
-            <span style={{ color: "#fecaca", fontWeight: 800, fontSize: 11 }}>+{redThreeCount - 4}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ color: "#bfdbfe", fontWeight: 800, fontSize: 12 }}>{title}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+          {redThreeCount > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              {Array.from({ length: Math.min(3, redThreeCount) }, (_, idx) => (
+                <span
+                  key={`${title}-r3-${idx}`}
+                  style={{
+                    width: 16,
+                    height: 22,
+                    borderRadius: 4,
+                    border: "1px solid rgba(15,23,42,.25)",
+                    background: "#fff",
+                    color: "#b91c1c",
+                    display: "grid",
+                    placeItems: "center",
+                    fontWeight: 800,
+                    fontSize: 10,
+                    lineHeight: 1,
+                  }}
+                >
+                  3♥
+                </span>
+              ))}
+              {redThreeCount > 3 ? (
+                <span style={{ color: "#fecaca", fontWeight: 800, fontSize: 10 }}>+{redThreeCount - 3}</span>
+              ) : null}
+            </div>
+          ) : null}
+          {canastaCount > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              {Array.from({ length: Math.min(3, canastaCount) }, (_, idx) => (
+                <span
+                  key={`${title}-canasta-${idx}`}
+                  style={{
+                    width: 16,
+                    height: 22,
+                    borderRadius: 4,
+                    border: "1px solid rgba(15,23,42,.25)",
+                    background: "#fff",
+                    color: "#0f172a",
+                    display: "grid",
+                    placeItems: "center",
+                    fontWeight: 900,
+                    fontSize: 10,
+                    lineHeight: 1,
+                  }}
+                >
+                  C
+                </span>
+              ))}
+              {canastaCount > 3 ? (
+                <span style={{ color: "#bfdbfe", fontWeight: 800, fontSize: 10 }}>+{canastaCount - 3}</span>
+              ) : null}
+            </div>
           ) : null}
         </div>
-      ) : null}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-start" }}>
-        {melds.map((m, idx) => {
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: noWrap ? "nowrap" : orientation === "vertical" ? "nowrap" : "wrap",
+          flexDirection: orientation === "vertical" ? "column" : "row",
+          gap: compact ? 6 : 10,
+          alignItems: "flex-start",
+          maxHeight: orientation === "vertical" ? (showStackLayers ? (compact ? 140 : 180) : "none") : "none",
+          overflowY: orientation === "vertical" ? (showStackLayers ? "auto" : "visible") : "visible",
+          overflowX: noWrap ? "visible" : "hidden",
+          paddingRight: orientation === "vertical" ? 2 : 0,
+        }}
+      >
+        {activeMelds.map((m, idx) => {
           const preview = buildMeldPreviewCards(title, m).slice(0, 7);
-          const metrics = getMeldCardMetrics(m, melds.length);
+          const metrics = getMeldCardMetrics(m, activeMelds.length);
+          const leadCard = preview[0] ?? m.cards?.[0] ?? null;
+          const stacked = showStackLayers ? Math.min(3, Math.max(0, (m.cards?.length ?? 0) - 1)) : 0;
           return (
-            <div key={`${title}-${m.rank}-${idx}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div key={`${title}-${m.rank}-${idx}`} style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
               <div
                 style={{
                   position: "relative",
-                  height: metrics.h,
-                  width: Math.min(7, preview.length) * metrics.step + metrics.w - metrics.step,
+                  height: metrics.h + stacked * 2,
+                  width: metrics.w + stacked * 3,
                 }}
               >
-                {preview.map((c, cardIdx) => (
+                {Array.from({ length: stacked }, (_, cardIdx) => (
                   <div
-                    key={c.id}
+                    key={`stack-${idx}-${cardIdx}`}
                     style={{
                       position: "absolute",
-                      left: cardIdx * metrics.step,
-                      top: 0,
-                      zIndex: 100 - cardIdx,
+                      left: (stacked - cardIdx) * 3,
+                      top: (stacked - cardIdx) * 2,
+                      zIndex: 10 + cardIdx,
                       width: metrics.w,
                       height: metrics.h,
                       borderRadius: 5,
                       overflow: "hidden",
-                      boxShadow: "0 4px 8px rgba(2,6,23,.35)",
-                      border: "1px solid rgba(15,23,42,.28)",
-                      background: "#fff",
+                      boxShadow: "0 3px 7px rgba(2,6,23,.3)",
+                      border: "1px solid rgba(148,163,184,.45)",
+                      background: "linear-gradient(180deg, #f8fafc, #e2e8f0)",
+                    }}
+                  />
+                ))}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    zIndex: 30,
+                    width: metrics.w,
+                    height: metrics.h,
+                    borderRadius: 5,
+                    overflow: "hidden",
+                    boxShadow: "0 4px 8px rgba(2,6,23,.35)",
+                    border: "1px solid rgba(15,23,42,.28)",
+                    background: "#fff",
+                  }}
+                >
+                  <CanastaFace card={leadCard} compact minimal />
+                </div>
+                {(m.cards?.length ?? 0) > 1 ? (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: -8,
+                      bottom: -7,
+                      zIndex: 40,
+                      minWidth: 18,
+                      height: 18,
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,.5)",
+                      background: "rgba(2,6,23,.82)",
+                      color: "#e2e8f0",
+                      fontWeight: 900,
+                      fontSize: 11,
+                      display: "grid",
+                      placeItems: "center",
+                      padding: "0 4px",
                     }}
                   >
-                    <CanastaFace card={c} compact />
+                    {m.cards.length}
                   </div>
-                ))}
+                ) : null}
               </div>
             </div>
           );
@@ -290,7 +403,7 @@ const PIP_LAYOUT = {
   10: [[32, 16], [68, 16], [50, 30], [32, 40], [68, 40], [32, 60], [68, 60], [50, 70], [32, 84], [68, 84]],
 };
 
-function CanastaFace({ card, compact = false }) {
+function CanastaFace({ card, compact = false, minimal = false }) {
   if (!card) return <span style={{ color: "var(--muted)", fontWeight: 800 }}>—</span>;
   const suit = card.joker ? "★" : SUIT_SYMBOL[card.suit];
   const rank = card.joker ? "Joker" : rankLabel(card.rank);
@@ -298,6 +411,9 @@ function CanastaFace({ card, compact = false }) {
   const ink = card.joker ? "#1d4ed8" : isRed ? "#b91c1c" : "#111827";
   const pips = !card.joker && card.rank <= 10 ? PIP_LAYOUT[card.rank] ?? [] : [];
   const isFace = !card.joker && card.rank >= 11;
+
+  const cornerRankSize = compact ? (minimal ? 12 : 11) : 13;
+  const cornerSuitSize = compact ? (minimal ? 11 : 10) : 12;
 
   return (
     <div
@@ -316,8 +432,8 @@ function CanastaFace({ card, compact = false }) {
       }}
     >
       <div style={{ position: "absolute", left: compact ? 5 : 6, top: compact ? 4 : 5, lineHeight: 1, textAlign: "center" }}>
-        <div style={{ fontSize: compact ? 11 : 13, fontWeight: 700 }}>{rank === "Joker" ? "J" : rank}</div>
-        <div style={{ fontSize: compact ? 10 : 12 }}>{suit}</div>
+        <div style={{ fontSize: cornerRankSize, fontWeight: 700 }}>{rank === "Joker" ? "J" : rank}</div>
+        <div style={{ fontSize: cornerSuitSize }}>{suit}</div>
       </div>
       <div
         style={{
@@ -329,11 +445,11 @@ function CanastaFace({ card, compact = false }) {
           transform: "rotate(180deg)",
         }}
       >
-        <div style={{ fontSize: compact ? 11 : 13, fontWeight: 700 }}>{rank === "Joker" ? "J" : rank}</div>
-        <div style={{ fontSize: compact ? 10 : 12 }}>{suit}</div>
+        <div style={{ fontSize: cornerRankSize, fontWeight: 700 }}>{rank === "Joker" ? "J" : rank}</div>
+        <div style={{ fontSize: cornerSuitSize }}>{suit}</div>
       </div>
 
-      {card.joker ? (
+      {minimal ? null : card.joker ? (
         <div style={{ position: "absolute", inset: "26% 16%", display: "grid", placeItems: "center", gap: 2 }}>
           <div style={{ fontSize: compact ? 16 : 20, lineHeight: 1 }}>★</div>
           <div style={{ fontSize: compact ? 9 : 11, fontWeight: 700, letterSpacing: ".04em" }}>JOKER</div>
@@ -376,15 +492,21 @@ function CanastaFace({ card, compact = false }) {
   );
 }
 
-function makeGame({ names, mode }) {
+function makeGame({ names, mode, playersConfig = null }) {
   const stock = buildDeck();
-  const playerCount = names.length;
-  const teamCount = mode === "team" ? (playerCount === 6 ? 3 : 2) : 0;
-  const players = names.map((name, idx) => ({
+  const resolvedPlayers =
+    Array.isArray(playersConfig) && playersConfig.length > 0
+      ? playersConfig
+      : names.map((name, idx) => ({ name, isBot: mode === "single" && idx > 0 }));
+  const playerCount = resolvedPlayers.length;
+  const teamCount = mode === "team" ? 2 : 0;
+  const players = resolvedPlayers.map((playerCfg, idx) => ({
     id: `p${idx + 1}`,
-    name: name.trim() || (mode === "single" && idx > 0 ? `Bot ${idx}` : `Spelare ${idx + 1}`),
+    name:
+      playerCfg?.name?.trim() ||
+      (playerCfg?.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`),
     teamId: mode === "single" ? `solo-${idx + 1}` : `team-${(idx % teamCount) + 1}`,
-    isBot: mode === "single" && idx > 0,
+    isBot: Boolean(playerCfg?.isBot),
     hand: [],
     redThrees: [],
   }));
@@ -433,6 +555,16 @@ function teamCanastaCount(team) {
 
 function drawTwoState(state) {
   if (!state || state.roundEnded || state.phase !== "draw") return state;
+  if (state.stock.length === 0) {
+    const player = state.players[state.turnIndex];
+    return {
+      ...state,
+      roundEnded: true,
+      winnerPlayerId: null,
+      winnerTeamId: null,
+      notice: `${player?.name ?? "Spelaren"} avstod kasthögen. Rundan är slut.`,
+    };
+  }
   let next = state;
   next = drawOneWithRedThreeRule(next, next.turnIndex);
   next = drawOneWithRedThreeRule(next, next.turnIndex);
@@ -449,7 +581,7 @@ function canTakeDiscard(state) {
 
 function takeDiscardStackState(state) {
   if (!state || state.roundEnded || state.phase !== "draw") return state;
-  if (!canTakeDiscard(state)) return { ...state, notice: "Du kan inte ta slänghögen nu." };
+  if (!canTakeDiscard(state)) return { ...state, notice: "Du kan inte ta kasthögen nu." };
   const takeCount = Math.min(10, state.discard.length);
   const taken = state.discard.slice(state.discard.length - takeCount);
   const next = {
@@ -464,7 +596,7 @@ function takeDiscardStackState(state) {
   return {
     ...next,
     phase: "discard",
-    notice: `${next.players[next.turnIndex].name} tog ${takeCount} kort från slänghögen.`,
+    notice: `${next.players[next.turnIndex].name} tog ${takeCount} kort från kasthögen.`,
   };
 }
 
@@ -750,14 +882,30 @@ function applyMeldMany(state, cardIds, totals) {
   return { state: next, error: null };
 }
 
+function getMeldPlanTargetRanks(state, selected) {
+  if (!state?.players?.length || !selected?.length) return [];
+  const player = state.players[state.turnIndex];
+  if (!player) return [];
+  const team = state.teams?.[player.teamId];
+  const naturals = selected.filter((c) => !isWild(c));
+  const wilds = selected.filter((c) => isWild(c));
+  if (wilds.length === 0) return [];
+
+  const naturalRanks = [...new Set(naturals.map((c) => c.rank))].sort((a, b) => a - b);
+  if (naturalRanks.length > 1) return naturalRanks;
+  if (naturalRanks.length === 1) return naturalRanks;
+
+  const existingRanks = [...new Set((team?.melds ?? []).map((m) => m.rank).filter((r) => r !== 0))].sort((a, b) => a - b);
+  return existingRanks;
+}
+
 function shouldUseMeldPlanner(state, cardIds) {
   if (!state || !cardIds?.length) return false;
   const player = state.players[state.turnIndex];
   if (!player) return false;
   const selected = player.hand.filter((c) => cardIds.includes(c.id));
-  const ranks = [...new Set(selected.filter((c) => !isWild(c)).map((c) => c.rank))];
-  const wildCount = selected.filter((c) => isWild(c)).length;
-  return ranks.length > 1 || wildCount > 0;
+  const targetRanks = getMeldPlanTargetRanks(state, selected);
+  return targetRanks.length > 1;
 }
 
 function createMeldPlan(state, cardIds) {
@@ -765,19 +913,18 @@ function createMeldPlan(state, cardIds) {
   const selected = player.hand.filter((c) => cardIds.includes(c.id));
   const naturals = selected.filter((c) => !isWild(c));
   const wilds = selected.filter((c) => isWild(c));
-  const team = state.teams[player.teamId];
-  const naturalRanks = [...new Set(naturals.map((c) => c.rank))];
-  const existingRanks = [...new Set((team?.melds ?? []).map((m) => m.rank).filter((r) => r !== 0))];
-  const targetRanksBase = [...new Set([...naturalRanks, ...existingRanks])].sort((a, b) => a - b);
-  const targetRanks = targetRanksBase.length > 0 ? targetRanksBase : [1];
-  const defaultRank = naturalRanks[0] ?? targetRanks[0];
+  const targetRanks = getMeldPlanTargetRanks(state, selected);
+  const fallbackNatural = naturals[0]?.rank ?? null;
+  const defaultRank = targetRanks[0] ?? fallbackNatural;
   const assignments = {};
-  for (const c of selected) assignments[c.id] = isWild(c) ? defaultRank : c.rank;
+  for (const c of wilds) {
+    if (Number.isFinite(defaultRank)) assignments[c.id] = defaultRank;
+  }
   return {
     selectedIds: [...cardIds],
-    targetRanks,
+    targetRanks: targetRanks.length > 0 ? targetRanks : [defaultRank].filter((v) => Number.isFinite(v)),
     assignments,
-    activeCardId: wilds[0]?.id ?? selected[0]?.id ?? null,
+    activeCardId: wilds[0]?.id ?? null,
     error: "",
   };
 }
@@ -788,13 +935,8 @@ function resolvePlannedGroups(state, plan) {
   if (!selected.length) return { groups: [], error: "Inga kort valda." };
   const byRank = new Map();
   for (const card of selected) {
-    const target = Number(plan.assignments?.[card.id]);
-    if (!Number.isFinite(target)) {
-      return { groups: [], error: "Välj stick för alla markerade kort." };
-    }
-    if (!isWild(card) && target !== card.rank) {
-      return { groups: [], error: `${cardLabel(card)} kan bara ligga i stick ${rankLabel(card.rank)}.` };
-    }
+    const target = isWild(card) ? Number(plan.assignments?.[card.id]) : card.rank;
+    if (!Number.isFinite(target)) return { groups: [], error: "Välj stick för alla joker/tvåor." };
     const arr = byRank.get(target) ?? [];
     arr.push(card.id);
     byRank.set(target, arr);
@@ -867,11 +1009,21 @@ export default function CanastaBoard({
   setSettings: setExternalSettings = null,
   themes = [],
   applyTheme = null,
+  initialPlayerName = "Spelare 1",
+  onLeaderboardPointsAwarded = null,
+  roomCode = "",
+  friends = [],
+  sentInvites = {},
+  onSendRoomInvite = null,
+  onShareRoom = null,
+  isHost = true,
+  hostName = "",
 }) {
   const [stage, setStage] = useState("setup");
   const [mode, setMode] = useState("single");
-  const [count, setCount] = useState(4);
-  const [names, setNames] = useState(["", "", "", "", "", ""]);
+  const [lobbyPlayers, setLobbyPlayers] = useState(() => [
+    { id: "human-1", name: initialPlayerName || "Spelare 1", isBot: false },
+  ]);
   const [totals, setTotals] = useState([0, 0, 0, 0, 0, 0]);
   const [game, setGame] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -879,15 +1031,25 @@ export default function CanastaBoard({
   const [dragCardId, setDragCardId] = useState(null);
   const [hoverCardId, setHoverCardId] = useState(null);
   const [handDropSide, setHandDropSide] = useState(null);
+  const [mobileSortMode, setMobileSortMode] = useState(false);
   const [meldPlan, setMeldPlan] = useState(null);
   const [expandedTeamId, setExpandedTeamId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [vibrateOnTurn, setVibrateOnTurn] = useState(true);
   const [turnFlash, setTurnFlash] = useState(false);
   const [inactiveFlash, setInactiveFlash] = useState(false);
+  const [roundLeaderboardPoints, setRoundLeaderboardPoints] = useState(null);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(MOBILE_QUERY).matches : false
+  );
   const prevTurnRef = useRef(null);
   const turnFlashTimerRef = useRef(null);
   const inactivityTimerRef = useRef(null);
+  const handAreaRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const suppressTapRef = useRef(false);
+  const dragTargetRef = useRef({ side: null, targetId: null });
+  const pointsAwardedRef = useRef(false);
 
   const activePlayer = game ? game.players[game.turnIndex] : null;
   const localPlayerIndex = useMemo(() => {
@@ -899,6 +1061,7 @@ export default function CanastaBoard({
   const topDiscard = game?.discard?.[game.discard.length - 1] ?? null;
   const isBotTurn = Boolean(activePlayer?.isBot);
   const isMyTurn = Boolean(game && game.turnIndex === localPlayerIndex && !game.roundEnded);
+  const canSortHand = !game?.roundEnded;
 
   const teamTotals = useMemo(() => {
     if (!game) return {};
@@ -937,10 +1100,7 @@ export default function CanastaBoard({
       };
     });
   }, [game]);
-  const teamLabelById = useMemo(
-    () => Object.fromEntries(teamZones.map((z) => [z.teamId, z.label])),
-    [teamZones]
-  );
+  const visibleTeamZones = teamZones;
   const openingByPlayer = useMemo(() => {
     if (!game) return [];
     return game.players.map((p, i) => {
@@ -948,6 +1108,10 @@ export default function CanastaBoard({
       return openingRequirement(totalForReq);
     });
   }, [game, totals, teamTotals]);
+  const seatTemplates = useMemo(
+    () => seatTemplateList(game?.players?.length ?? 0, isMobile),
+    [game?.players?.length, isMobile]
+  );
 
   const orderedHand = useMemo(() => {
     if (!myPlayer) return [];
@@ -978,20 +1142,53 @@ export default function CanastaBoard({
     }
   }, [vibrateOnTurn]);
 
+  useEffect(() => {
+    setLobbyPlayers((prev) => {
+      if (!prev.length) return [{ id: "human-1", name: initialPlayerName || "Spelare 1", isBot: false }];
+      const [first, ...rest] = prev;
+      return [
+        { ...first, name: first.name?.trim() ? first.name : initialPlayerName || "Spelare 1", isBot: false },
+        ...rest,
+      ];
+    });
+  }, [initialPlayerName]);
+
   function start() {
-    const playerCount = Number(count);
-    if (playerCount < 2 || playerCount > 6) return;
-    if (mode === "team" && playerCount !== 4 && playerCount !== 6) return;
-    const activeNames = names.slice(0, playerCount);
-    const next = makeGame({ names: activeNames, mode });
+    if (!isHost) return;
+    const playerCount = lobbyPlayers.length;
+    if (playerCount < 1 || playerCount > 4) return;
+    if (mode === "team" && playerCount !== 4) return;
+    const playersConfig = lobbyPlayers.map((p, idx) => ({
+      name: p.name?.trim() || (p.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`),
+      isBot: Boolean(p.isBot),
+    }));
+    const next = makeGame({ names: playersConfig.map((p) => p.name), mode, playersConfig });
     setGame(next);
+    setTotals(Array(playerCount).fill(0));
     setSelectedIds([]);
     setHandOrder([]);
     setStage("game");
   }
 
+  function addBotToLobby() {
+    setLobbyPlayers((prev) => {
+      if (prev.length >= 4) return prev;
+      const botCount = prev.filter((p) => p.isBot).length + 1;
+      return [...prev, { id: `bot-${Date.now()}-${botCount}`, name: `Bot ${botCount}`, isBot: true }];
+    });
+  }
+
+  function removeLobbyPlayer(id) {
+    setLobbyPlayers((prev) => {
+      if (!id) return prev;
+      const next = prev.filter((p) => p.id !== id);
+      return next.length ? next : prev;
+    });
+  }
+
   function drawTwo() {
     if (!game || !isMyTurn || isBotTurn) return;
+    setMobileSortMode(false);
     setMeldPlan(null);
     setSelectedIds([]);
     setGame((prev) => drawTwoState(prev));
@@ -999,6 +1196,7 @@ export default function CanastaBoard({
 
   function takeDiscardStack() {
     if (!game || !isMyTurn || isBotTurn) return;
+    setMobileSortMode(false);
     setMeldPlan(null);
     setSelectedIds([]);
     setGame((prev) => takeDiscardStackState(prev));
@@ -1006,6 +1204,7 @@ export default function CanastaBoard({
 
   function discard(cardId) {
     if (!game || !isMyTurn || isBotTurn) return;
+    setMobileSortMode(false);
     setMeldPlan(null);
     setSelectedIds([]);
     setGame((prev) => discardState(prev, cardId));
@@ -1038,12 +1237,14 @@ export default function CanastaBoard({
 
   function toggleSelect(cardId) {
     if (!game || !isMyTurn || isBotTurn || game.roundEnded || game.phase !== "discard") return;
+    if (mobileSortMode) return;
     setMeldPlan(null);
     setSelectedIds((prev) => (prev.includes(cardId) ? prev.filter((id) => id !== cardId) : [...prev, cardId]));
   }
 
   function laySelected() {
     if (!game || !isMyTurn || isBotTurn || game.roundEnded || game.phase !== "discard") return;
+    if (mobileSortMode) return;
     if (shouldUseMeldPlanner(game, selectedIds)) {
       setMeldPlan(createMeldPlan(game, selectedIds));
       return;
@@ -1126,6 +1327,33 @@ export default function CanastaBoard({
   }, [myPlayer]);
 
   useEffect(() => {
+    if (!game?.roundEnded) {
+      pointsAwardedRef.current = false;
+      setRoundLeaderboardPoints(null);
+      return;
+    }
+    if (pointsAwardedRef.current) return;
+    pointsAwardedRef.current = true;
+    const humans = game.players.filter((p) => !p.isBot).length;
+    const bots = game.players.filter((p) => p.isBot).length;
+    const points = humans * 4 + bots;
+    const payload = { points, humans, bots, totalPlayers: game.players.length };
+    setRoundLeaderboardPoints(payload);
+    if (typeof onLeaderboardPointsAwarded === "function") {
+      onLeaderboardPointsAwarded(payload);
+    }
+  }, [game, onLeaderboardPointsAwarded]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+
+  useEffect(() => {
     if (!game || game.roundEnded) return;
     const current = String(game.turnIndex);
     if (prevTurnRef.current == null) {
@@ -1153,6 +1381,98 @@ export default function CanastaBoard({
     []
   );
 
+  useEffect(() => {
+    if (!isMobile || !dragCardId || game?.roundEnded) return undefined;
+
+    function resolveDropTarget(clientX) {
+      const container = handAreaRef.current;
+      if (!container) return { side: null, targetId: null };
+      const rect = container.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const edge = Math.min(80, rect.width * 0.22);
+      if (x <= edge) {
+        return { side: "left", targetId: orderedHand[0]?.id ?? null };
+      }
+      if (x >= rect.width - edge) {
+        return { side: "right", targetId: orderedHand[orderedHand.length - 1]?.id ?? null };
+      }
+      if (!orderedHand.length) return { side: null, targetId: null };
+
+      // Use stable slot index (not animated offsets) to make adjacent swaps reliable.
+      const safeStep = Math.max(1, handStep);
+      const approxIdx = Math.max(
+        0,
+        Math.min(
+          orderedHand.length - 1,
+          Math.round((x - rect.width / 2) / safeStep + (orderedHand.length - 1) / 2)
+        )
+      );
+      const dragIdx = orderedHand.findIndex((c) => c.id === dragCardId);
+      let targetIdx = approxIdx;
+
+      if (dragIdx >= 0 && targetIdx === dragIdx) {
+        const dragCenter = rect.width / 2 + (dragIdx - (orderedHand.length - 1) / 2) * safeStep;
+        targetIdx = x >= dragCenter
+          ? Math.min(orderedHand.length - 1, dragIdx + 1)
+          : Math.max(0, dragIdx - 1);
+      }
+
+      let targetId = orderedHand[targetIdx]?.id ?? null;
+      if (targetId === dragCardId && dragIdx >= 0) {
+        const fallbackIdx = targetIdx === 0 ? 1 : targetIdx - 1;
+        targetId = orderedHand[fallbackIdx]?.id ?? null;
+      }
+      return { side: null, targetId };
+    }
+
+    function updateHoverAndSide(clientX) {
+      const resolved = resolveDropTarget(clientX);
+      dragTargetRef.current = resolved;
+      setHandDropSide(resolved.side);
+      setHoverCardId(resolved.side ? null : resolved.targetId);
+    }
+
+    function onPointerMove(e) {
+      updateHoverAndSide(e.clientX);
+    }
+
+    function onPointerUp(e) {
+      const resolved = resolveDropTarget(e.clientX);
+      dragTargetRef.current = resolved;
+      const targetId = resolved.targetId;
+      if (targetId && targetId !== dragCardId) moveHandCard(dragCardId, targetId);
+      setDragCardId(null);
+      setHoverCardId(null);
+      setHandDropSide(null);
+      dragTargetRef.current = { side: null, targetId: null };
+      suppressTapRef.current = false;
+    }
+
+    function onPointerCancel() {
+      setDragCardId(null);
+      setHoverCardId(null);
+      setHandDropSide(null);
+      dragTargetRef.current = { side: null, targetId: null };
+      suppressTapRef.current = false;
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+    };
+  }, [isMobile, dragCardId, game?.roundEnded, orderedHand, moveHandCard]);
+
+  useEffect(
+    () => () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    },
+    []
+  );
+
   const markActiveNow = useCallback(() => {
     if (inactiveFlash) setInactiveFlash(false);
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -1165,6 +1485,7 @@ export default function CanastaBoard({
   useEffect(() => {
     if (!isMyTurn) {
       setInactiveFlash(false);
+      setMobileSortMode(false);
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       return;
     }
@@ -1187,46 +1508,204 @@ export default function CanastaBoard({
   }, [markActiveNow]);
 
   if (stage === "setup") {
+    const lobbyCount = lobbyPlayers.length;
+    const canStart = isHost && lobbyCount >= 1 && lobbyCount <= 4 && (mode === "single" || lobbyCount === 4);
+    const humansInLobby = lobbyPlayers.filter((p) => !p.isBot).length;
+    const botsInLobby = lobbyPlayers.filter((p) => p.isBot).length;
     return (
-      <Card style={{ padding: 18 }}>
-        <h2 style={{ marginTop: 0 }}>Canasta</h2>
-        <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", gap: 8 }}>
+      <Card
+        style={{
+          padding: 20,
+          background: "linear-gradient(180deg, rgba(8,12,20,.99), rgba(10,16,30,.985))",
+          border: "1px solid rgba(148,163,184,.35)",
+          boxShadow: "0 22px 56px rgba(2,6,23,.52)",
+        }}
+      >
+        <div style={{ display: "grid", gap: 14 }}>
+          <div
+            style={{
+              display: "grid",
+              gap: 12,
+              padding: 16,
+              borderRadius: 18,
+              border: "1px solid rgba(125,211,252,.22)",
+              background:
+                "radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 42%), radial-gradient(circle at top right, rgba(34,197,94,.14), transparent 40%), rgba(255,255,255,.03)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "grid", gap: 4 }}>
+                <h2 style={{ margin: 0 }}>Canasta-lobby</h2>
+                <div style={{ color: "var(--muted)", fontWeight: 700 }}>
+                  Bygg bordet innan ni startar. Du kan spela solo, bjuda in vänner eller fylla ut med bottar.
+                </div>
+              </div>
+              <div
+                style={{
+                  minWidth: 150,
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: "1px solid rgba(148,163,184,.24)",
+                  background: "rgba(2,6,23,.42)",
+                }}
+              >
+                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Rumskod</div>
+                <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: 1.4 }}>
+                  {roomCode ? roomCode.toUpperCase() : "INGEN"}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
+              <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
+                <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Spellage</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>{mode === "team" ? "Lag 2v2" : "Singel"}</div>
+              </div>
+              <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
+                <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Spelare</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>{lobbyCount}/4</div>
+              </div>
+              <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
+                <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Manniskor</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>{humansInLobby}</div>
+              </div>
+              <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
+                <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Bottar</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>{botsInLobby}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button variant={mode === "single" ? "primary" : "ghost"} onClick={() => setMode("single")}>
               Singel
             </Button>
             <Button variant={mode === "team" ? "primary" : "ghost"} onClick={() => setMode("team")}>
-              Lag (2v2 / 2v2v2)
+              Lag (2v2)
+            </Button>
+            <Button onClick={addBotToLobby} disabled={lobbyCount >= 4}>
+              Lägg till bot
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => onShareRoom?.()}
+              disabled={!roomCode || typeof onShareRoom !== "function"}
+              style={{ width: "auto" }}
+            >
+              Dela rum
             </Button>
           </div>
 
-          <label style={{ color: "var(--muted)", fontWeight: 700 }}>Antal spelare (2-6)</label>
-          <Input value={count} onChange={(e) => setCount(Math.max(2, Math.min(6, Number(e.target.value || 2))))} type="number" />
-
-          {mode === "team" && (
-            <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
-              Lagläge stödjer 4 spelare (2v2) eller 6 spelare (2v2v2).
+          {!isHost && (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 14,
+                border: "1px solid rgba(250,204,21,.28)",
+                background: "rgba(250,204,21,.08)",
+                color: "#fde68a",
+                fontWeight: 800,
+              }}
+            >
+              {hostName ? `${hostName} är värd och startar matchen.` : "Värden startar matchen."}
             </div>
           )}
 
-          {Array.from({ length: count }, (_, i) => (
-            <Input
-              key={i}
-              value={names[i] ?? ""}
-              onChange={(e) =>
-                setNames((prev) => {
-                  const next = [...prev];
-                  next[i] = e.target.value;
-                  return next;
-                })
-              }
-              placeholder={`Spelare ${i + 1}`}
-            />
-          ))}
+          <div style={{ display: "grid", gap: 8 }}>
+            {lobbyPlayers.map((p, idx) => (
+              <div
+                key={p.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto",
+                  gap: 10,
+                  alignItems: "center",
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: "1px solid rgba(148,163,184,.2)",
+                  background: idx === 0 ? "rgba(56,189,248,.08)" : "rgba(255,255,255,.03)",
+                }}
+              >
+                <div style={{ display: "grid", gap: 2 }}>
+                  <div style={{ fontWeight: 800 }}>
+                    {p.name || (p.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`)}
+                    {idx === 0 ? " (du)" : p.isBot ? " (bot)" : ""}
+                  </div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                    {idx === 0 ? "Värdplats" : p.isBot ? "Automatisk motspelare" : "Inbjuden spelare"}
+                  </div>
+                </div>
+                {idx !== 0 && p.isBot ? (
+                  <Button variant="ghost" style={{ width: "auto", padding: "6px 10px" }} onClick={() => removeLobbyPlayer(p.id)}>
+                    Ta bort
+                  </Button>
+                ) : (
+                  <div />
+                )}
+                <div style={{ color: "#bfdbfe", fontWeight: 800, fontSize: 12 }}>
+                  {p.isBot ? "Bot" : "Spelare"}
+                </div>
+              </div>
+            ))}
+          </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <Button onClick={start} disabled={mode === "team" && count !== 4 && count !== 6}>
-              Starta Canasta
+          {friends.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                padding: 14,
+                borderRadius: 16,
+                border: "1px solid rgba(148,163,184,.2)",
+                background: "rgba(255,255,255,.025)",
+              }}
+            >
+              <div style={{ fontWeight: 900 }}>Bjud in vänner</div>
+              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                Inbjudningar skickas till samma rumskod som visas ovan.
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {friends.map((friend) => {
+                  const sent = Boolean(sentInvites?.[friend.id]);
+                  return (
+                    <div
+                      key={friend.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto",
+                        gap: 10,
+                        alignItems: "center",
+                        padding: "8px 10px",
+                        borderRadius: 12,
+                        background: "rgba(2,6,23,.28)",
+                        border: "1px solid rgba(148,163,184,.16)",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{friend.display_name}</div>
+                      <Button
+                        variant={sent ? "primary" : "ghost"}
+                        onClick={() => onSendRoomInvite?.(friend.id)}
+                        disabled={!roomCode || sent || typeof onSendRoomInvite !== "function" || lobbyCount >= 4}
+                        style={{ width: "auto", padding: "6px 10px" }}
+                      >
+                        {sent ? "Skickat" : "Bjud in"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {mode === "team" && (
+            <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
+              Laglage kraver exakt 4 spelare. Singel kan startas direkt och fyllas pa senare.
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button onClick={start} disabled={!canStart}>
+              {lobbyCount < 2 ? "Skapa lobby" : "Starta Canasta"}
             </Button>
             <Button variant="ghost" onClick={onBack}>
               Tillbaka
@@ -1240,7 +1719,6 @@ export default function CanastaBoard({
   if (!game || !activePlayer || !myPlayer) return null;
 
   const canTakeDiscardNow = canTakeDiscard(game);
-  const canSortHand = !game.roundEnded;
   const themeBgColor = externalSettings?.bgColor ?? "#0f172a";
   const themeGlow1 = externalSettings?.bgGlow1 ?? "#22c55e";
   const themeGlow2 = externalSettings?.bgGlow2 ?? "#38bdf8";
@@ -1279,7 +1757,11 @@ export default function CanastaBoard({
   const ids = orderedHand.map((c) => c.id);
   const handCount = Math.max(orderedHand.length, 1);
   const handCenter = (handCount - 1) / 2;
-  const handStep = Math.min(46, handCount > 1 ? 680 / (handCount - 1) : 0);
+  const handCardWidth = isMobile ? 64 : 80;
+  const handCardHeight = isMobile ? 96 : 120;
+  const handAreaHeight = isMobile ? 150 : 192;
+  const handSpan = isMobile ? 320 : 680;
+  const handStep = Math.min(isMobile ? 34 : 46, handCount > 1 ? handSpan / (handCount - 1) : 0);
   const dragIndex = dragCardId ? ids.indexOf(dragCardId) : -1;
   const hoverIndex = hoverCardId ? ids.indexOf(hoverCardId) : -1;
   const handOffsetAt = (i) => {
@@ -1305,8 +1787,9 @@ export default function CanastaBoard({
   }
 
   const selectedForPlan = meldPlan ? myPlayer.hand.filter((c) => meldPlan.selectedIds.includes(c.id)) : [];
+  const wildForPlan = selectedForPlan.filter((c) => isWild(c));
   const planPreview = meldPlan ? resolvePlannedGroups(game, meldPlan) : { groups: [], error: null };
-  const activePlanCard = meldPlan ? selectedForPlan.find((c) => c.id === meldPlan.activeCardId) ?? null : null;
+  const activePlanCard = meldPlan ? wildForPlan.find((c) => c.id === meldPlan.activeCardId) ?? null : null;
   const activePlanTargets = activePlanCard
     ? isWild(activePlanCard)
       ? meldPlan.targetRanks
@@ -1334,9 +1817,9 @@ export default function CanastaBoard({
           50% { opacity: .52; }
         }
       `}</style>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <h2 style={{ margin: 0 }}>Canasta</h2>
-        <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h2 style={{ margin: 0, fontSize: isMobile ? 34 : 42 }}>Canasta</h2>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button variant="ghost" onClick={() => setSettingsOpen((s) => !s)} style={{ width: "auto" }}>
             Inställningar
           </Button>
@@ -1361,16 +1844,23 @@ export default function CanastaBoard({
             padding: "8px 10px",
           }}
         >
-          Rundan är slut. Vinnare: {game.players.find((p) => p.id === game.winnerPlayerId)?.name ?? "okänd"} (
-          {game.winnerTeamId})
+          {game.winnerPlayerId
+            ? `Rundan är slut. Vinnare: ${game.players.find((p) => p.id === game.winnerPlayerId)?.name ?? "okänd"} (${game.winnerTeamId})`
+            : "Rundan är slut."}
+          {roundLeaderboardPoints ? (
+            <span style={{ display: "block", marginTop: 6 }}>
+              Leaderboardpoäng: +{roundLeaderboardPoints.points} ({roundLeaderboardPoints.humans} spelare ×4
+              {roundLeaderboardPoints.bots > 0 ? `, ${roundLeaderboardPoints.bots} bottar ×1` : ""})
+            </span>
+          ) : null}
         </div>
       )}
 
       <div
         style={{
           position: "relative",
-          minHeight: 520,
-          borderRadius: 24,
+          minHeight: isMobile ? 430 : 520,
+          borderRadius: isMobile ? 16 : 24,
           border: `1px solid color-mix(in srgb, ${themeAccent} 55%, rgba(148,163,184,.35))`,
           backgroundImage: [
             `radial-gradient(90% 70% at 20% 18%, color-mix(in srgb, ${themeGlow1} 30%, transparent), transparent 70%)`,
@@ -1446,74 +1936,14 @@ export default function CanastaBoard({
           </>
         )}
 
-        {game.players.map((p, i) => {
-          const pos = seatPosition(i, game.players.length);
-          return (
-            <div
-              key={p.id}
-              style={{
-                position: "absolute",
-                top: pos.top,
-                left: pos.left,
-                transform: "translate(-50%, -50%)",
-                minWidth: 108,
-                padding: "8px 10px",
-                borderRadius: 12,
-                border: i === game.turnIndex ? "1px solid rgba(125,211,252,.8)" : "1px solid rgba(148,163,184,.35)",
-                background: i === game.turnIndex ? "rgba(15,23,42,.8)" : "rgba(2,6,23,.62)",
-                display: "grid",
-                gap: 3,
-              }}
-            >
-              <div style={{ fontWeight: 900, fontSize: 12 }}>{p.name}</div>
-              <div style={{ color: "#a7f3d0", fontWeight: 800, fontSize: 11 }}>{teamLabelById[p.teamId] ?? p.teamId}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 2, marginTop: 2 }}>
-                {Array.from({ length: Math.min(5, p.hand.length) }, (_, idx) => (
-                  <span
-                    key={`${p.id}-back-${idx}`}
-                    style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 14,
-                      marginLeft: idx === 0 ? 0 : -4,
-                      borderRadius: 2,
-                      border: "1px solid rgba(15,23,42,.45)",
-                      background: cardBackImage,
-                      backgroundSize: "14px 14px, 8px 8px, 100% 100%",
-                      backgroundRepeat: "no-repeat, repeat, no-repeat",
-                      boxShadow: "0 1px 3px rgba(2,6,23,.35)",
-                    }}
-                  />
-                ))}
-                <span
-                  style={{
-                    marginLeft: 4,
-                    minWidth: 16,
-                    textAlign: "center",
-                    borderRadius: 999,
-                    background: "rgba(2,6,23,.62)",
-                    border: "1px solid rgba(148,163,184,.35)",
-                    color: "#e2e8f0",
-                    fontWeight: 800,
-                    fontSize: 10,
-                    padding: "0 4px",
-                  }}
-                >
-                  {p.hand.length}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-
         <div
           style={{
             position: "absolute",
             left: "50%",
             top: "50%",
-            transform: "translate(-150%, -52%)",
-            width: 72,
-            height: 98,
+            transform: isMobile ? "translate(-110%, -52%)" : "translate(-150%, -52%)",
+            width: isMobile ? 48 : 72,
+            height: isMobile ? 70 : 98,
             borderRadius: 10,
             border: "1px solid rgba(15,23,42,.4)",
             background: cardBackImage,
@@ -1530,9 +1960,9 @@ export default function CanastaBoard({
             position: "absolute",
             left: "50%",
             top: "50%",
-            transform: "translate(-150%, -56%)",
-            width: 72,
-            height: 98,
+            transform: isMobile ? "translate(-110%, -56%)" : "translate(-150%, -56%)",
+            width: isMobile ? 48 : 72,
+            height: isMobile ? 70 : 98,
             borderRadius: 10,
             border: "1px solid rgba(15,23,42,.3)",
             background: cardBackImage,
@@ -1548,9 +1978,9 @@ export default function CanastaBoard({
             position: "absolute",
             left: "50%",
             top: "50%",
-            transform: "translate(-150%, -60%)",
-            width: 72,
-            height: 98,
+            transform: isMobile ? "translate(-110%, -60%)" : "translate(-150%, -60%)",
+            width: isMobile ? 48 : 72,
+            height: isMobile ? 70 : 98,
             borderRadius: 10,
             border: "1px solid rgba(15,23,42,.4)",
             background: cardBackImage,
@@ -1566,9 +1996,9 @@ export default function CanastaBoard({
             position: "absolute",
             left: "50%",
             top: "50%",
-            transform: "translate(-150%, 52px)",
+            transform: isMobile ? "translate(-110%, 36px)" : "translate(-150%, 52px)",
             fontWeight: 900,
-            fontSize: 12,
+            fontSize: isMobile ? 11 : 12,
             color: "#dbeafe",
             zIndex: 5,
           }}
@@ -1594,9 +2024,9 @@ export default function CanastaBoard({
             position: "absolute",
             left: "50%",
             top: "50%",
-            transform: "translate(78%, -52%)",
-            width: 78,
-            height: 106,
+            transform: isMobile ? "translate(34%, -52%)" : "translate(78%, -52%)",
+            width: isMobile ? 56 : 78,
+            height: isMobile ? 78 : 106,
             borderRadius: 10,
             border: topDiscard ? "1px solid rgba(15,23,42,.38)" : "1px dashed rgba(148,163,184,.45)",
             background: topDiscard ? "#fffdf8" : "rgba(15,23,42,.58)",
@@ -1616,30 +2046,37 @@ export default function CanastaBoard({
             position: "absolute",
             left: "50%",
             top: "50%",
-            transform: "translate(84%, 56px)",
+            transform: isMobile ? "translate(42%, 38px)" : "translate(84%, 56px)",
             textAlign: "center",
             fontWeight: 800,
-            fontSize: 12,
+            fontSize: isMobile ? 11 : 12,
             color: "#dbeafe",
             zIndex: 5,
           }}
         >
-          Slänghög: {game.discard.length}
+          Kasthög: {game.discard.length}
         </div>
 
-        {teamZones.map((zone) => {
-          const placement = meldZonePlacement(zone.anchorIndex, game.players.length, teamZones.length);
-          const meldCount = zone.melds?.length ?? 0;
-          const dynamicWidth = Math.min(360, placement.width + Math.max(0, meldCount - 1) * 44);
-          const isOwnZone = myPlayer?.teamId === zone.teamId;
+        {visibleTeamZones.map((zone) => {
+          const seat = seatTemplates[zone.anchorIndex] ?? { top: "50%", left: "50%", angle: 0 };
+          const canOpenZone = (zone.melds?.length ?? 0) > 0 || (zone.redThreeCount ?? 0) > 0;
+          const leftPct = Number.parseFloat(String(seat.left).replace("%", ""));
+          const topPct = Number.parseFloat(String(seat.top).replace("%", ""));
+          const isSideSeat = leftPct <= 22 || leftPct >= 78;
+          const isBottomSeat = topPct >= 82;
+          const sideRotate = isSideSeat ? (leftPct <= 22 ? 90 : -90) : 0;
+          const meldOrientation = isSideSeat ? "horizontal" : "horizontal";
+          const sideLinearMode = isSideSeat;
+          const zoneLeft = isMobile && isSideSeat ? (leftPct <= 22 ? "14%" : "86%") : seat.left;
+          const zoneTop = isMobile && isSideSeat ? `${Math.max(20, Math.min(80, topPct))}%` : seat.top;
           return (
             <div
               key={zone.teamId}
-              role={isOwnZone ? "button" : undefined}
-              tabIndex={isOwnZone ? 0 : undefined}
-              onClick={isOwnZone ? () => setExpandedTeamId(zone.teamId) : undefined}
+              role={canOpenZone ? "button" : undefined}
+              tabIndex={canOpenZone ? 0 : undefined}
+              onClick={canOpenZone ? () => setExpandedTeamId(zone.teamId) : undefined}
               onKeyDown={
-                isOwnZone
+                canOpenZone
                   ? (e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
@@ -1650,40 +2087,66 @@ export default function CanastaBoard({
               }
               style={{
                 position: "absolute",
-                left: `${placement.left}%`,
-                top: `${placement.top}%`,
-                transform: "translate(-50%, -50%)",
-                width: dynamicWidth,
-                maxWidth: "46%",
-                zIndex: 2,
-                cursor: isOwnZone ? "pointer" : "default",
+                left: zoneLeft,
+                top: zoneTop,
+                transform: `translate(-50%, -50%) rotate(${sideRotate}deg)`,
+                width: isMobile
+                  ? isBottomSeat
+                    ? 210
+                    : isSideSeat
+                      ? 110
+                      : 150
+                  : 220,
+                minHeight: isMobile
+                  ? isBottomSeat
+                    ? 96
+                    : isSideSeat
+                      ? 86
+                      : 108
+                  : 0,
+                maxWidth: isMobile
+                  ? isBottomSeat
+                    ? "64%"
+                    : isSideSeat
+                      ? "30%"
+                      : "38%"
+                  : "42%",
+                zIndex: isMobile ? 2 : 6,
+                cursor: canOpenZone ? "pointer" : "default",
+                pointerEvents: canOpenZone ? "auto" : "none",
               }}
             >
               <TeamMelds
                 title={`${zone.label}${zone.opened ? " • öppnat" : ""}`}
                 redThreeCount={zone.redThreeCount}
                 melds={zone.melds}
+                orientation={meldOrientation}
+                compact={isMobile}
+                showStackLayers={!sideLinearMode}
+                noWrap={sideLinearMode}
               />
             </div>
           );
         })}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0,1fr))" : "repeat(3, minmax(0,1fr))", gap: isMobile ? 6 : 8 }}>
         <Button onClick={drawTwo} disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn}>
-          Dra 2 kort
+          {game.stock.length === 0
+            ? (isMobile ? "Avstå kasthög" : "Avstå kasthög (slut)")
+            : (isMobile ? "Dra 2" : "Dra 2 kort")}
         </Button>
         <Button
           onClick={takeDiscardStack}
           disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn || !canTakeDiscardNow}
         >
-          Ta slänghög (10)
+          {isMobile ? "Ta kasthög" : "Ta kasthög (10)"}
         </Button>
         <Button
           onClick={laySelected}
           disabled={game.phase !== "discard" || selectedIds.length < 1 || game.roundEnded || isBotTurn || !isMyTurn}
         >
-          Lägg markerade ({selectedIds.length})
+          {isMobile ? `Lägg (${selectedIds.length})` : `Lägg markerade (${selectedIds.length})`}
         </Button>
       </div>
 
@@ -1697,13 +2160,46 @@ export default function CanastaBoard({
           gap: 8,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <div style={{ fontWeight: 800 }}>Din hand ({myPlayer.name})</div>
-          <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Klicka för markering • Dra för ordning • Släng via slänghög</div>
-        </div>
+        {!isMobile && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ fontWeight: 800 }}>Din hand ({myPlayer.name})</div>
+            <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Klicka för markering • Dra för ordning • Släng via slänghög</div>
+          </div>
+        )}
+        {isMobile ? <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 12 }}>Håll in och dra för att sortera.</div> : null}
 
         <div
-          style={{ position: "relative", height: 192 }}
+          ref={handAreaRef}
+          style={{ position: "relative", height: handAreaHeight, touchAction: isMobile ? "none" : "auto" }}
+          onPointerMove={(e) => {
+            if (!isMobile || !dragCardId || !canSortHand) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const edge = Math.min(80, rect.width * 0.22);
+            if (x <= edge) {
+              setHandDropSide("left");
+              setHoverCardId(null);
+              return;
+            }
+            if (x >= rect.width - edge) {
+              setHandDropSide("right");
+              setHoverCardId(null);
+              return;
+            }
+      setHandDropSide(null);
+      let nearestId = null;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      for (let j = 0; j < orderedHand.length; j += 1) {
+        if (orderedHand[j]?.id === dragCardId) continue;
+        const centerX = rect.width / 2 + handOffsetAt(j);
+        const d = Math.abs(x - centerX);
+        if (d < nearestDistance) {
+          nearestDistance = d;
+          nearestId = orderedHand[j]?.id ?? null;
+              }
+            }
+            if (nearestId) setHoverCardId(nearestId);
+          }}
           onDragOver={(e) => {
             if (!canSortHand) return;
             e.preventDefault();
@@ -1759,8 +2255,43 @@ export default function CanastaBoard({
               <button
                 key={c.id}
                 type="button"
-                onClick={() => toggleSelect(c.id)}
+                onClick={() => {
+                  if (suppressTapRef.current) {
+                    suppressTapRef.current = false;
+                    return;
+                  }
+                  toggleSelect(c.id);
+                }}
                 draggable={canSortHand}
+                onPointerDown={(e) => {
+                  if (!isMobile || !canSortHand) return;
+                  if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
+                  longPressTimerRef.current = setTimeout(() => {
+                    suppressTapRef.current = true;
+                    setDragCardId(c.id);
+                    setHoverCardId(c.id);
+                    setHandDropSide(null);
+                  }, 170);
+                }}
+                onPointerLeave={() => {
+                  if (longPressTimerRef.current && !dragCardId) {
+                    clearTimeout(longPressTimerRef.current);
+                    longPressTimerRef.current = null;
+                  }
+                }}
+                onPointerUp={() => {
+                  if (longPressTimerRef.current) {
+                    clearTimeout(longPressTimerRef.current);
+                    longPressTimerRef.current = null;
+                  }
+                }}
+                onPointerCancel={() => {
+                  if (longPressTimerRef.current) {
+                    clearTimeout(longPressTimerRef.current);
+                    longPressTimerRef.current = null;
+                  }
+                }}
                 onDragStart={(e) => {
                   setDragCardId(c.id);
                   setHoverCardId(c.id);
@@ -1771,6 +2302,7 @@ export default function CanastaBoard({
                   setDragCardId(null);
                   setHoverCardId(null);
                   setHandDropSide(null);
+                  suppressTapRef.current = false;
                 }}
                 onDragOver={(e) => {
                   if (!canSortHand) return;
@@ -1788,12 +2320,14 @@ export default function CanastaBoard({
                 style={{
                   position: "absolute",
                   left: `calc(50% + ${offset + spreadAdjust}px)`,
-                  bottom: 6 + (selected ? 14 : 0) + (isHoverTarget ? 4 : 0),
+                  bottom: (isMobile ? 4 : 6) + (selected ? (isMobile ? 10 : 14) : 0) + (isHoverTarget ? 4 : 0),
                   transform: `translateX(-50%) rotate(${rot}deg)`,
-                  width: 80,
-                  height: 120,
+                  width: handCardWidth,
+                  height: handCardHeight,
                   borderRadius: 11,
-                  border: isHoverTarget
+                  border: isMobile && dragCardId === c.id
+                    ? "2px solid #22d3ee"
+                    : isHoverTarget
                     ? "2px solid #22d3ee"
                     : selected
                       ? "2px solid #67e8f9"
@@ -1880,9 +2414,9 @@ export default function CanastaBoard({
                   Markerade kort: {selectedForPlan.length}
                 </div>
                 <div style={{ display: "grid", gap: 8, padding: 10, borderRadius: 12, border: "1px solid rgba(148,163,184,.28)" }}>
-                  <div style={{ fontWeight: 800 }}>1) Välj kort</div>
+                  <div style={{ fontWeight: 800 }}>1) Välj joker/tvåa</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {selectedForPlan.map((c) => {
+                    {wildForPlan.map((c) => {
                       const isActive = c.id === meldPlan.activeCardId;
                       const assignedRank = meldPlan.assignments?.[c.id];
                       return (
@@ -1912,15 +2446,20 @@ export default function CanastaBoard({
                         >
                           <CanastaFace card={c} compact />
                           <div style={{ marginTop: 2, color: "#bfdbfe", fontSize: 10, fontWeight: 800 }}>
-                            → {assignedRank === 0 ? "J" : rankLabel(assignedRank)}
+                            → {Number.isFinite(Number(assignedRank)) ? rankLabel(assignedRank) : "?"}
                           </div>
                         </button>
                       );
                     })}
+                    {wildForPlan.length === 0 ? (
+                      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                        Inga joker/tvåor i denna läggning.
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div style={{ display: "grid", gap: 8, padding: 10, borderRadius: 12, border: "1px solid rgba(148,163,184,.28)" }}>
-                  <div style={{ fontWeight: 800 }}>2) Klicka stick för valt kort</div>
+                  <div style={{ fontWeight: 800 }}>2) Välj vad joker/tvåa ska räknas som</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {meldPlan.targetRanks.map((rank) => {
                       const disabled = activePlanCard ? !activePlanTargets.includes(rank) : true;
@@ -2159,6 +2698,64 @@ export default function CanastaBoard({
                   >
                     {vibrateOnTurn ? "På" : "Av"}
                   </Button>
+                </div>
+              </div>
+              <div style={settingsSectionStyle}>
+                <div style={settingsSectionTitleStyle}>Lobby</div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div style={settingsInlineRowStyle}>
+                    <div>
+                      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Rumskod</div>
+                      <div style={{ fontWeight: 900, fontSize: 18 }}>
+                        {roomCode ? roomCode.toUpperCase() : "Inte kopplad"}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      onClick={() => onShareRoom?.()}
+                      disabled={!roomCode || typeof onShareRoom !== "function"}
+                      style={{ width: "auto" }}
+                    >
+                      Dela
+                    </Button>
+                  </div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                    Max 4 spelare totalt. Har du ett rum kopplat kan du bjuda in vanner har.
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {friends.length === 0 ? (
+                      <div style={{ color: "var(--muted)" }}>Inga vanner att bjuda in just nu.</div>
+                    ) : (
+                      friends.map((friend) => {
+                        const sent = Boolean(sentInvites?.[friend.id]);
+                        return (
+                          <div
+                            key={friend.id}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr auto",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: 8,
+                              borderRadius: 10,
+                              border: "1px solid rgba(148,163,184,.2)",
+                              background: "rgba(15,23,42,.28)",
+                            }}
+                          >
+                            <div style={{ fontWeight: 700 }}>{friend.display_name}</div>
+                            <Button
+                              variant={sent ? "primary" : "ghost"}
+                              onClick={() => onSendRoomInvite?.(friend.id)}
+                              disabled={!roomCode || sent || typeof onSendRoomInvite !== "function"}
+                              style={{ width: "auto", padding: "6px 10px" }}
+                            >
+                              {sent ? "Skickat" : "Bjud in"}
+                            </Button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
               {canCustomizeTheme && (
