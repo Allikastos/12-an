@@ -128,6 +128,50 @@ function isValidRun(cards) {
   return true;
 }
 
+function findFoundationTarget(card, foundations) {
+  if (!card) return null;
+  for (const suit of SUITS) {
+    if (canPlaceOnFoundation(card, foundations[suit], suit)) return suit;
+  }
+  return null;
+}
+
+function applyAutoFinishStep(state) {
+  const wasteTop = state.waste[state.waste.length - 1];
+  const wasteSuit = findFoundationTarget(wasteTop, state.foundations);
+  if (wasteTop && wasteSuit) {
+    const foundations = {
+      ...state.foundations,
+      [wasteSuit]: [...state.foundations[wasteSuit], wasteTop],
+    };
+    return { ...state, waste: state.waste.slice(0, -1), foundations };
+  }
+
+  for (let pileIndex = 0; pileIndex < state.tableau.length; pileIndex += 1) {
+    const pile = state.tableau[pileIndex];
+    if (!pile.length) continue;
+    const top = pile[pile.length - 1];
+    const suit = findFoundationTarget(top, state.foundations);
+    if (!suit) continue;
+
+    const nextTableau = state.tableau.map((p, i) => (i === pileIndex ? p.slice(0, -1) : [...p]));
+    const sourceAfterMove = nextTableau[pileIndex];
+    if (sourceAfterMove.length > 0 && !sourceAfterMove[sourceAfterMove.length - 1].faceUp) {
+      sourceAfterMove[sourceAfterMove.length - 1] = {
+        ...sourceAfterMove[sourceAfterMove.length - 1],
+        faceUp: true,
+      };
+    }
+    const foundations = {
+      ...state.foundations,
+      [suit]: [...state.foundations[suit], top],
+    };
+    return { ...state, tableau: nextTableau, foundations };
+  }
+
+  return state;
+}
+
 function FaceCard({ card, compact = false }) {
   const rank = rankLabel(card.rank);
   const suit = SUIT_SYMBOL[card.suit];
@@ -186,6 +230,12 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
     "linear-gradient(180deg, #14532d, #052e16)",
   ].join(", ");
   const isOpen = open && openSignal === closeSignal;
+  const autoFinishReady = useMemo(() => {
+    if (won) return false;
+    const allTableauFaceUp = game.tableau.every((pile) => pile.every((card) => card.faceUp));
+    const allAcesPlaced = SUITS.every((suit) => game.foundations[suit].length >= 1);
+    return game.stock.length === 0 && allTableauFaceUp && allAcesPlaced;
+  }, [game.foundations, game.stock.length, game.tableau, won]);
   const tableauMinHeight = useMemo(() => {
     const tallestPile = Math.max(...game.tableau.map((pile) => pile.length), 1);
     return Math.max(220, 8 + (tallestPile - 1) * CARD_STACK_OFFSET + FACE_CARD_MAX_HEIGHT + 8);
@@ -223,6 +273,16 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
       // ignore persistence issues
     }
   }, [game]);
+
+  useEffect(() => {
+    if (!isOpen || !autoFinishReady || won) return undefined;
+    setNotice("Autofinish: lägger korten i esshögarna...");
+    const id = setTimeout(() => {
+      setSelected(null);
+      setGame((prev) => applyAutoFinishStep(prev));
+    }, 120);
+    return () => clearTimeout(id);
+  }, [isOpen, autoFinishReady, won, game]);
 
   function clearSelection() {
     setSelected(null);

@@ -31,9 +31,6 @@ export function useGameplayEffects({
   markChatOpened,
   roomTurnPlayerId,
   resetTurnState,
-  turnTimeoutRef,
-  lastTurnActionRef,
-  endRound,
   settingsVibrateOnTurn,
   setTurnFlash,
   turnFlash,
@@ -118,24 +115,6 @@ export function useGameplayEffects({
       resetTurnState();
     }
   }, [roomTurnPlayerId, gameStarted, resetTurnState]);
-
-  useEffect(() => {
-    if (!isBlitzRoom || isSolo || !gameStarted || !isMyTurn) {
-      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
-      return;
-    }
-    lastTurnActionRef.current = Date.now();
-    if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
-    turnTimeoutRef.current = setTimeout(() => {
-      const elapsed = Date.now() - lastTurnActionRef.current;
-      if (elapsed < 15000) return;
-      if (!isMyTurn || !isBlitzRoom || isSolo || !gameStarted) return;
-      endRound();
-    }, 15000);
-    return () => {
-      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
-    };
-  }, [gameStarted, isMyTurn, isSolo, isBlitzRoom, turnTimeoutRef, lastTurnActionRef, endRound]);
 
   useEffect(() => {
     if (!gameStarted || !isMyTurn) return;

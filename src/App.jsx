@@ -11,6 +11,7 @@ import ScoreSheet from "./components/ScoreSheet";
 import DiceTray, { DieFace } from "./components/DiceTray";
 import MiniSolitaire from "./components/MiniSolitaire";
 import HarpanThemeBackground from "./components/HarpanThemeBackground";
+import CanastaBoard from "./components/CanastaBoard";
 import { createDefaultSettings } from "./config/defaultSettings";
 import { BG_PATTERNS } from "./config/themes";
 import {
@@ -69,7 +70,7 @@ export default function App() {
   } = useLeaderboardStats();
   const [showKingHistory, setShowKingHistory] = useState(false);
 
-  const [step, setStep] = useState("home"); // home | room | solo
+  const [step, setStep] = useState("home"); // home | room | solo | canasta
   const [roomCode, setRoomCode] = useState("");
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState(null);
@@ -155,6 +156,7 @@ export default function App() {
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
   const [showBlitzInfo, setShowBlitzInfo] = useState(false);
   const [showPlayMenu, setShowPlayMenu] = useState(false);
+  const [selectedPlayMode, setSelectedPlayMode] = useState("12an");
   const [advancedTab, setAdvancedTab] = useState("colors");
   const [personalThemeName, setPersonalThemeName] = useState("");
   const [themeCategory, setThemeCategory] = useState("standard");
@@ -425,9 +427,6 @@ export default function App() {
     markChatOpened,
     roomTurnPlayerId: roomState?.turn_player_id ?? null,
     resetTurnState,
-    turnTimeoutRef,
-    lastTurnActionRef,
-    endRound,
     settingsVibrateOnTurn: settings.vibrateOnTurn,
     setTurnFlash,
     turnFlash,
@@ -578,6 +577,25 @@ export default function App() {
 
     setRoomCode(code);
     await joinRoom(code);
+  }
+
+  function handleCreateFromPlayMenu() {
+    if (selectedPlayMode === "canasta") {
+      setShowPlayMenu(false);
+      setStep("canasta");
+      return;
+    }
+    setShowPlayMenu(false);
+    void createRoom();
+  }
+
+  function handleJoinFromPlayMenu() {
+    if (selectedPlayMode === "canasta") {
+      setShowPlayMenu(false);
+      setStep("canasta");
+      return;
+    }
+    void joinRoom();
   }
 
   async function joinRoomWithRoom(room, codeOverride = "") {
@@ -953,6 +971,17 @@ export default function App() {
     }, 15000);
   }
 
+  useEffect(() => {
+    if (!isBlitzRoom || isSolo || !gameStarted || !isMyTurn) {
+      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+      return;
+    }
+    markTurnActivity();
+    return () => {
+      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+    };
+  }, [isBlitzRoom, isSolo, gameStarted, isMyTurn]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function setTargetSafe(value) {
     if (targetLocked) return;
     if (fullRows.has(value)) return;
@@ -1295,6 +1324,23 @@ export default function App() {
   };
   const showHarpanThemeVideo = settings.themeKey === "Harpan";
 
+  if (step === "canasta") {
+    return (
+      <>
+        <HarpanThemeBackground active={showHarpanThemeVideo} />
+        <Container>
+          <CanastaBoard
+            onBack={() => setStep("home")}
+            settings={settings}
+            setSettings={setSettings}
+            themes={themes}
+            applyTheme={applyTheme}
+          />
+        </Container>
+      </>
+    );
+  }
+
   if (step === "home") {
     return (
       <>
@@ -1585,10 +1631,7 @@ export default function App() {
                     >
                       <div style={{ fontWeight: 800 }}>Skapa nytt rum</div>
                       <Button
-                        onClick={() => {
-                          setShowPlayMenu(false);
-                          void createRoom();
-                        }}
+                        onClick={handleCreateFromPlayMenu}
                       >
                         Skapa rum
                       </Button>
@@ -1613,13 +1656,46 @@ export default function App() {
                       />
                       <Button
                         variant={joinCodeReady ? "primary" : "ghost"}
-                        onClick={() => {
-                          void joinRoom();
-                        }}
+                        onClick={handleJoinFromPlayMenu}
                         disabled={!canJoin}
                       >
                         Joina rum
                       </Button>
+                    </div>
+
+                    <div
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: 12,
+                        padding: 12,
+                        background: "rgba(255,255,255,.07)",
+                        display: "grid",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ fontWeight: 800 }}>Alternativa huvudspel</div>
+                      <div style={{ color: "var(--muted)", fontWeight: 650, fontSize: 13 }}>
+                        Välj spel innan du skapar/joinar rum.
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <Button
+                          variant={selectedPlayMode === "12an" ? "primary" : "ghost"}
+                          onClick={() => setSelectedPlayMode("12an")}
+                        >
+                          12:an
+                        </Button>
+                        <Button
+                          variant={selectedPlayMode === "canasta" ? "primary" : "ghost"}
+                          onClick={() => setSelectedPlayMode("canasta")}
+                        >
+                          Canasta
+                        </Button>
+                      </div>
+                      {selectedPlayMode === "canasta" && (
+                        <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
+                          Canasta är vald i menyn. Spelläget kopplas in i nästa steg.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -1749,19 +1825,44 @@ export default function App() {
           <div
             style={{
               marginTop: 16,
-              padding: 12,
-              borderRadius: 14,
-              border: "1px solid rgba(245, 215, 123, .45)",
-              background: "rgba(255,255,255,.02)",
-              boxShadow: "0 0 0 1px rgba(245, 215, 123, .12)",
+              padding: 14,
+              borderRadius: 16,
+              border: "1px solid rgba(245, 215, 123, .52)",
+              background:
+                "linear-gradient(165deg, rgba(245,158,11,.12), rgba(15,23,42,.28) 45%, rgba(255,255,255,.02) 100%)",
+              boxShadow: "0 0 0 1px rgba(245, 215, 123, .16), 0 14px 30px rgba(2,6,23,.26)",
               display: "grid",
-              gap: 8,
+              gap: 10,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 800 }}>King of the Month</div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 10,
+                paddingBottom: 8,
+                borderBottom: "1px solid rgba(148,163,184,.2)",
+              }}
+            >
+              <div style={{ display: "grid", gap: 2 }}>
+                <div style={{ fontWeight: 900, letterSpacing: 0.3 }}>King of the Month</div>
+                <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                  Månadens toppspelare
+                </div>
+              </div>
               {leaderboard[0] && (
-                <div style={{ fontWeight: 800, color: "var(--accent)" }}>
+                <div
+                  style={{
+                    fontWeight: 900,
+                    color: "#fde68a",
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(245,215,123,.52)",
+                    background: "rgba(245,158,11,.2)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   King: {leaderboard[0].name}
                 </div>
               )}
@@ -1776,16 +1877,62 @@ export default function App() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  padding: "6px 10px",
-                  borderRadius: 10,
-                  border: "1px solid var(--border)",
-                  background: idx === 0 ? "rgba(245,158,11,.12)" : "transparent",
+                  padding: "9px 10px",
+                  borderRadius: 12,
+                  border:
+                    idx === 0
+                      ? "1px solid rgba(245,215,123,.62)"
+                      : idx === 1
+                      ? "1px solid rgba(148,163,184,.45)"
+                      : idx === 2
+                      ? "1px solid rgba(251,146,60,.45)"
+                      : "1px solid var(--border)",
+                  background:
+                    idx === 0
+                      ? "linear-gradient(135deg, rgba(245,158,11,.25), rgba(255,255,255,.04))"
+                      : "rgba(255,255,255,.015)",
                 }}
               >
-                <div style={{ fontWeight: 700 }}>
-                  #{idx + 1} {p.name}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: "50%",
+                      display: "grid",
+                      placeItems: "center",
+                      fontWeight: 900,
+                      fontSize: 12,
+                      color: "#0b1220",
+                      background:
+                        idx === 0
+                          ? "linear-gradient(180deg, #fbbf24, #f59e0b)"
+                          : idx === 1
+                          ? "linear-gradient(180deg, #cbd5e1, #94a3b8)"
+                          : idx === 2
+                          ? "linear-gradient(180deg, #fdba74, #fb923c)"
+                          : "rgba(148,163,184,.3)",
+                    }}
+                  >
+                    {idx + 1}
+                  </div>
+                  <div style={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.name}
+                  </div>
                 </div>
-                <div style={{ fontWeight: 900 }}>{Math.ceil(Number(p.points) || 0)}</div>
+                <div
+                  style={{
+                    fontWeight: 900,
+                    padding: "4px 9px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,.25)",
+                    background: "rgba(15,23,42,.55)",
+                    minWidth: 58,
+                    textAlign: "right",
+                  }}
+                >
+                  {Math.ceil(Number(p.points) || 0)}
+                </div>
               </div>
             ))}
 
@@ -1807,9 +1954,20 @@ export default function App() {
             {showKingHistory && (
               <div style={{ display: "grid", gap: 6 }}>
                 {kingHistory.slice(0, 12).map((k) => (
-                  <div key={k.month} style={{ display: "flex", justifyContent: "space-between" }}>
-                    <div>{k.month}</div>
-                    <div style={{ fontWeight: 700 }}>{k.winner?.name}</div>
+                  <div
+                    key={k.month}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "6px 8px",
+                      borderRadius: 10,
+                      background: "rgba(255,255,255,.03)",
+                      border: "1px solid rgba(148,163,184,.16)",
+                    }}
+                  >
+                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>{k.month}</div>
+                    <div style={{ fontWeight: 800 }}>{k.winner?.name}</div>
                   </div>
                 ))}
                 {kingHistory.length === 0 && (
@@ -2590,6 +2748,14 @@ export default function App() {
                     : row.profileId
                     ? matchPointsByProfile.get(row.profileId) ?? 0
                     : matchPointsByName.get(row.name) ?? 0;
+                  const rankTone =
+                    row.rank === 1
+                      ? "linear-gradient(135deg, rgba(245,158,11,.22), rgba(255,255,255,.04))"
+                      : row.rank === 2
+                      ? "linear-gradient(135deg, rgba(148,163,184,.2), rgba(255,255,255,.02))"
+                      : row.rank === 3
+                      ? "linear-gradient(135deg, rgba(251,146,60,.2), rgba(255,255,255,.02))"
+                      : "rgba(255,255,255,.02)";
                   return (
                     <div
                       key={`${row.id}-${row.rank}`}
@@ -2600,18 +2766,53 @@ export default function App() {
                         alignItems: "center",
                         padding: "10px 12px",
                         borderRadius: 12,
-                        border: "1px solid var(--border)",
-                        background: row.rank === 1 ? "rgba(234,179,8,.14)" : "rgba(255,255,255,.02)",
+                        border:
+                          row.rank <= 3 ? "1px solid rgba(245,215,123,.45)" : "1px solid var(--border)",
+                        background: rankTone,
                       }}
                     >
-                      <div style={{ fontWeight: 900, minWidth: 28 }}>#{row.rank}</div>
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          minWidth: 28,
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#0b1220",
+                          background:
+                            row.rank === 1
+                              ? "linear-gradient(180deg, #fbbf24, #f59e0b)"
+                              : row.rank === 2
+                              ? "linear-gradient(180deg, #cbd5e1, #94a3b8)"
+                              : row.rank === 3
+                              ? "linear-gradient(180deg, #fdba74, #fb923c)"
+                              : "rgba(148,163,184,.3)",
+                        }}
+                      >
+                        {row.rank}
+                      </div>
                       <div style={{ display: "grid", gap: 2 }}>
                         <div style={{ fontWeight: 800 }}>{row.name}</div>
                         <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
                           Viktad: {row.percent}%
                         </div>
                       </div>
-                      <div style={{ fontWeight: 900 }}>{Math.ceil(Number(points) || 0)}</div>
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          justifySelf: "end",
+                          padding: "4px 9px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(148,163,184,.25)",
+                          background: "rgba(15,23,42,.55)",
+                          minWidth: 54,
+                          textAlign: "right",
+                        }}
+                      >
+                        {Math.ceil(Number(points) || 0)}
+                      </div>
                     </div>
                   );
                 })}

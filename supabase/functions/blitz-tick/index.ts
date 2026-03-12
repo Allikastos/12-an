@@ -66,7 +66,16 @@ serve(async () => {
     .select("id, profile_id, player_id, status, eliminated_seq")
     .eq("event_id", event.id);
 
-  const active = (participants ?? []).filter((p) => p.status === "active" && p.player_id);
+  const activeRaw = (participants ?? []).filter((p) => p.status === "active" && p.player_id);
+  const { data: roomPlayers } = await client
+    .from("players")
+    .select("id")
+    .eq("room_id", event.room_id);
+  const roomPlayerIds = new Set((roomPlayers ?? []).map((p) => p.id));
+  const active = activeRaw.filter((p) => roomPlayerIds.has(p.player_id));
+
+  // If stale blitz participants remain active but are no longer in the room,
+  // they must not block elimination balancing forever.
   if (active.length <= 1) {
     await finalizeBlitz(client, event, participants ?? []);
     return new Response(JSON.stringify({ ok: true, finished: true }), { status: 200 });
