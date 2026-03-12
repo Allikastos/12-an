@@ -11,7 +11,16 @@ const PIP_MAP = {
   6: [0, 2, 3, 5, 6, 8],
 };
 
-export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classic" }) {
+export function DieFace({
+  value,
+  locked,
+  isPreview,
+  rolling,
+  diceStyle = "classic",
+  index = 0,
+  rollNonce = 0,
+  hitFlash = false,
+}) {
   const styleMap = {
     classic: {
       borderRadius: 12,
@@ -103,6 +112,11 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
   const pipColor = pipColorMap[diceStyle] ?? pipColorMap.classic;
   const pipShadow = pipShadowMap[diceStyle] ?? pipShadowMap.classic;
   const pips = PIP_MAP[value] ?? [];
+  const rollVariant = (rollNonce + index) % 3;
+  const rollName = rollVariant === 0 ? "dice-roll-a" : rollVariant === 1 ? "dice-roll-b" : "dice-roll-c";
+  const rollDuration = 0.52 + (index % 3) * 0.06;
+  const rollDelay = index * 40;
+  const isRollingThisDie = rolling && !locked;
   return (
     <div
       style={{
@@ -116,8 +130,16 @@ export function DieFace({ value, locked, isPreview, rolling, diceStyle = "classi
         gridTemplateRows: "repeat(3, 1fr)",
         gap: 0,
         padding: 6,
-        animation: rolling ? "dice-roll 0.45s ease" : "none",
-        boxShadow: stylePreset.boxShadow(locked, isPreview),
+        animation: isRollingThisDie
+          ? `${rollName} ${rollDuration}s cubic-bezier(.19,.69,.14,1) ${rollDelay}ms both`
+          : "none",
+        boxShadow: hitFlash
+          ? "0 0 0 1px rgba(34,197,94,.55), 0 0 18px rgba(34,197,94,.45), 0 12px 26px rgba(0,0,0,.42)"
+          : stylePreset.boxShadow(locked, isPreview),
+        filter: isRollingThisDie ? "blur(.42px) saturate(1.15) brightness(1.04)" : "none",
+        transformStyle: "preserve-3d",
+        transformOrigin: "50% 58%",
+        transition: "box-shadow .22s ease, filter .22s ease",
       }}
     >
       {Array.from({ length: 9 }).map((_, i) => (
@@ -161,6 +183,8 @@ export default function DiceTray({
   availableTargets = [],
   fullRows = new Set(),
   rolling,
+  rollNonce = 0,
+  diceHitFlash = [],
   diceStyle = "classic",
   onSetTarget,
   onRoll,
@@ -225,7 +249,7 @@ export default function DiceTray({
           </div>
         </div>
 
-        <div>
+        <div style={{ position: "relative" }}>
           <div style={{ color: "var(--muted)", fontWeight: 700, marginBottom: 8 }}>
             Tärningar
           </div>
@@ -247,10 +271,34 @@ export default function DiceTray({
                   isPreview={isPreview}
                   rolling={rolling}
                   diceStyle={diceStyle}
+                  index={i}
+                  rollNonce={rollNonce}
+                  hitFlash={Boolean(diceHitFlash?.[i])}
                 />
               );
             })}
           </div>
+          {rolling && (
+            <div
+              style={{
+                position: "absolute",
+                right: 2,
+                top: -1,
+                padding: "4px 9px",
+                borderRadius: 999,
+                border: "1px solid rgba(56,189,248,.42)",
+                background: "rgba(15,23,42,.75)",
+                color: "#7dd3fc",
+                fontSize: 11,
+                fontWeight: 900,
+                letterSpacing: 0.25,
+                textTransform: "uppercase",
+                animation: "dice-roll-banner 0.55s ease-in-out infinite",
+              }}
+            >
+              Slår...
+            </div>
+          )}
         </div>
 
         <div
@@ -265,12 +313,13 @@ export default function DiceTray({
             onClick={onRoll}
             disabled={
               !canAct ||
+              rolling ||
               (status === "choose" && !target) ||
               status === "stopped"
             }
             style={{ minWidth: 0, paddingInline: 6, fontSize: 13 }}
           >
-            {status === "idle" ? "Slå" : "Slå igen"}
+            {rolling ? "Slår..." : status === "idle" ? "Slå" : "Slå igen"}
           </Button>
           {showInspect && (
             <Button

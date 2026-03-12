@@ -118,6 +118,73 @@ body[data-theme="moon"]::after {
   z-index: 1;
 }
 
+.harpan-bg-video {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.harpan-bg-video__layer {
+  position: absolute;
+  inset: -3%;
+  width: 106%;
+  height: 106%;
+  object-fit: cover;
+  will-change: transform, opacity;
+  filter: saturate(1.08) contrast(1.04) brightness(0.72);
+}
+
+.harpan-bg-video__layer--a {
+  animation:
+    harpanLoopA var(--harpan-loop-sec, 18s) ease-in-out infinite,
+    harpanDriftA 24s ease-in-out infinite;
+}
+
+.harpan-bg-video__layer--b {
+  animation:
+    harpanLoopB var(--harpan-loop-sec, 18s) ease-in-out infinite,
+    harpanDriftB 27s ease-in-out infinite;
+}
+
+.harpan-bg-video__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1200px 720px at 18% -10%, rgba(14,116,144,.24), transparent 60%),
+    radial-gradient(980px 620px at 82% 12%, rgba(14,165,233,.16), transparent 65%),
+    linear-gradient(180deg, rgba(2,6,23,.32), rgba(2,6,23,.52));
+}
+
+@keyframes harpanLoopA {
+  0% { opacity: .9; }
+  48% { opacity: .86; }
+  52% { opacity: .18; }
+  100% { opacity: .9; }
+}
+
+@keyframes harpanLoopB {
+  0% { opacity: .16; }
+  48% { opacity: .2; }
+  52% { opacity: .86; }
+  100% { opacity: .16; }
+}
+
+@keyframes harpanDriftA {
+  0% { transform: scale(1.02) translate3d(0, 0, 0); }
+  35% { transform: scale(1.035) translate3d(-1.4%, .9%, 0); }
+  70% { transform: scale(1.03) translate3d(1.2%, -1.1%, 0); }
+  100% { transform: scale(1.02) translate3d(0, 0, 0); }
+}
+
+@keyframes harpanDriftB {
+  0% { transform: scale(1.03) translate3d(0, 0, 0); }
+  32% { transform: scale(1.04) translate3d(1.2%, -.8%, 0); }
+  68% { transform: scale(1.035) translate3d(-1.1%, 1.1%, 0); }
+  100% { transform: scale(1.03) translate3d(0, 0, 0); }
+}
+
 #root { min-height: 100dvh; }
 
 .muted { color: var(--muted); }
@@ -127,11 +194,34 @@ h1, h2, h3 {
   letter-spacing: 0.2px;
 }
 
-@keyframes dice-roll {
-  0% { transform: rotate(0deg) scale(1); }
-  35% { transform: rotate(6deg) scale(0.96); }
-  70% { transform: rotate(-6deg) scale(0.98); }
-  100% { transform: rotate(0deg) scale(1); }
+@keyframes dice-roll-a {
+  0% { transform: perspective(220px) translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+  18% { transform: perspective(220px) translateY(-7px) rotateX(28deg) rotateY(20deg) rotateZ(10deg) scale(.92); }
+  42% { transform: perspective(220px) translateY(3px) rotateX(-16deg) rotateY(-14deg) rotateZ(-12deg) scale(.98); }
+  70% { transform: perspective(220px) translateY(-2px) rotateX(11deg) rotateY(8deg) rotateZ(7deg) scale(.96); }
+  100% { transform: perspective(220px) translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+}
+
+@keyframes dice-roll-b {
+  0% { transform: perspective(220px) translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+  16% { transform: perspective(220px) translateY(-6px) rotateX(-25deg) rotateY(16deg) rotateZ(-9deg) scale(.93); }
+  40% { transform: perspective(220px) translateY(4px) rotateX(17deg) rotateY(-12deg) rotateZ(11deg) scale(.98); }
+  72% { transform: perspective(220px) translateY(-1px) rotateX(-9deg) rotateY(7deg) rotateZ(-6deg) scale(.97); }
+  100% { transform: perspective(220px) translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+}
+
+@keyframes dice-roll-c {
+  0% { transform: perspective(220px) translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+  20% { transform: perspective(220px) translateY(-8px) rotateX(32deg) rotateY(-22deg) rotateZ(12deg) scale(.91); }
+  46% { transform: perspective(220px) translateY(2px) rotateX(-14deg) rotateY(13deg) rotateZ(-10deg) scale(.98); }
+  74% { transform: perspective(220px) translateY(-2px) rotateX(10deg) rotateY(-7deg) rotateZ(5deg) scale(.97); }
+  100% { transform: perspective(220px) translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+}
+
+@keyframes dice-roll-banner {
+  0% { opacity: .62; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-1px); }
+  100% { opacity: .62; transform: translateY(0); }
 }
 
 @keyframes turnPulse {

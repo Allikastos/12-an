@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Supabase temp output
+supabase/.temp/
+
+# Accidental local files from terminal copy/paste
+ssh-keygen*din_github_epost*

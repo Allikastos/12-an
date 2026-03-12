@@ -77,6 +77,7 @@ export default function ScoreSheet({
   const cellStyle = settings?.cellStyle ?? "ring";
   const isSnowflake = checkIcon === "snowflake";
   const isCrownOutline = checkIcon === "crown-outline";
+  const isSuitsCycle = checkIcon === "suits-cycle";
   const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
   const crownOutlineData = (color) => {
     const stroke = String(color ?? "#f5d77b").replace("#", "%23");
@@ -219,6 +220,7 @@ export default function ScoreSheet({
                   const checkedRing = ringColor ?? filledRingColor;
                   const crownStroke = ringColor ?? (checked ? checkedRing : "rgba(148,163,184,.7)");
                   const shapeStyles = {
+                    none: { borderRadius: 0, transform: "none", clipPath: "none" },
                     circle: { borderRadius: 999 },
                     square: { borderRadius: 8 },
                     diamond: { borderRadius: 10, transform: "rotate(45deg)" },
@@ -261,6 +263,11 @@ export default function ScoreSheet({
                       shadow: checked
                         ? `0 0 14px color-mix(in srgb, ${checkedRing} 70%, transparent), inset 0 0 10px rgba(0,0,0,.35)`
                         : "inset 0 0 8px rgba(0,0,0,.35)",
+                    },
+                    "icon-only": {
+                      bg: "transparent",
+                      border: "none",
+                      shadow: "none",
                     },
                   };
                   const cellPreset = cellStyleMap[cellStyle] ?? cellStyleMap.ring;
@@ -476,7 +483,7 @@ export default function ScoreSheet({
                         </span>
                       )}
 
-                      {checked && !isCrownOutline && !isSkullShape && (checkIcon || isSnowflake) && (
+                      {checked && !isCrownOutline && !isSkullShape && !isSuitsCycle && (checkIcon || isSnowflake) && (
                         <span
                           style={{
                             position: "absolute",
@@ -522,6 +529,34 @@ export default function ScoreSheet({
                           ) : (
                             ""
                           )}
+                        </span>
+                      )}
+
+                      {!isCrownOutline && !isSkullShape && isSuitsCycle && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            inset: "4%",
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: "calc(var(--box) * 0.78)",
+                            fontWeight: 900,
+                            fontFamily: "\"Fraunces\", \"Space Grotesk\", system-ui, sans-serif",
+                            lineHeight: 1,
+                            letterSpacing: "-0.02em",
+                            color: checked
+                              ? ["#fda4af", "#c4b5fd", "#fb7185", "#67e8f9"][(row + i) % 4]
+                              : "rgba(148,163,184,.5)",
+                            textShadow: checked
+                              ? "0 1px 0 rgba(255,255,255,.35), 0 0 16px rgba(34,211,238,.22), 0 0 6px rgba(0,0,0,.35)"
+                              : "0 1px 0 rgba(255,255,255,.08)",
+                            filter: checked ? "drop-shadow(0 0 6px rgba(34,211,238,.2))" : "none",
+                            transform: checked ? "scale(1.04)" : "scale(1)",
+                            pointerEvents: "none",
+                            transition: "transform .16s ease, filter .16s ease, color .16s ease",
+                          }}
+                        >
+                          {["♥", "♠", "♦", "♣"][(row + i) % 4]}
                         </span>
                       )}
                     </button>

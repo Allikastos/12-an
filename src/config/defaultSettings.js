@@ -29,6 +29,8 @@ export function createDefaultSettings() {
     cellStyle: "ring",
     diceStyle: "classic",
     showDice: false,
+    diceSound: false,
+    diceHaptics: true,
     vibrateOnTurn: false,
     notifyTurn: true,
     notifyInvite: true,

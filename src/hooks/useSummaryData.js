@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { calcWinBonuses, ceilToHalf } from "../lib/appUtils";
+import { calcWinBonuses } from "../lib/appUtils";
 
 const EMPTY_ARRAY = [];
 const EMPTY_OBJECT = {};
@@ -111,7 +111,7 @@ export function useSummaryData({
       const span = Math.min(3, rank + group.length - 1);
       let total = 0;
       for (let r = rank; r <= span; r++) total += pointsByRank[r] ?? 0;
-      const per = group.length ? total / group.length : 0;
+      const per = group.length ? Math.ceil(total / group.length) : 0;
       group.forEach((p) => map.set(p.profileId ?? p.id, per));
       idx += group.length;
     }
@@ -135,7 +135,7 @@ export function useSummaryData({
     if (!finishWinnerIds.length) return { byProfile, byName };
     const totalPlayers = activeTurnOrder.length;
     const totalPoints = Math.max(1, 1 + 0.5 * Math.max(0, totalPlayers - 2));
-    const pointsPerWinner = ceilToHalf(totalPoints / finishWinnerIds.length);
+    const pointsPerWinner = Math.ceil(totalPoints / finishWinnerIds.length);
     players.forEach((p) => {
       const isWinner = finishWinnerIds.includes(p.id);
       const roundsUsed = typeof roundCounts[p.id] === "number" ? roundCounts[p.id] : null;

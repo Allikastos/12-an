@@ -73,34 +73,79 @@ serve(async () => {
   }
 
   const now = new Date();
-  const nextElimAt = event.next_elim_at ? new Date(event.next_elim_at) : null;
-  if (nextElimAt && now < nextElimAt) {
-    return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
-  }
-
   const playerIds = active.map((p) => p.player_id);
-  const { data: roomState } = await client
+  let { data: roomState } = await client
     .from("room_state")
-    .select("turn_player_id, turn_order, round_counts")
+    .select("turn_player_id, turn_order, round_counts, finish_until_round, updated_at")
     .eq("room_id", event.room_id)
     .maybeSingle();
 
-  const roundCounts = roomState?.round_counts ?? {};
-  const turnOrder = (roomState?.turn_order ?? []).filter((id: string) => playerIds.includes(id));
-  const activeOrder = turnOrder.length ? turnOrder : playerIds;
-  const startPlayerId = activeOrder[0] ?? null;
-  const currentTurnId = activeOrder.includes(roomState?.turn_player_id)
-    ? roomState?.turn_player_id
-    : startPlayerId;
-  const gatePlayerId = startPlayerId ?? currentTurnId;
+  const activeOrder = ((roomState?.turn_order as string[] | null) ?? []).filter((id: string) =>
+    playerIds.includes(id)
+  );
+  const order = activeOrder.length ? activeOrder : playerIds;
+  if (order.length > 1 && roomState?.updated_at) {
+    const updatedAtMs = new Date(roomState.updated_at).getTime();
+    if (Number.isFinite(updatedAtMs) && now.getTime() - updatedAtMs >= 15000) {
+      const current = order.includes(roomState?.turn_player_id)
+        ? roomState?.turn_player_id
+        : order[0];
+      const idx = Math.max(0, order.indexOf(current));
+      const next = order[(idx + 1) % order.length] ?? current;
+      const baseCounts = roomState?.round_counts ?? {};
+      const nextCounts = { ...baseCounts, [next]: (baseCounts?.[next] ?? 0) + 1 };
+      await client
+        .from("room_state")
+        .update({
+          turn_player_id: next,
+          turn_order: order,
+          round_counts: nextCounts,
+          updated_at: now.toISOString(),
+        })
+        .eq("room_id", event.room_id)
+        .eq("turn_player_id", current);
+      const { data: refreshed } = await client
+        .from("room_state")
+        .select("turn_player_id, turn_order, round_counts, finish_until_round, updated_at")
+        .eq("room_id", event.room_id)
+        .maybeSingle();
+      roomState = refreshed ?? roomState;
+    }
+  }
 
-  if (!gatePlayerId || currentTurnId !== gatePlayerId) {
+  const nextElimAt = event.next_elim_at ? new Date(event.next_elim_at) : null;
+  const elimDue = Boolean(nextElimAt && now >= nextElimAt);
+  const rawTargetRound = Number(roomState?.finish_until_round ?? 0);
+  let elimTargetRound = Number.isFinite(rawTargetRound) && rawTargetRound > 0 ? rawTargetRound : null;
+  if (!elimTargetRound && !elimDue) {
     return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
   }
 
-  // Rounds are counted on turn start in the app, so when the turn returns to the
-  // start player we know everyone has had their turn this cycle. No extra round
-  // sync check is needed here.
+  const roundCounts = roomState?.round_counts ?? {};
+  if (!elimTargetRound && elimDue) {
+    elimTargetRound = Math.max(0, ...playerIds.map((id) => Number(roundCounts?.[id] ?? 0)));
+    await client
+      .from("room_state")
+      .update({
+        finish_until_round: elimTargetRound,
+        updated_at: now.toISOString(),
+      })
+      .eq("room_id", event.room_id);
+    return new Response(
+      JSON.stringify({ ok: true, waiting: true, elimination_round: true, target_round: elimTargetRound }),
+      { status: 200 }
+    );
+  }
+
+  if (elimTargetRound) {
+    const roundsBalanced = playerIds.every((id) => Number(roundCounts?.[id] ?? 0) >= elimTargetRound);
+    if (!roundsBalanced) {
+      return new Response(
+        JSON.stringify({ ok: true, waiting: true, elimination_round: true, target_round: elimTargetRound }),
+        { status: 200 }
+      );
+    }
+  }
 
   const { data: states } = await client
     .from("player_state")
@@ -125,7 +170,7 @@ serve(async () => {
   const sorted = [...scored].sort((a, b) => {
     if (a.percent !== b.percent) return a.percent - b.percent;
     if (a.boxes !== b.boxes) return a.boxes - b.boxes;
-    return String(a.participant.profile_id).localeCompare(String(b.participant.profile_id));
+    return 0;
   });
   const cutoffIndex = Math.min(eliminateCount, sorted.length - 1) - 1;
   const cutoff = sorted[Math.max(0, cutoffIndex)];
@@ -163,6 +208,7 @@ serve(async () => {
     await client.from("room_state").update({
       turn_order: fallbackOrder,
       turn_player_id: nextTurn,
+      finish_until_round: null,
       updated_at: now.toISOString(),
     }).eq("room_id", event.room_id);
 
@@ -221,7 +267,7 @@ async function finalizeBlitz(client: ReturnType<typeof createClient>, event: any
     const span = Math.min(3, rank + group.length - 1);
     let total = 0;
     for (let r = rank; r <= span; r++) total += pointsByRank[r] ?? 0;
-    const per = group.length ? total / group.length : 0;
+    const per = group.length ? Math.ceil(total / group.length) : 0;
     group.forEach((p) => pointsByProfile.set(p.profile_id, per));
     idx += group.length;
   }

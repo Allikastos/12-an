@@ -84,10 +84,12 @@ serve(async () => {
     { onConflict: "room_id" }
   );
 
+  const firstElimDelayMinutes = playerIds.length < 5 ? 10 : 5;
+
   await client.from("blitz_events").update({
     status: "running",
     started_at: new Date().toISOString(),
-    next_elim_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    next_elim_at: new Date(Date.now() + firstElimDelayMinutes * 60 * 1000).toISOString(),
   }).eq("id", event.id);
 
   return new Response(JSON.stringify({ ok: true }), { status: 200 });

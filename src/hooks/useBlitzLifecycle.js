@@ -8,6 +8,7 @@ export function useBlitzLifecycle() {
   const [blitzNowState, setBlitzNowState] = useState(new Date());
   const blitzAutoStartRef = useRef({ dateKey: null, lastAttempt: 0 });
   const blitzBootstrapRef = useRef({ dateKey: null, lastAttempt: 0 });
+  const blitzTickRef = useRef({ eventId: null, lastAttempt: 0 });
 
   const loadBlitzParticipants = useCallback(async (eventId) => {
     if (!eventId) {
@@ -100,6 +101,10 @@ export function useBlitzLifecycle() {
     const diff = nextElim.getTime() - blitzNowState.getTime();
     return formatCountdown(diff);
   })();
+  const blitzEliminationRound =
+    blitzRunning &&
+    Boolean(blitzEvent?.next_elim_at) &&
+    blitzNowState.getTime() >= new Date(blitzEvent.next_elim_at).getTime();
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -157,6 +162,17 @@ export function useBlitzLifecycle() {
     const tick = () => {
       const now = new Date();
       setBlitzNowState(now);
+      if (blitzEvent?.id && blitzEvent?.status === "running" && blitzEvent?.next_elim_at) {
+        const last = blitzTickRef.current;
+        const due = now.getTime() >= new Date(blitzEvent.next_elim_at).getTime();
+        const staleAttempt = now.getTime() - (last?.lastAttempt ?? 0) > 12000;
+        if ((due || staleAttempt) && (last?.eventId !== blitzEvent.id || staleAttempt)) {
+          blitzTickRef.current = { eventId: blitzEvent.id, lastAttempt: now.getTime() };
+          void supabase.functions.invoke("blitz-tick").catch(() => {
+            // ignore; regular refresh/realtime will resync state
+          });
+        }
+      }
       if (blitzEvent?.status === "lobby") {
         void maybeAutoStartBlitz(blitzEvent, now);
       }
@@ -178,6 +194,7 @@ export function useBlitzLifecycle() {
     blitzRunning,
     blitzFinished,
     blitzElimIn,
+    blitzEliminationRound,
     loadBlitzParticipants,
     loadBlitzEvent,
     ensureBlitzEvent,

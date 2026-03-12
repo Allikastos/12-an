@@ -10,8 +10,9 @@ import { Input } from "./ui/Input";
 import ScoreSheet from "./components/ScoreSheet";
 import DiceTray, { DieFace } from "./components/DiceTray";
 import MiniSolitaire from "./components/MiniSolitaire";
+import HarpanThemeBackground from "./components/HarpanThemeBackground";
 import { createDefaultSettings } from "./config/defaultSettings";
-import { BG_PATTERNS, normalizePatternKey } from "./config/themes";
+import { BG_PATTERNS } from "./config/themes";
 import {
   makeCode,
   sanitizeRoomCode,
@@ -20,12 +21,13 @@ import {
   isProgressWin,
   shuffleArray,
   getMonthKeySweden,
-  ceilToHalf,
   calcWinBonuses,
   computeLocks,
   rollDie,
 } from "./lib/appUtils";
 import { useAuthProfile } from "./hooks/useAuthProfile";
+import { useSettingsEffects } from "./hooks/useSettingsEffects";
+import { useAppBootstrapParams } from "./hooks/useAppBootstrapParams";
 import { useRoomGameState } from "./hooks/useRoomGameState";
 import { useBlitzLifecycle } from "./hooks/useBlitzLifecycle";
 import { useLeaderboardStats } from "./hooks/useLeaderboardStats";
@@ -39,6 +41,9 @@ import { useRoomDerivedData } from "./hooks/useRoomDerivedData";
 import { useThemeManager } from "./hooks/useThemeManager";
 import { useGameDerivedState } from "./hooks/useGameDerivedState";
 import { useRoomRestoreSession } from "./hooks/useRoomRestoreSession";
+import { useGameplayEffects } from "./hooks/useGameplayEffects";
+import { useMatchLifecycleEffects } from "./hooks/useMatchLifecycleEffects";
+import { useUserProfileEffects } from "./hooks/useUserProfileEffects";
 
 import {
   createRoomWithCode,
@@ -133,73 +138,15 @@ export default function App() {
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem("scoreboard_settings_v1", JSON.stringify(settings));
-    const root = document.documentElement;
-    if (settings.bgColor) root.style.setProperty("--bg", settings.bgColor);
-    if (settings.accentColor) root.style.setProperty("--accent", settings.accentColor);
-    if (settings.bgGlow1) root.style.setProperty("--bg-glow-1", settings.bgGlow1);
-    if (settings.bgGlow2) root.style.setProperty("--bg-glow-2", settings.bgGlow2);
-    const patternKey = normalizePatternKey(settings.bgPattern);
-    if (patternKey !== settings.bgPattern) {
-      setSettings((s) => ({ ...s, bgPattern: patternKey }));
-      return;
-    }
-    const pattern = BG_PATTERNS[patternKey] ?? BG_PATTERNS.none;
-    root.style.setProperty("--bg-pattern", pattern.image);
-    root.style.setProperty("--bg-pattern-size", pattern.size);
-    root.style.setProperty("--bg-pattern-repeat", pattern.repeat ?? "repeat");
-    root.style.setProperty("--bg-pattern-position", pattern.position ?? "0 0");
-    root.style.setProperty("--bg-pattern-opacity", String(settings.bgPatternOpacity ?? 0.25));
-    document.body.dataset.theme = patternKey === "none" ? "custom" : patternKey;
-    if (settings.diceBg) root.style.setProperty("--dice-bg", settings.diceBg);
-    if (settings.dicePip) root.style.setProperty("--dice-pip", settings.dicePip);
-    if (settings.diceBorder) root.style.setProperty("--dice-border", settings.diceBorder);
-    if (settings.diceLocked) root.style.setProperty("--dice-locked", settings.diceLocked);
-    if (settings.dicePipLocked) root.style.setProperty("--dice-pip-locked", settings.dicePipLocked);
-    if (settings.btnPrimaryBg) root.style.setProperty("--btn-primary-bg", settings.btnPrimaryBg);
-    if (settings.btnPrimaryText) root.style.setProperty("--btn-primary-text", settings.btnPrimaryText);
-    if (settings.btnPrimaryBorder) root.style.setProperty("--btn-primary-border", settings.btnPrimaryBorder);
-    if (settings.btnPrimaryShadow) root.style.setProperty("--btn-primary-shadow", settings.btnPrimaryShadow);
-  }, [settings]);
+  useSettingsEffects({ settings, setSettings });
 
-  useEffect(() => {
-    if (settings.themeKey === "Aurora") {
-      setSettings((s) => ({ ...s, themeKey: "Galax" }));
-      return;
-    }
-    if (
-      settings.themeKey === "Phantom Ghost" ||
-      settings.themeKey === "Phantom Void" ||
-      settings.themeKey === "Phantom Noir"
-    ) {
-      setSettings((s) => ({ ...s, themeKey: "Ghost" }));
-      return;
-    }
-    if (!settings.themeKey) {
-      setSettings((s) => ({ ...s, themeKey: "Standard" }));
-    }
-  }, [settings.themeKey]);
-
-  useEffect(() => {
-    if (typeof settings.turnNotifications === "boolean" && typeof settings.notifyTurn !== "boolean") {
-      setSettings((s) => ({ ...s, notifyTurn: s.turnNotifications }));
-    }
-  }, [settings.turnNotifications, settings.notifyTurn]);
-
-  useEffect(() => {
-    if (user?.id && roomId && playerId) {
-      supabase.from("players").update({ profile_id: user.id }).eq("id", playerId);
-    }
-  }, [user?.id, roomId, playerId]);
-
-  useEffect(() => {
-    loadLeaderboardData(user?.id ?? null);
-  }, [user?.id, loadLeaderboardData]);
-
-  useEffect(() => {
-    loadStats(user?.id ?? null);
-  }, [user?.id, loadStats]);
+  useUserProfileEffects({
+    userId: user?.id ?? null,
+    roomId,
+    playerId,
+    loadLeaderboardData,
+    loadStats,
+  });
 
   const [showSettings, setShowSettings] = useState(false);
   const [showAdvancedColors, setShowAdvancedColors] = useState(false);
@@ -221,6 +168,7 @@ export default function App() {
     blitzRunning,
     blitzFinished,
     blitzElimIn,
+    blitzEliminationRound,
     loadBlitzParticipants,
     ensureBlitzEvent,
   } = useBlitzLifecycle();
@@ -276,6 +224,13 @@ export default function App() {
     personalThemeName,
     setPersonalThemeName,
   });
+  useAppBootstrapParams({
+    sanitizeRoomCode,
+    setRoomCode,
+    themes,
+    applyTheme,
+    setAuthNotice,
+  });
   const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
   const outgoingRequestIds = useMemo(
     () => new Set(friendRequests.outgoing.map((r) => r.addressee?.id).filter(Boolean)),
@@ -302,12 +257,6 @@ export default function App() {
         (roomCode && roomCode.toUpperCase().startsWith("BLITZ-")))
   );
 
-  useEffect(() => {
-    if (!isSolo && gameStarted && isMyTurn && !prevIsMyTurnRef.current) {
-      setMiniSolitaireCloseSignal((v) => v + 1);
-    }
-    prevIsMyTurnRef.current = Boolean(isMyTurn);
-  }, [isSolo, gameStarted, isMyTurn]);
   const blitzActiveCount = blitzParticipants.filter((p) => p.status === "active").length;
   const blitzEliminatedCount = blitzParticipants.filter((p) => p.status === "eliminated").length;
   const blitzJoined = Boolean(
@@ -331,49 +280,12 @@ export default function App() {
     isBlitzRoom,
     blitzParticipated,
   });
-  useEffect(() => {
-    if (!isBlitzRoom || !user?.id || !playerId || !blitzEvent?.id) return;
-    if (blitzJoined) return;
-    let cancelled = false;
-    (async () => {
-      await supabase.from("blitz_participants").upsert(
-        {
-          event_id: blitzEvent.id,
-          profile_id: user.id,
-          player_id: playerId,
-          status: "active",
-          joined_at: new Date().toISOString(),
-        },
-        { onConflict: "event_id,profile_id" }
-      );
-      if (!cancelled) await loadBlitzParticipants(blitzEvent.id);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isBlitzRoom, user?.id, playerId, blitzEvent?.id, blitzJoined, loadBlitzParticipants]);
   const turnTimeLeft = useMemo(() => {
     if (!isBlitzRoom || isSolo || !gameStarted || !isMyTurn) return null;
     const last = lastTurnActionRef.current || Date.now();
     const elapsed = Math.floor((blitzNow.getTime() - last) / 1000);
     return Math.max(0, 15 - elapsed);
   }, [blitzNow, isBlitzRoom, isSolo, gameStarted, isMyTurn]);
-
-  useEffect(() => {
-    if (!isBlitzRoom) {
-      if (prevShowDiceRef.current != null) {
-        setSettings((s) => ({ ...s, showDice: prevShowDiceRef.current }));
-        prevShowDiceRef.current = null;
-      }
-      return;
-    }
-    if (prevShowDiceRef.current == null) {
-      prevShowDiceRef.current = settings.showDice;
-    }
-    if (!settings.showDice) {
-      setSettings((s) => ({ ...s, showDice: true }));
-    }
-  }, [isBlitzRoom, settings.showDice]);
 
   const progressStorageKey = useMemo(() => {
     if (roomId && playerId) return `t12_progress_${roomId}_${playerId}`;
@@ -393,7 +305,11 @@ export default function App() {
   const [diceStatus, setDiceStatus] = useState("idle"); // idle | choose | running | stopped | all
   const [targetLocked, setTargetLocked] = useState(false);
   const [rolling, setRolling] = useState(false);
+  const [rollNonce, setRollNonce] = useState(0);
+  const [diceHitFlash, setDiceHitFlash] = useState(() => Array(6).fill(false));
   const rollTimerRef = useRef(null);
+  const rollHitTimerRef = useRef(null);
+  const rollAudioCtxRef = useRef(null);
   const [turnFlash, setTurnFlash] = useState(false);
   const finalizeGuardRef = useRef(false);
 
@@ -485,33 +401,44 @@ export default function App() {
     isMyTurn,
   });
 
-  useEffect(() => {
-    if (diceStatus === "choose" && !targetLocked && availableTargets.length === 0) {
-      setDiceStatus("stopped");
-      setTarget(null);
-      setPreviewLocked(Array(6).fill(false));
-      setLastGain(0);
-    }
-  }, [diceStatus, targetLocked, availableTargets.length]);
-
-  useEffect(() => {
-    if (followActivePlayer && activePlayer?.id) {
-      setInspectPlayerId(activePlayer.id);
-    }
-  }, [followActivePlayer, activePlayer?.id]);
-
-  useEffect(() => {
-    if (isSolo || !followActivePlayer) return;
-    if (isMyTurn) {
-      setShowInspect(false);
-      return;
-    }
-    setShowInspect(true);
-  }, [followActivePlayer, isMyTurn, isSolo]);
-
-  useEffect(() => {
-    if (showChat) markChatOpened();
-  }, [showChat, markChatOpened]);
+  useGameplayEffects({
+    isSolo,
+    gameStarted,
+    isMyTurn,
+    setMiniSolitaireCloseSignal,
+    prevIsMyTurnRef,
+    isBlitzRoom,
+    userId: user?.id ?? null,
+    playerId,
+    blitzEventId: blitzEvent?.id ?? null,
+    blitzJoined,
+    loadBlitzParticipants,
+    prevShowDiceRef,
+    settingsShowDice: settings.showDice,
+    setSettings,
+    diceStatus,
+    targetLocked,
+    availableTargetsLength: availableTargets.length,
+    setDiceStatus,
+    setTarget,
+    setPreviewLocked,
+    setLastGain,
+    followActivePlayer,
+    activePlayerId: activePlayer?.id ?? null,
+    setInspectPlayerId,
+    setShowInspect,
+    showChat,
+    markChatOpened,
+    roomTurnPlayerId: roomState?.turn_player_id ?? null,
+    resetTurnState,
+    turnTimeoutRef,
+    lastTurnActionRef,
+    endRound,
+    settingsVibrateOnTurn: settings.vibrateOnTurn,
+    setTurnFlash,
+    turnFlash,
+    shouldBlinkEdge,
+  });
 
   const sendChat = useCallback(() => {
     const senderName = (name.trim() || profile?.display_name || authName || "Spelare").trim();
@@ -523,68 +450,61 @@ export default function App() {
     });
   }, [name, profile?.display_name, authName, sendChatMessage, roomId, user?.id, playerId]);
 
+  const playRollFeedback = useCallback(() => {
+    if (settings.diceHaptics && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(22);
+    }
+    if (!settings.diceSound || typeof window === "undefined") return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = rollAudioCtxRef.current ?? new Ctx();
+      rollAudioCtxRef.current = ctx;
+      if (ctx.state === "suspended") void ctx.resume();
+      const start = ctx.currentTime;
+      [900, 760, 620].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, start + idx * 0.045);
+        gain.gain.setValueAtTime(0.0001, start + idx * 0.045);
+        gain.gain.exponentialRampToValueAtTime(0.025, start + idx * 0.045 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + idx * 0.045 + 0.08);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start + idx * 0.045);
+        osc.stop(start + idx * 0.045 + 0.085);
+      });
+    } catch {
+      // Ignore feedback errors (autoplay policies etc).
+    }
+  }, [settings.diceHaptics, settings.diceSound]);
+
+  const triggerDiceHitFlash = useCallback((indices) => {
+    if (!Array.isArray(indices) || indices.length === 0) return;
+    const next = Array(6).fill(false);
+    indices.forEach((i) => {
+      if (i >= 0 && i < 6) next[i] = true;
+    });
+    setDiceHitFlash(next);
+    if (rollHitTimerRef.current) clearTimeout(rollHitTimerRef.current);
+    rollHitTimerRef.current = setTimeout(() => setDiceHitFlash(Array(6).fill(false)), 520);
+  }, []);
+
   const triggerRollAnimation = () => {
+    playRollFeedback();
+    setRollNonce((n) => n + 1);
     setRolling(true);
     if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
-    rollTimerRef.current = setTimeout(() => setRolling(false), 450);
+    rollTimerRef.current = setTimeout(() => setRolling(false), 560);
   };
 
   useEffect(() => {
     return () => {
       if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
+      if (rollHitTimerRef.current) clearTimeout(rollHitTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (!gameStarted) return;
-    if (roomState?.turn_player_id) {
-      resetTurnState();
-    }
-  }, [roomState?.turn_player_id, gameStarted]);
-
-  useEffect(() => {
-    if (!isBlitzRoom || isSolo || !gameStarted || !isMyTurn) {
-      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
-      return;
-    }
-    lastTurnActionRef.current = Date.now();
-    if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
-    turnTimeoutRef.current = setTimeout(() => {
-      const elapsed = Date.now() - lastTurnActionRef.current;
-      if (elapsed < 15000) return;
-      if (!isMyTurn || !isBlitzRoom || isSolo || !gameStarted) return;
-      endRound();
-    }, 15000);
-    return () => {
-      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
-    };
-  }, [gameStarted, isMyTurn, isSolo, isBlitzRoom]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!gameStarted || !isMyTurn) return;
-    if (!settings.vibrateOnTurn) return;
-    setTurnFlash(true);
-    const t = setTimeout(() => setTurnFlash(false), 1500);
-    return () => clearTimeout(t);
-  }, [gameStarted, isMyTurn, settings.vibrateOnTurn]);
-
-  useEffect(() => {
-    if (turnFlash) {
-      document.body.classList.add("turn-flash");
-    } else {
-      document.body.classList.remove("turn-flash");
-    }
-    return () => document.body.classList.remove("turn-flash");
-  }, [turnFlash]);
-
-  useEffect(() => {
-    if (shouldBlinkEdge) {
-      document.body.classList.add("turn-waiting");
-    } else {
-      document.body.classList.remove("turn-waiting");
-    }
-    return () => document.body.classList.remove("turn-waiting");
-  }, [shouldBlinkEdge]);
 
   const {
     playerSummaries,
@@ -625,10 +545,6 @@ export default function App() {
   });
 
   const [, forceTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => forceTick((x) => x + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   useRoomRestoreSession({
     deviceId,
@@ -640,52 +556,26 @@ export default function App() {
     setStep,
   });
 
-  useEffect(() => {
-    if (!roomState?.started_at) return;
-    if (prevStartedAtRef.current && prevStartedAtRef.current !== roomState.started_at) {
-      resetProgress();
-      resetTurnState();
-      setShowMatchSummary(false);
-      setDismissedMatchId(null);
-    }
-    prevStartedAtRef.current = roomState.started_at;
-  }, [roomState?.started_at, setShowMatchSummary, setDismissedMatchId]);
-
-  useEffect(() => {
-    if (!roomState?.finalized_at || isSolo) return;
-    if (!rematchReady) return;
-    if (rematchStartingRef.current) return;
-    void startRematch();
-  }, [roomState?.finalized_at, rematchReady, isSolo]); // eslint-disable-line react-hooks/exhaustive-deps
+  useMatchLifecycleEffects({
+    roomStartedAt: roomState?.started_at ?? null,
+    prevStartedAtRef,
+    resetProgress,
+    resetTurnState,
+    setShowMatchSummary,
+    setDismissedMatchId,
+    roomFinalizedAt: roomState?.finalized_at ?? null,
+    isSolo,
+    rematchReady,
+    rematchStartingRef,
+    startRematch,
+    forceTick,
+  });
 
   const joinCodeReady = useMemo(() => roomCode.length === 6, [roomCode]);
   const canJoin = useMemo(() => {
     const hasName = name.trim().length >= 2 || Boolean(profile?.display_name || authName);
     return roomCode.length === 6 && hasName;
   }, [roomCode, name, profile?.display_name, authName]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sharedCode = params.get("room");
-    if (sharedCode) setRoomCode(sanitizeRoomCode(sharedCode));
-  }, []);
-
-  useEffect(() => {
-    const hash = window.location.hash ?? "";
-    if (!hash) return;
-    const params = new URLSearchParams(hash.replace(/^#/, ""));
-    const type = params.get("type");
-    const accessToken = params.get("access_token");
-    const errorDesc = params.get("error_description");
-    if (type === "signup" && accessToken) {
-      setAuthNotice("E-post bekräftad. Du är nu inloggad.");
-    } else if (errorDesc) {
-      setAuthNotice(decodeURIComponent(errorDesc));
-    }
-    if (accessToken || errorDesc) {
-      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-    }
-  }, []);
 
   async function createRoom() {
     const code = makeCode(6);
@@ -1073,14 +963,28 @@ export default function App() {
     if (targetLocked) return;
     if (fullRows.has(value)) return;
     markTurnActivity();
-    setTarget(value);
-
     if (diceStatus === "choose") {
       const { nextLocked } = computeLocks(dice, locked, value);
+      const lockedCount = nextLocked.filter(Boolean).length;
+      const gained = value >= 7 ? Math.floor(lockedCount / 2) : lockedCount;
+      if (gained <= 0) return;
+      addToProgress(value, gained);
+      triggerDiceHitFlash(nextLocked.map((v, i) => (v ? i : -1)).filter((i) => i >= 0));
+      setTarget(value);
+      setTargetLocked(true);
+      setLocked(nextLocked);
       setPreviewLocked(nextLocked);
+      setLastGain(gained);
+      const rowFilled = ((progress?.[value] ?? []).filter(Boolean).length + gained) >= 7;
+      if (rowFilled) {
+        resetTurnState();
+        return;
+      }
+      setDiceStatus(nextLocked.every(Boolean) ? "all" : "running");
       return;
     }
 
+    setTarget(value);
     setLocked(Array(6).fill(false));
     setLastGain(0);
     setPreviewLocked(Array(6).fill(false));
@@ -1150,6 +1054,9 @@ export default function App() {
     }
     const nextDice = dice.map((d, i) => (baseLocked[i] ? d : rollDie()));
     const { nextLocked, gain } = computeLocks(nextDice, baseLocked, target);
+    const newlyLocked = nextLocked
+      .map((isLockedNow, i) => (isLockedNow && !baseLocked[i] ? i : -1))
+      .filter((i) => i >= 0);
 
     const isTwoDiceTarget = target >= 7;
     let addedCount = 0;
@@ -1167,6 +1074,7 @@ export default function App() {
     setLocked(nextLocked);
     setPreviewLocked(nextLocked);
     setLastGain(gain);
+    triggerDiceHitFlash(newlyLocked);
 
     const rowFilled =
       target &&
@@ -1226,7 +1134,7 @@ export default function App() {
 
     const totalPlayers = order.length;
     const totalPoints = Math.max(1, 1 + 0.5 * Math.max(0, totalPlayers - 2));
-    const pointsPerWinner = ceilToHalf(totalPoints / winners.length);
+    const pointsPerWinner = Math.ceil(totalPoints / winners.length);
     const monthKey = getMonthKeySweden();
     const endedAt = new Date().toISOString();
 
@@ -1405,11 +1313,14 @@ export default function App() {
     textDecoration: "underline",
     textUnderlineOffset: 3,
   };
+  const showHarpanThemeVideo = settings.themeKey === "Harpan";
 
   if (step === "home") {
     return (
-      <Container>
-        <Card style={{ padding: 22, position: "relative" }}>
+      <>
+        <HarpanThemeBackground active={showHarpanThemeVideo} />
+        <Container>
+          <Card style={{ padding: 22, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <img
               src="/12-an-hemskarm-logotyp.png"
@@ -1804,6 +1715,9 @@ export default function App() {
                     ? "Anmälan öppen (19:45–20:00)"
                     : "Anmälan öppnar 19:45"}
                 </div>
+                {blitzEliminationRound && (
+                  <div style={{ color: "#f87171", fontWeight: 900 }}>ELIMINERINGSRUNDA!!</div>
+                )}
                 {blitzEvent?.award_points === false && (
                   <div style={{ color: "#fbbf24", fontWeight: 800 }}>Testläge – inga poäng delas ut</div>
                 )}
@@ -1891,7 +1805,7 @@ export default function App() {
                 <div style={{ fontWeight: 700 }}>
                   #{idx + 1} {p.name}
                 </div>
-                <div style={{ fontWeight: 900 }}>{p.points.toFixed(1)}</div>
+                <div style={{ fontWeight: 900 }}>{Math.ceil(Number(p.points) || 0)}</div>
               </div>
             ))}
 
@@ -2244,12 +2158,15 @@ export default function App() {
                     <div style={{ display: "grid", gap: 6 }}>
                       <div style={{ fontWeight: 800 }}>Eliminering</div>
                       <div style={{ color: "var(--muted)" }}>
-                        Var 5:e minut avslutas påbörjad runda. Eliminering sker först när alla aktiva spelare har
-                        spelat lika många rundor. Den/de med lägst viktad procent åker ut.
+                        Var 5:e minut startar en elimineringsrunda. Alla aktiva får spela klart så att alla har lika
+                        många rundor innan eliminering sker.
                       </div>
                       <div style={{ color: "var(--muted)" }}>
-                        Är det fler än 10 aktiva spelare elimineras 2 spelare, annars 1. Vid lika placering vinner den
-                        med flest ibockade rutor.
+                        Undantag: om färre än 5 spelare är med vid start sker första elimineringen efter 10 minuter.
+                      </div>
+                      <div style={{ color: "var(--muted)" }}>
+                        Är det fler än 10 aktiva spelare elimineras 2 spelare, annars 1. Vid lika läge på gränsen
+                        elimineras alla med samma resultat (namn används inte som tie-break).
                       </div>
                     </div>
                     <div style={{ display: "grid", gap: 6 }}>
@@ -2330,13 +2247,16 @@ export default function App() {
           <p style={{ marginTop: 8, color: "var(--muted)" }}>
             Poängblad → spela utan multiplayer.
           </p>
-        </Card>
-      </Container>
+          </Card>
+        </Container>
+      </>
     );
   }
 
   return (
-    <Container>
+    <>
+      <HarpanThemeBackground active={showHarpanThemeVideo} />
+      <Container>
       <Card style={{ padding: 22 }}>
         {!isSolo && !gameStarted && !isBlitzRoom && (
           <Button
@@ -2500,6 +2420,8 @@ export default function App() {
           availableTargets={availableTargets}
           fullRows={fullRows}
           rolling={rolling}
+          rollNonce={rollNonce}
+          diceHitFlash={diceHitFlash}
           target={target}
           diceStyle={settings.diceStyle}
           onSetTarget={setTargetSafe}
@@ -2549,8 +2471,14 @@ export default function App() {
             >
               <div style={{ fontWeight: 800 }}>Ställning</div>
               {isBlitzRoom && blitzRunning && (
-                <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700 }}>
-                  Nästa eliminering om {blitzElimIn ?? "—"}
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: blitzEliminationRound ? "#f87171" : "var(--muted)",
+                    fontWeight: blitzEliminationRound ? 900 : 700,
+                  }}
+                >
+                  {blitzEliminationRound ? "ELIMINERINGSRUNDA!!" : `Nästa eliminering om ${blitzElimIn ?? "—"}`}
                 </div>
               )}
             </div>
@@ -2703,7 +2631,7 @@ export default function App() {
                           Viktad: {row.percent}%
                         </div>
                       </div>
-                      <div style={{ fontWeight: 900 }}>{Number(points).toFixed(1)}</div>
+                      <div style={{ fontWeight: 900 }}>{Math.ceil(Number(points) || 0)}</div>
                     </div>
                   );
                 })}
@@ -3219,6 +3147,30 @@ export default function App() {
                     </Button>
                   </div>
                   {settings.showDice && (
+                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                      <div style={settingsInlineRowStyle}>
+                        <div style={{ fontWeight: 700 }}>Ljud vid slag</div>
+                        <Button
+                          variant={settings.diceSound ? "primary" : "ghost"}
+                          onClick={() => setSettings((s) => ({ ...s, diceSound: !s.diceSound }))}
+                          style={{ width: "auto", padding: "8px 10px" }}
+                        >
+                          {settings.diceSound ? "På" : "Av"}
+                        </Button>
+                      </div>
+                      <div style={settingsInlineRowStyle}>
+                        <div style={{ fontWeight: 700 }}>Vibration vid slag</div>
+                        <Button
+                          variant={settings.diceHaptics ? "primary" : "ghost"}
+                          onClick={() => setSettings((s) => ({ ...s, diceHaptics: !s.diceHaptics }))}
+                          style={{ width: "auto", padding: "8px 10px" }}
+                        >
+                          {settings.diceHaptics ? "På" : "Av"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {settings.showDice && (
                     <div style={{ marginTop: 8 }}>
                       <button
                         type="button"
@@ -3584,6 +3536,7 @@ export default function App() {
           </div>
         </div>
       )}
-    </Container>
+      </Container>
+    </>
   );
 }

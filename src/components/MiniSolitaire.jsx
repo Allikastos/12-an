@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { HARPAN_WINS_KEY, writeHarpanWins } from "../lib/harpanProgress";
 
 const SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const CARD_WIDTH = "clamp(34px, 11vw, 72px)";
 const CARD_HEIGHT = "clamp(48px, 15.4vw, 101px)"; // 2.5:3.5 ratio
 const CARD_STACK_OFFSET = 16;
-const HARPAN_WINS_KEY = "scoreboard_harpan_wins_v1";
+const FACE_CARD_MAX_HEIGHT = 101;
 const HARPAN_STATE_KEY = "scoreboard_harpan_state_v1";
 const SUIT_SYMBOL = {
   spades: "♠",
@@ -127,8 +128,39 @@ function isValidRun(cards) {
   return true;
 }
 
+function FaceCard({ card, compact = false }) {
+  const rank = rankLabel(card.rank);
+  const suit = SUIT_SYMBOL[card.suit];
+  return (
+    <>
+      <div style={{ justifySelf: "start", fontSize: compact ? 14 : 15, lineHeight: 1 }}>
+        {rank}
+        {suit}
+      </div>
+      <div style={{ justifySelf: "center", fontSize: compact ? 20 : 22, lineHeight: 1 }}>
+        {suit}
+      </div>
+      <div
+        style={{
+          justifySelf: "end",
+          alignSelf: "end",
+          fontSize: compact ? 14 : 15,
+          lineHeight: 1,
+          transform: "rotate(180deg)",
+        }}
+      >
+        {rank}
+        {suit}
+      </div>
+    </>
+  );
+}
+
 export default function MiniSolitaire({ closeSignal = 0 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("harpan") === "1";
+  });
   const [showRules, setShowRules] = useState(false);
   const [openSignal, setOpenSignal] = useState(0);
   const [winsCount, setWinsCount] = useState(() => {
@@ -141,7 +173,8 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
   const [game, setGame] = useState(() => loadSavedGame() ?? initGame());
   const [selected, setSelected] = useState(null);
   const [notice, setNotice] = useState("Klicka på ♠ för att öppna Harpan.");
-  const winCountedRef = useRef(false);
+  const prevWonRef = useRef(false);
+  const wonInitRef = useRef(false);
 
   const won = useMemo(
     () => SUITS.every((suit) => game.foundations[suit].length === 13),
@@ -153,22 +186,34 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
     "linear-gradient(180deg, #14532d, #052e16)",
   ].join(", ");
   const isOpen = open && openSignal === closeSignal;
+  const tableauMinHeight = useMemo(() => {
+    const tallestPile = Math.max(...game.tableau.map((pile) => pile.length), 1);
+    return Math.max(220, 8 + (tallestPile - 1) * CARD_STACK_OFFSET + FACE_CARD_MAX_HEIGHT + 8);
+  }, [game.tableau]);
+  const tableauPileMinHeight = Math.max(200, tableauMinHeight - 20);
 
   useEffect(() => {
-    if (!won || winCountedRef.current) return;
-    winCountedRef.current = true;
-    const id = setTimeout(() => {
-      setWinsCount((prev) => {
-        const next = prev + 1;
-        try {
-          localStorage.setItem(HARPAN_WINS_KEY, String(next));
-        } catch {
-          // ignore persistence issues
-        }
-        return next;
-      });
-    }, 0);
-    return () => clearTimeout(id);
+    if (!wonInitRef.current) {
+      prevWonRef.current = won;
+      wonInitRef.current = true;
+      return;
+    }
+    if (!prevWonRef.current && won) {
+      const id = setTimeout(() => {
+        setWinsCount((prev) => {
+          const next = prev + 1;
+          try {
+            writeHarpanWins(next);
+          } catch {
+            // ignore persistence issues
+          }
+          return next;
+        });
+      }, 0);
+      prevWonRef.current = won;
+      return () => clearTimeout(id);
+    }
+    prevWonRef.current = won;
   }, [won]);
 
   useEffect(() => {
@@ -186,7 +231,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
   function restartGame() {
     setGame(initGame());
     setSelected(null);
-    winCountedRef.current = false;
+    prevWonRef.current = false;
     setNotice("Ny omgång startad.");
   }
 
@@ -509,13 +554,13 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     fontSize: 22,
                     cursor: game.waste.length ? "pointer" : "default",
                     boxShadow: game.waste.length ? "0 3px 8px rgba(2,6,23,.16)" : "none",
+                    display: "grid",
+                    gridTemplateRows: "1fr auto 1fr",
+                    alignItems: "start",
                   }}
                 >
                   {game.waste.length ? (
-                    <div style={{ display: "grid", justifyItems: "start", gap: 2, lineHeight: 1 }}>
-                      <div style={{ fontSize: 16 }}>{rankLabel(game.waste[game.waste.length - 1].rank)}</div>
-                      <div style={{ fontSize: 20 }}>{SUIT_SYMBOL[game.waste[game.waste.length - 1].suit]}</div>
-                    </div>
+                    <FaceCard card={game.waste[game.waste.length - 1]} compact />
                   ) : (
                     "—"
                   )}
@@ -547,9 +592,8 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     title={`Esshög ${SUIT_SYMBOL[suit]}`}
                   >
                     {top ? (
-                      <div style={{ display: "grid", justifyItems: "start", gap: 2, lineHeight: 1 }}>
-                        <div style={{ fontSize: 16 }}>{rankLabel(top.rank)}</div>
-                        <div style={{ fontSize: 20 }}>{SUIT_SYMBOL[top.suit]}</div>
+                      <div style={{ display: "grid", gridTemplateRows: "1fr auto 1fr", alignItems: "start" }}>
+                        <FaceCard card={top} compact />
                       </div>
                     ) : (
                       SUIT_SYMBOL[suit]
@@ -566,7 +610,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                 gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
                 gap: 6,
                 alignItems: "start",
-                minHeight: "clamp(190px, 42vw, 260px)",
+                minHeight: tableauMinHeight,
               }}
             >
               {game.tableau.map((pile, pileIndex) => (
@@ -577,7 +621,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                   }}
                   style={{
                     position: "relative",
-                    minHeight: "clamp(180px, 42vw, 240px)",
+                    minHeight: tableauPileMinHeight,
                     borderRadius: 12,
                     border: "1px dashed rgba(148,163,184,.24)",
                     background: "rgba(15,23,42,.24)",
@@ -637,29 +681,9 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                           gridTemplateRows: "1fr auto 1fr",
                           alignItems: "start",
                         }}
-                      >
-                        {card.faceUp ? (
-                          <>
-                            <div style={{ justifySelf: "start", fontSize: 15, lineHeight: 1 }}>
-                              {rankLabel(card.rank)}
-                              {SUIT_SYMBOL[card.suit]}
-                            </div>
-                            <div style={{ justifySelf: "center", fontSize: 22, lineHeight: 1 }}>
-                              {SUIT_SYMBOL[card.suit]}
-                            </div>
-                            <div
-                              style={{
-                                justifySelf: "end",
-                                alignSelf: "end",
-                                fontSize: 15,
-                                lineHeight: 1,
-                                transform: "rotate(180deg)",
-                              }}
-                            >
-                              {rankLabel(card.rank)}
-                              {SUIT_SYMBOL[card.suit]}
-                            </div>
-                          </>
+                        >
+                          {card.faceUp ? (
+                          <FaceCard card={card} />
                         ) : (
                           <span />
                         )}

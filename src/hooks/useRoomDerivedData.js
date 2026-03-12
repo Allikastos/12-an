@@ -53,9 +53,14 @@ export function useRoomDerivedData({
     const sorted = [...playerSummaries].sort((a, b) => {
       if (a.percent !== b.percent) return a.percent - b.percent;
       if (a.rows !== b.rows) return a.rows - b.rows;
-      return a.name.localeCompare(b.name);
+      return 0;
     });
-    return new Set(sorted.slice(0, eliminateCount).map((p) => p.id));
+    const cutoffIndex = Math.min(eliminateCount, sorted.length - 1) - 1;
+    const cutoff = sorted[Math.max(0, cutoffIndex)];
+    const risk = sorted.filter(
+      (p) => p.percent < cutoff.percent || (p.percent === cutoff.percent && p.rows <= cutoff.rows)
+    );
+    return new Set((risk.length ? risk : sorted.slice(0, eliminateCount)).map((p) => p.id));
   }, [isBlitzRoom, playerSummaries]);
 
   return {

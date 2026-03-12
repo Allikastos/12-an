@@ -1,9 +1,50 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { THEMES } from "../config/themes";
 import { UNLOCK_KING_FOR_PREVIEW } from "../lib/appUtils";
+import { HARPAN_WINS_EVENT, readHarpanWins } from "../lib/harpanProgress";
 
 // Keep this false in normal gameplay so theme unlock rules are enforced.
 const FORCE_UNLOCK_ALL_THEMES_PREVIEW = false;
+
+function resolveThemeProgression(theme, harpanWins) {
+  if (!Array.isArray(theme?.progression) || theme.progression.length === 0) return theme;
+  const activeStep = [...theme.progression]
+    .sort((a, b) => Number(a.wins ?? 0) - Number(b.wins ?? 0))
+    .filter((step) => harpanWins >= Number(step.wins ?? 0))
+    .at(-1);
+  if (!activeStep) return theme;
+  return { ...theme, ...activeStep };
+}
+
+function themeToSettingsPatch(theme, prevSettings, { keepPersonal = false } = {}) {
+  return {
+    themeKey: theme.key ?? theme.name,
+    bgColor: theme.bgColor,
+    accentColor: theme.accentColor,
+    checkColor: theme.checkColor ?? theme.accentColor,
+    rowCompleteBg: theme.rowCompleteBg,
+    bgGlow1: theme.bgGlow1,
+    bgGlow2: theme.bgGlow2,
+    bgPattern: theme.bgPattern ?? "none",
+    bgPatternOpacity: theme.bgPatternOpacity ?? 0.25,
+    diceBg: theme.diceBg,
+    dicePip: theme.dicePip,
+    diceBorder: theme.diceBorder,
+    diceLocked: theme.diceLocked,
+    dicePipLocked: theme.dicePipLocked,
+    btnPrimaryBg: theme.btnPrimaryBg,
+    btnPrimaryText: theme.btnPrimaryText,
+    btnPrimaryBorder: theme.btnPrimaryBorder,
+    btnPrimaryShadow: theme.btnPrimaryShadow,
+    ringColorMode: theme.ringColorMode ?? "none",
+    ringColors: theme.ringColors ?? null,
+    buttonIcon: theme.buttonIcon ?? "",
+    filledRingColor: theme.filledRingColor ?? theme.accentColor ?? prevSettings.filledRingColor,
+    checkShape: theme.checkShape ?? "circle",
+    cellStyle: theme.cellStyle ?? "ring",
+    personalThemeId: keepPersonal ? prevSettings.personalThemeId : null,
+  };
+}
 
 export function useThemeManager({
   settings,
@@ -16,7 +57,23 @@ export function useThemeManager({
   setPersonalThemeName,
 }) {
   const themes = THEMES;
+  const [harpanWins, setHarpanWins] = useState(() => readHarpanWins());
   const kingLocked = isKingReady && !isKing && !UNLOCK_KING_FOR_PREVIEW;
+
+  useEffect(() => {
+    const refresh = () => setHarpanWins(readHarpanWins());
+    const onWinsChanged = (event) => {
+      const next = Number(event?.detail);
+      setHarpanWins(Number.isFinite(next) ? next : readHarpanWins());
+    };
+    window.addEventListener(HARPAN_WINS_EVENT, onWinsChanged);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      window.removeEventListener(HARPAN_WINS_EVENT, onWinsChanged);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
   const themeLockMap = useMemo(() => {
     const map = new Map();
     themes.forEach((theme) => {
@@ -37,7 +94,7 @@ export function useThemeManager({
       if (!locked && theme.unlock) {
         const metric = theme.unlock.metric;
         const need = Number(theme.unlock.value ?? 0);
-        const value = Number(stats?.[metric] ?? 0);
+        const value = metric === "harpanWins" ? harpanWins : Number(stats?.[metric] ?? 0);
         if (value < need) {
           locked = true;
           reason = theme.unlock.label ?? "Lås upp genom att spela";
@@ -47,7 +104,7 @@ export function useThemeManager({
       map.set(key, { locked, reason });
     });
     return map;
-  }, [themes, isKing, stats]);
+  }, [themes, isKing, stats, harpanWins]);
 
   const isThemeLocked = useCallback(
     (theme) => {
@@ -105,36 +162,13 @@ export function useThemeManager({
   const applyTheme = useCallback(
     (theme) => {
       if (isThemeLocked(theme)) return;
+      const resolvedTheme = resolveThemeProgression(theme, harpanWins);
       setSettings((s) => ({
         ...s,
-        themeKey: theme.key ?? theme.name,
-        bgColor: theme.bgColor,
-        accentColor: theme.accentColor,
-        checkColor: theme.checkColor ?? theme.accentColor,
-        rowCompleteBg: theme.rowCompleteBg,
-        bgGlow1: theme.bgGlow1,
-        bgGlow2: theme.bgGlow2,
-        bgPattern: theme.bgPattern ?? "none",
-        bgPatternOpacity: theme.bgPatternOpacity ?? 0.25,
-        diceBg: theme.diceBg,
-        dicePip: theme.dicePip,
-        diceBorder: theme.diceBorder,
-        diceLocked: theme.diceLocked,
-        dicePipLocked: theme.dicePipLocked,
-        btnPrimaryBg: theme.btnPrimaryBg,
-        btnPrimaryText: theme.btnPrimaryText,
-        btnPrimaryBorder: theme.btnPrimaryBorder,
-        btnPrimaryShadow: theme.btnPrimaryShadow,
-        ringColorMode: theme.ringColorMode ?? "none",
-        ringColors: theme.ringColors ?? null,
-        buttonIcon: theme.buttonIcon ?? "",
-        filledRingColor: theme.filledRingColor ?? theme.accentColor ?? s.filledRingColor,
-        checkShape: theme.checkShape ?? "circle",
-        cellStyle: theme.cellStyle ?? "ring",
-        personalThemeId: null,
+        ...themeToSettingsPatch(resolvedTheme, s),
       }));
     },
-    [setSettings, isThemeLocked]
+    [setSettings, isThemeLocked, harpanWins]
   );
 
   const applyPersonalTheme = useCallback(
@@ -202,6 +236,19 @@ export function useThemeManager({
     },
     [setSettings]
   );
+
+  useEffect(() => {
+    if (settings.themeKey !== "Harpan") return;
+    const baseTheme = themes.find((theme) => (theme.key ?? theme.name) === "Harpan");
+    if (!baseTheme) return;
+    const resolvedTheme = resolveThemeProgression(baseTheme, harpanWins);
+    setSettings((s) => {
+      if (s.themeKey !== "Harpan") return s;
+      const patch = themeToSettingsPatch(resolvedTheme, s, { keepPersonal: true });
+      const hasChange = Object.keys(patch).some((key) => patch[key] !== s[key]);
+      return hasChange ? { ...s, ...patch } : s;
+    });
+  }, [settings.themeKey, themes, harpanWins, setSettings]);
 
   useEffect(() => {
     if (!isKingReady) return;
