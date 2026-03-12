@@ -132,20 +132,9 @@ body[data-theme="moon"]::after {
   width: 106%;
   height: 106%;
   object-fit: cover;
-  will-change: transform, opacity;
+  will-change: transform;
   filter: saturate(1.08) contrast(1.04) brightness(0.72);
-}
-
-.harpan-bg-video__layer--a {
-  animation:
-    harpanLoopA var(--harpan-loop-sec, 18s) ease-in-out infinite,
-    harpanDriftA 24s ease-in-out infinite;
-}
-
-.harpan-bg-video__layer--b {
-  animation:
-    harpanLoopB var(--harpan-loop-sec, 18s) ease-in-out infinite,
-    harpanDriftB 27s ease-in-out infinite;
+  animation: harpanDriftSingle 70s ease-in-out infinite;
 }
 
 .harpan-bg-video__veil {
@@ -157,32 +146,10 @@ body[data-theme="moon"]::after {
     linear-gradient(180deg, rgba(2,6,23,.32), rgba(2,6,23,.52));
 }
 
-@keyframes harpanLoopA {
-  0% { opacity: .9; }
-  48% { opacity: .86; }
-  52% { opacity: .18; }
-  100% { opacity: .9; }
-}
-
-@keyframes harpanLoopB {
-  0% { opacity: .16; }
-  48% { opacity: .2; }
-  52% { opacity: .86; }
-  100% { opacity: .16; }
-}
-
-@keyframes harpanDriftA {
-  0% { transform: scale(1.02) translate3d(0, 0, 0); }
-  35% { transform: scale(1.035) translate3d(-1.4%, .9%, 0); }
-  70% { transform: scale(1.03) translate3d(1.2%, -1.1%, 0); }
-  100% { transform: scale(1.02) translate3d(0, 0, 0); }
-}
-
-@keyframes harpanDriftB {
-  0% { transform: scale(1.03) translate3d(0, 0, 0); }
-  32% { transform: scale(1.04) translate3d(1.2%, -.8%, 0); }
-  68% { transform: scale(1.035) translate3d(-1.1%, 1.1%, 0); }
-  100% { transform: scale(1.03) translate3d(0, 0, 0); }
+@keyframes harpanDriftSingle {
+  0% { transform: scale(1.018) translate3d(0, 0, 0); }
+  50% { transform: scale(1.025) translate3d(-0.45%, 0.35%, 0); }
+  100% { transform: scale(1.018) translate3d(0, 0, 0); }
 }
 
 #root { min-height: 100dvh; }

@@ -964,7 +964,7 @@ export default function App() {
     if (fullRows.has(value)) return;
     markTurnActivity();
     if (diceStatus === "choose") {
-      const { nextLocked } = computeLocks(dice, locked, value);
+      const { nextLocked } = computeLocks(dice, Array(6).fill(false), value);
       const lockedCount = nextLocked.filter(Boolean).length;
       const gained = value >= 7 ? Math.floor(lockedCount / 2) : lockedCount;
       if (gained <= 0) return;
@@ -1097,7 +1097,13 @@ export default function App() {
     if (gain === 0) {
       setDiceStatus("stopped");
     } else {
-      setDiceStatus("running");
+      // Force a new value selection after each successful roll.
+      // This prevents endless rerolls without committing a target.
+      setDiceStatus("choose");
+      setTarget(null);
+      setTargetLocked(false);
+      setLocked(Array(6).fill(false));
+      setPreviewLocked(Array(6).fill(false));
     }
   }
 

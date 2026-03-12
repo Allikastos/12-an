@@ -314,7 +314,7 @@ export default function DiceTray({
             disabled={
               !canAct ||
               rolling ||
-              (status === "choose" && !target) ||
+              status === "choose" ||
               status === "stopped"
             }
             style={{ minWidth: 0, paddingInline: 6, fontSize: 13 }}

@@ -1,47 +1,29 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useState } from "react";
 
 export default function HarpanThemeBackground({ active }) {
-  const primaryRef = useRef(null);
-  const secondaryRef = useRef(null);
-  const secondaryPrimedRef = useRef(false);
-  const [loopSeconds, setLoopSeconds] = useState(18);
+  const videoRef = useRef(null);
+  const playbackRate = 0.8;
 
   useEffect(() => {
     if (!active) return undefined;
-    const primary = primaryRef.current;
-    const secondary = secondaryRef.current;
-    if (!primary || !secondary) return undefined;
+    const video = videoRef.current;
+    if (!video) return undefined;
 
-    const primeSecondary = () => {
-      if (secondaryPrimedRef.current) return;
-      if (!Number.isFinite(primary.duration) || primary.duration <= 0) return;
-      setLoopSeconds(primary.duration);
-      try {
-        secondary.currentTime = primary.duration / 2;
-      } catch {
-        // Ignore seek timing issues on some devices.
-      }
-      secondaryPrimedRef.current = true;
+    const startVideo = () => {
+      video.playbackRate = playbackRate;
+      void video.play().catch(() => {});
     };
 
-    const startBoth = () => {
-      primeSecondary();
-      void primary.play().catch(() => {});
-      void secondary.play().catch(() => {});
-    };
-
-    if (primary.readyState >= 1) {
-      startBoth();
+    if (video.readyState >= 1) {
+      startVideo();
     } else {
-      primary.addEventListener("loadedmetadata", startBoth);
+      video.addEventListener("loadedmetadata", startVideo);
     }
 
     return () => {
-      primary.pause();
-      secondary.pause();
-      primary.removeEventListener("loadedmetadata", startBoth);
+      video.pause();
+      video.removeEventListener("loadedmetadata", startVideo);
     };
   }, [active]);
 
@@ -51,22 +33,10 @@ export default function HarpanThemeBackground({ active }) {
     <div
       className="harpan-bg-video"
       aria-hidden="true"
-      style={{ "--harpan-loop-sec": `${loopSeconds}s` }}
     >
       <video
-        ref={primaryRef}
-        className="harpan-bg-video__layer harpan-bg-video__layer--a"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-      >
-        <source src="/Bakgrund_harpan.mp4" type="video/mp4" />
-      </video>
-      <video
-        ref={secondaryRef}
-        className="harpan-bg-video__layer harpan-bg-video__layer--b"
+        ref={videoRef}
+        className="harpan-bg-video__layer"
         autoPlay
         muted
         loop
