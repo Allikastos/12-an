@@ -1224,6 +1224,50 @@ export default function CanastaBoard({
   const handAreaHeight = isMobile ? (actualHandCount >= 15 ? 138 : 150) : 192;
   const handSpan = isMobile ? 320 : 680;
   const handStep = Math.min(isMobile ? 34 : 46, handCount > 1 ? handSpan / (handCount - 1) : 0);
+  const resolveHandDropTarget = useCallback((clientX) => {
+    const container = handAreaRef.current;
+    if (!container || !orderedHand.length) return { side: null, targetId: null };
+    const rect = container.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const dragIdx = orderedHand.findIndex((c) => c.id === dragCardId);
+    const centers = orderedHand.map((_, idx) => rect.width / 2 + (idx - handCenter) * handStep);
+    const sideInset = Math.max(10, Math.min(isMobile ? 18 : 28, handStep * 0.45));
+
+    if (x <= centers[0] - sideInset) {
+      return { side: "left", targetId: orderedHand[0]?.id ?? null };
+    }
+    if (x >= centers[centers.length - 1] + sideInset) {
+      return { side: "right", targetId: orderedHand[orderedHand.length - 1]?.id ?? null };
+    }
+
+    let insertionIndex = 0;
+    while (insertionIndex < centers.length && x > centers[insertionIndex]) {
+      insertionIndex += 1;
+    }
+
+    let targetIdx = Math.min(orderedHand.length - 1, insertionIndex);
+    if (dragIdx >= 0) {
+      if (insertionIndex > dragIdx) {
+        targetIdx = Math.min(orderedHand.length - 1, insertionIndex);
+      } else {
+        targetIdx = Math.max(0, insertionIndex - 1);
+      }
+      if (targetIdx === dragIdx) {
+        targetIdx = x >= centers[dragIdx]
+          ? Math.min(orderedHand.length - 1, dragIdx + 1)
+          : Math.max(0, dragIdx - 1);
+      }
+    }
+
+    let targetId = orderedHand[targetIdx]?.id ?? null;
+    if (targetId === dragCardId && dragIdx >= 0) {
+      const fallbackIdx = x >= centers[dragIdx]
+        ? Math.min(orderedHand.length - 1, dragIdx + 1)
+        : Math.max(0, dragIdx - 1);
+      targetId = orderedHand[fallbackIdx]?.id ?? null;
+    }
+    return { side: null, targetId };
+  }, [orderedHand, dragCardId, handCenter, handStep, isMobile]);
 
   useEffect(() => {
     try {
@@ -1666,49 +1710,8 @@ export default function CanastaBoard({
   useEffect(() => {
     if (!isMobile || !dragCardId || game?.roundEnded) return undefined;
 
-    function resolveDropTarget(clientX) {
-      const container = handAreaRef.current;
-      if (!container) return { side: null, targetId: null };
-      const rect = container.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const edge = Math.min(80, rect.width * 0.22);
-      if (x <= edge) {
-        return { side: "left", targetId: orderedHand[0]?.id ?? null };
-      }
-      if (x >= rect.width - edge) {
-        return { side: "right", targetId: orderedHand[orderedHand.length - 1]?.id ?? null };
-      }
-      if (!orderedHand.length) return { side: null, targetId: null };
-
-      // Use stable slot index (not animated offsets) to make adjacent swaps reliable.
-      const safeStep = Math.max(1, handStep);
-      const approxIdx = Math.max(
-        0,
-        Math.min(
-          orderedHand.length - 1,
-          Math.round((x - rect.width / 2) / safeStep + (orderedHand.length - 1) / 2)
-        )
-      );
-      const dragIdx = orderedHand.findIndex((c) => c.id === dragCardId);
-      let targetIdx = approxIdx;
-
-      if (dragIdx >= 0 && targetIdx === dragIdx) {
-        const dragCenter = rect.width / 2 + (dragIdx - (orderedHand.length - 1) / 2) * safeStep;
-        targetIdx = x >= dragCenter
-          ? Math.min(orderedHand.length - 1, dragIdx + 1)
-          : Math.max(0, dragIdx - 1);
-      }
-
-      let targetId = orderedHand[targetIdx]?.id ?? null;
-      if (targetId === dragCardId && dragIdx >= 0) {
-        const fallbackIdx = targetIdx === 0 ? 1 : targetIdx - 1;
-        targetId = orderedHand[fallbackIdx]?.id ?? null;
-      }
-      return { side: null, targetId };
-    }
-
     function updateHoverAndSide(clientX) {
-      const resolved = resolveDropTarget(clientX);
+      const resolved = resolveHandDropTarget(clientX);
       dragTargetRef.current = resolved;
       setHandDropSide(resolved.side);
       setHoverCardId(resolved.side ? null : resolved.targetId);
@@ -1719,7 +1722,7 @@ export default function CanastaBoard({
     }
 
     function onPointerUp(e) {
-      const resolved = resolveDropTarget(e.clientX);
+      const resolved = resolveHandDropTarget(e.clientX);
       dragTargetRef.current = resolved;
       const targetId = resolved.targetId;
       if (targetId && targetId !== dragCardId) moveHandCard(dragCardId, targetId);
@@ -1746,7 +1749,7 @@ export default function CanastaBoard({
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
     };
-  }, [isMobile, dragCardId, game?.roundEnded, orderedHand, moveHandCard, handStep]);
+  }, [isMobile, dragCardId, game?.roundEnded, moveHandCard, resolveHandDropTarget]);
 
   useEffect(
     () => () => {
@@ -2666,48 +2669,16 @@ export default function CanastaBoard({
           style={{ position: "relative", height: handAreaHeight, touchAction: isMobile ? "none" : "auto" }}
           onPointerMove={(e) => {
             if (!isMobile || !dragCardId || !canSortHand) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const edge = Math.min(80, rect.width * 0.22);
-            if (x <= edge) {
-              setHandDropSide("left");
-              setHoverCardId(null);
-              return;
-            }
-            if (x >= rect.width - edge) {
-              setHandDropSide("right");
-              setHoverCardId(null);
-              return;
-            }
-      setHandDropSide(null);
-      let nearestId = null;
-      let nearestDistance = Number.POSITIVE_INFINITY;
-      for (let j = 0; j < orderedHand.length; j += 1) {
-        if (orderedHand[j]?.id === dragCardId) continue;
-        const centerX = rect.width / 2 + handOffsetAt(j);
-        const d = Math.abs(x - centerX);
-        if (d < nearestDistance) {
-          nearestDistance = d;
-          nearestId = orderedHand[j]?.id ?? null;
-              }
-            }
-            if (nearestId) setHoverCardId(nearestId);
+            const resolved = resolveHandDropTarget(e.clientX);
+            setHandDropSide(resolved.side);
+            setHoverCardId(resolved.side ? null : resolved.targetId);
           }}
           onDragOver={(e) => {
             if (!canSortHand) return;
             e.preventDefault();
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const edge = Math.min(80, rect.width * 0.22);
-            if (x <= edge) {
-              setHandDropSide("left");
-              setHoverCardId(null);
-            } else if (x >= rect.width - edge) {
-              setHandDropSide("right");
-              setHoverCardId(null);
-            } else {
-              setHandDropSide(null);
-            }
+            const resolved = resolveHandDropTarget(e.clientX);
+            setHandDropSide(resolved.side);
+            setHoverCardId(resolved.side ? null : resolved.targetId);
           }}
           onDragLeave={() => setHandDropSide(null)}
           onDrop={(e) => {
@@ -2715,7 +2686,13 @@ export default function CanastaBoard({
             e.preventDefault();
             const fromId = e.dataTransfer.getData("text/plain") || dragCardId;
             if (!fromId || orderedHand.length < 2) return;
-            const targetId = handDropSide === "left" ? orderedHand[0]?.id : orderedHand[orderedHand.length - 1]?.id;
+            const resolved = resolveHandDropTarget(e.clientX);
+            const targetId =
+              resolved.side === "left"
+                ? orderedHand[0]?.id
+                : resolved.side === "right"
+                ? orderedHand[orderedHand.length - 1]?.id
+                : resolved.targetId;
             if (targetId) moveHandCard(fromId, targetId);
           }}
         >
