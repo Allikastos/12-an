@@ -843,7 +843,8 @@ export default function App() {
   });
 
   const addCanastaBot = useCallback(async () => {
-    if (!roomId || !playerId || roomState?.host_player_id !== playerId) return;
+    const canManageLobby = !roomState?.host_player_id || roomState.host_player_id === playerId;
+    if (!roomId || !playerId || !canManageLobby) return;
     const botCount = players.filter((p) => String(p.device_id ?? "").startsWith("bot:")).length + 1;
     const botName = `Bot ${botCount}`;
     const botDeviceId = `bot:${roomId}:${Date.now()}:${botCount}`;
@@ -856,7 +857,8 @@ export default function App() {
   }, [roomId, playerId, roomState?.host_player_id, players]);
 
   const removeCanastaBot = useCallback(async (botPlayerId) => {
-    if (!roomId || !playerId || roomState?.host_player_id !== playerId || !botPlayerId) return;
+    const canManageLobby = !roomState?.host_player_id || roomState.host_player_id === playerId;
+    if (!roomId || !playerId || !canManageLobby || !botPlayerId) return;
     const bot = players.find((p) => p.id === botPlayerId);
     if (!bot || !String(bot.device_id ?? "").startsWith("bot:")) return;
     await supabase.from("scores").delete().eq("room_id", roomId).eq("player_id", botPlayerId);
@@ -865,7 +867,8 @@ export default function App() {
   }, [roomId, playerId, roomState?.host_player_id, players]);
 
   const updateCanastaLobbyConfig = useCallback(async (patch) => {
-    if (!roomId || !playerId || roomState?.host_player_id !== playerId) return;
+    const canManageLobby = !roomState?.host_player_id || roomState.host_player_id === playerId;
+    if (!roomId || !playerId || !canManageLobby) return;
     const existing = roomState?.round_counts ?? {};
     const next = {
       ...existing,
@@ -873,6 +876,7 @@ export default function App() {
       __canasta_target_score: Number(patch?.targetScore) === 5000 ? 5000 : 10000,
     };
     const { data } = await updateRoomStateSafe({
+      host_player_id: roomState?.host_player_id ?? playerId,
       round_counts: next,
       updated_at: new Date().toISOString(),
     });

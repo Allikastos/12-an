@@ -1044,6 +1044,7 @@ export default function CanastaBoard({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [vibrateOnTurn, setVibrateOnTurn] = useState(true);
   const [themeCategory, setThemeCategory] = useState("standard");
+  const [invitePanelOpen, setInvitePanelOpen] = useState(false);
   const [turnFlash, setTurnFlash] = useState(false);
   const [inactiveFlash, setInactiveFlash] = useState(false);
   const [roundLeaderboardPoints, setRoundLeaderboardPoints] = useState(null);
@@ -1058,6 +1059,8 @@ export default function CanastaBoard({
   const handAreaRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const suppressTapRef = useRef(false);
+  const pointerStartRef = useRef(null);
+  const pressedCardIdRef = useRef(null);
   const dragTargetRef = useRef({ side: null, targetId: null });
   const pointsAwardedRef = useRef(false);
   const startTransitionTimerRef = useRef(null);
@@ -1203,11 +1206,22 @@ export default function CanastaBoard({
   }, [myPlayer, handOrder]);
 
   const ids = orderedHand.map((c) => c.id);
-  const handCount = Math.max(orderedHand.length, 1);
+  const actualHandCount = orderedHand.length;
+  const handCount = Math.max(actualHandCount, 1);
   const handCenter = (handCount - 1) / 2;
-  const handCardWidth = isMobile ? 64 : 80;
-  const handCardHeight = isMobile ? 96 : 120;
-  const handAreaHeight = isMobile ? 150 : 192;
+  const handCardWidth = isMobile
+    ? actualHandCount >= 18
+      ? 44
+      : actualHandCount >= 15
+      ? 48
+      : actualHandCount >= 12
+      ? 54
+      : 64
+    : actualHandCount >= 18
+    ? 62
+    : 80;
+  const handCardHeight = Math.round(handCardWidth * 1.5);
+  const handAreaHeight = isMobile ? (actualHandCount >= 15 ? 138 : 150) : 192;
   const handSpan = isMobile ? 320 : 680;
   const handStep = Math.min(isMobile ? 34 : 46, handCount > 1 ? handSpan / (handCount - 1) : 0);
 
@@ -1755,6 +1769,9 @@ export default function CanastaBoard({
       setInactiveFlash(false);
       setMobileSortMode(false);
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+      pointerStartRef.current = null;
+      pressedCardIdRef.current = null;
       return;
     }
     markActiveNow();
@@ -1774,6 +1791,11 @@ export default function CanastaBoard({
       window.removeEventListener("touchstart", onActivity);
     };
   }, [markActiveNow]);
+
+  useEffect(() => {
+    if (!dragCardId) return;
+    suppressTapRef.current = true;
+  }, [dragCardId]);
 
   if (stage === "setup") {
     const lobbyCount = lobbyPlayers.length;
@@ -2015,62 +2037,48 @@ export default function CanastaBoard({
             </div>
           )}
 
-          <div style={{ display: "grid", gap: 8 }}>
-            {seatPlayers.map((p, idx) => (
-              <div
-                key={p?.id ?? `lobby-open-${idx}`}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto auto",
-                  gap: 10,
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(148,163,184,.2)",
-                  background: !p
-                    ? "rgba(255,255,255,.02)"
-                    : idx === 0
-                    ? "rgba(56,189,248,.08)"
-                    : "rgba(255,255,255,.03)",
-                }}
-              >
-                <div style={{ display: "grid", gap: 2 }}>
-                  <div style={{ fontWeight: 800 }}>
-                    {!p
-                      ? `Plats ${idx + 1}`
-                      : p.name || (p.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`)}
-                    {p ? idx === 0 ? " (du)" : p.isBot ? " (bot)" : "" : ""}
-                  </div>
-                  <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                    {!p
-                      ? roomCode
-                        ? "Ledig stol - spelare kan joina via kod eller inbjudan"
-                        : "Ledig stol"
-                      : idx === 0
-                      ? "Värdplats"
-                      : p.isBot
-                      ? "Automatisk motspelare"
-                      : "Inbjuden spelare"}
-                  </div>
-                </div>
-                {p && idx !== 0 && p.isBot ? (
-                  <Button
-                    variant="ghost"
-                    style={{ width: "auto", padding: "6px 10px" }}
-                    onClick={() => removeLobbyPlayer(p.id)}
-                    disabled={!isHost}
+          {lobbyPlayers.some((p, idx) => idx > 0 && p?.isBot) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                padding: 12,
+                borderRadius: 16,
+                border: "1px solid rgba(148,163,184,.2)",
+                background: "rgba(255,255,255,.025)",
+              }}
+            >
+              <div style={{ fontWeight: 900 }}>Bottar i lobbyn</div>
+              {lobbyPlayers
+                .filter((p, idx) => idx > 0 && p?.isBot)
+                .map((bot) => (
+                  <div
+                    key={bot.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 10px",
+                      borderRadius: 999,
+                      background: "rgba(2,6,23,.34)",
+                      border: "1px solid rgba(148,163,184,.16)",
+                    }}
                   >
-                    Ta bort
-                  </Button>
-                ) : (
-                  <div />
-                )}
-                <div style={{ color: "#bfdbfe", fontWeight: 800, fontSize: 12 }}>
-                  {!p ? "Öppen" : p.isBot ? "Bot" : "Spelare"}
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div style={{ fontWeight: 700 }}>{bot.name}</div>
+                    <Button
+                      variant="ghost"
+                      style={{ width: "auto", padding: "4px 8px" }}
+                      onClick={() => removeLobbyPlayer(bot.id)}
+                      disabled={!isHost}
+                    >
+                      Ta bort
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          )}
 
           {friends.length > 0 && (
             <div
@@ -2083,43 +2091,67 @@ export default function CanastaBoard({
                 background: "rgba(255,255,255,.025)",
               }}
             >
-              <div style={{ fontWeight: 900 }}>Bjud in vänner</div>
-              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                Inbjudningar skickas till samma rumskod som visas ovan.
-              </div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {friends.map((friend) => {
-                  const sent = Boolean(sentInvites?.[friend.id]);
-                  return (
-                    <div
-                      key={friend.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr auto",
-                        gap: 10,
-                        alignItems: "center",
-                        padding: "8px 10px",
-                        borderRadius: 12,
-                        background: "rgba(2,6,23,.28)",
-                        border: "1px solid rgba(148,163,184,.16)",
-                      }}
-                    >
-                      <div style={{ fontWeight: 700 }}>{friend.display_name}</div>
-                      <Button
-                        variant={sent ? "primary" : "ghost"}
-                        onClick={() => onSendRoomInvite?.(friend.id)}
-                        disabled={!roomCode || sent || typeof onSendRoomInvite !== "function" || lobbyCount >= 4}
-                        style={{ width: "auto", padding: "6px 10px" }}
+              <button
+                type="button"
+                onClick={() => setInvitePanelOpen((open) => !open)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 10,
+                  width: "100%",
+                  background: "transparent",
+                  border: "none",
+                  color: "inherit",
+                  padding: 0,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ display: "grid", gap: 2 }}>
+                  <div style={{ fontWeight: 900 }}>Bjud in vänner</div>
+                  <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                    Inbjudningar skickas till samma rumskod som visas ovan.
+                  </div>
+                </div>
+                <div style={{ color: "#bfdbfe", fontWeight: 900, fontSize: 13 }}>
+                  {invitePanelOpen ? "Dölj" : `Visa (${friends.length})`}
+                </div>
+              </button>
+              {invitePanelOpen && (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {friends.map((friend) => {
+                    const sent = Boolean(sentInvites?.[friend.id]);
+                    return (
+                      <div
+                        key={friend.id}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr auto",
+                          gap: 10,
+                          alignItems: "center",
+                          padding: "8px 10px",
+                          borderRadius: 12,
+                          background: "rgba(2,6,23,.28)",
+                          border: "1px solid rgba(148,163,184,.16)",
+                        }}
                       >
-                        {sent ? "Skickat" : "Bjud in"}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
+                        <div style={{ fontWeight: 700 }}>{friend.display_name}</div>
+                        <Button
+                          variant={sent ? "primary" : "ghost"}
+                          onClick={() => onSendRoomInvite?.(friend.id)}
+                          disabled={!roomCode || sent || typeof onSendRoomInvite !== "function" || lobbyCount >= 4}
+                          style={{ width: "auto", padding: "6px 10px" }}
+                        >
+                          {sent ? "Skickat" : "Bjud in"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-
           {mode === "team" && (
             <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
               Laglage kraver exakt 4 spelare. Singel kan startas direkt och fyllas pa senare.
@@ -2627,7 +2659,7 @@ export default function CanastaBoard({
             <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Klicka för markering • Dra för ordning • Släng via slänghög</div>
           </div>
         )}
-        {isMobile ? <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 12 }}>Håll in och dra för att sortera.</div> : null}
+        {isMobile ? <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 12 }}>Tryck och dra direkt för att sortera korten.</div> : null}
 
         <div
           ref={handAreaRef}
@@ -2727,13 +2759,31 @@ export default function CanastaBoard({
                 onPointerDown={(e) => {
                   if (!isMobile || !canSortHand) return;
                   if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                  pointerStartRef.current = { x: e.clientX, y: e.clientY };
+                  pressedCardIdRef.current = c.id;
                   e.currentTarget.setPointerCapture?.(e.pointerId);
                   longPressTimerRef.current = setTimeout(() => {
                     suppressTapRef.current = true;
                     setDragCardId(c.id);
                     setHoverCardId(c.id);
                     setHandDropSide(null);
-                  }, 170);
+                  }, 90);
+                }}
+                onPointerMove={(e) => {
+                  if (!isMobile || !canSortHand || dragCardId || pressedCardIdRef.current !== c.id) return;
+                  const start = pointerStartRef.current;
+                  if (!start) return;
+                  const dx = e.clientX - start.x;
+                  const dy = e.clientY - start.y;
+                  if (Math.hypot(dx, dy) < 8) return;
+                  if (longPressTimerRef.current) {
+                    clearTimeout(longPressTimerRef.current);
+                    longPressTimerRef.current = null;
+                  }
+                  suppressTapRef.current = true;
+                  setDragCardId(c.id);
+                  setHoverCardId(c.id);
+                  setHandDropSide(null);
                 }}
                 onPointerLeave={() => {
                   if (longPressTimerRef.current && !dragCardId) {
@@ -2746,12 +2796,16 @@ export default function CanastaBoard({
                     clearTimeout(longPressTimerRef.current);
                     longPressTimerRef.current = null;
                   }
+                  pointerStartRef.current = null;
+                  pressedCardIdRef.current = null;
                 }}
                 onPointerCancel={() => {
                   if (longPressTimerRef.current) {
                     clearTimeout(longPressTimerRef.current);
                     longPressTimerRef.current = null;
                   }
+                  pointerStartRef.current = null;
+                  pressedCardIdRef.current = null;
                 }}
                 onDragStart={(e) => {
                   setDragCardId(c.id);
