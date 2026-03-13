@@ -1017,6 +1017,13 @@ export default function CanastaBoard({
   onShareRoom = null,
   isHost = true,
   hostName = "",
+  roomPlayers = [],
+  roomState = null,
+  playerId = null,
+  onAddBot = null,
+  onRemoveBot = null,
+  onUpdateLobbyConfig = null,
+  onSyncMatchState = null,
 }) {
   const [stage, setStage] = useState("setup");
   const [mode, setMode] = useState("single");
@@ -1036,9 +1043,12 @@ export default function CanastaBoard({
   const [expandedTeamId, setExpandedTeamId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [vibrateOnTurn, setVibrateOnTurn] = useState(true);
+  const [themeCategory, setThemeCategory] = useState("standard");
   const [turnFlash, setTurnFlash] = useState(false);
   const [inactiveFlash, setInactiveFlash] = useState(false);
   const [roundLeaderboardPoints, setRoundLeaderboardPoints] = useState(null);
+  const [transitioningToGame, setTransitioningToGame] = useState(false);
+  const [lobbyStatus, setLobbyStatus] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(MOBILE_QUERY).matches : false
   );
@@ -1050,18 +1060,87 @@ export default function CanastaBoard({
   const suppressTapRef = useRef(false);
   const dragTargetRef = useRef({ side: null, targetId: null });
   const pointsAwardedRef = useRef(false);
+  const startTransitionTimerRef = useRef(null);
+  const lobbyStatusTimerRef = useRef(null);
+  const previousLobbyIdsRef = useRef([]);
+  const previousLobbyConfigRef = useRef({ mode: null, targetScore: null });
+  const canastaMatchSyncRef = useRef("");
+  const canastaMatchVersionRef = useRef(0);
+
+  const canastaStorageKey = useMemo(() => {
+    if (!roomCode) return null;
+    return `canasta_session_${roomCode.toUpperCase()}`;
+  }, [roomCode]);
+
+  const syncedLobbyPlayers = useMemo(() => {
+    if (Array.isArray(roomPlayers) && roomPlayers.length > 0) {
+      return roomPlayers.map((player, idx) => ({
+        id: player.id,
+        name: player.name?.trim() || `Spelare ${idx + 1}`,
+        isBot: String(player.device_id ?? "").startsWith("bot:"),
+      }));
+    }
+    return [{ id: "human-1", name: initialPlayerName || "Spelare 1", isBot: false }];
+  }, [roomPlayers, initialPlayerName]);
+
+  const roomRoundCounts = roomState?.round_counts ?? {};
+  const sharedLobbyMode = roomRoundCounts?.__canasta_mode;
+  const sharedTargetScore = Number(roomRoundCounts?.__canasta_target_score);
+  const sharedCanastaMatch = roomRoundCounts?.__canasta_match ?? null;
 
   const activePlayer = game ? game.players[game.turnIndex] : null;
+  const seatPlayers = useMemo(() => {
+    if (Array.isArray(syncedLobbyPlayers) && syncedLobbyPlayers.length > 0) {
+      return syncedLobbyPlayers;
+    }
+    if (game?.players?.length) {
+      return game.players.map((player, idx) => ({
+        id: player.id ?? `seat-${idx}`,
+        name: player.name,
+        isBot: Boolean(player.isBot),
+      }));
+    }
+    return [];
+  }, [syncedLobbyPlayers, game]);
   const localPlayerIndex = useMemo(() => {
     if (!game?.players?.length) return 0;
+    if (playerId && seatPlayers.length > 0) {
+      const roomIndex = seatPlayers.findIndex((p) => p.id === playerId);
+      if (roomIndex >= 0 && roomIndex < game.players.length) return roomIndex;
+    }
     const firstHuman = game.players.findIndex((p) => !p.isBot);
     return firstHuman >= 0 ? firstHuman : 0;
-  }, [game]);
+  }, [game, playerId, seatPlayers]);
   const myPlayer = game ? game.players[localPlayerIndex] : null;
   const topDiscard = game?.discard?.[game.discard.length - 1] ?? null;
   const isBotTurn = Boolean(activePlayer?.isBot);
-  const isMyTurn = Boolean(game && game.turnIndex === localPlayerIndex && !game.roundEnded);
+  const activeSeatPlayerId = game && seatPlayers[game.turnIndex] ? seatPlayers[game.turnIndex].id : null;
+  const localSeatPlayerId = seatPlayers[localPlayerIndex]?.id ?? null;
+  const canAuthorMatchUpdate = Boolean(
+    game &&
+      !game.roundEnded &&
+      ((isBotTurn && isHost) ||
+        (!isBotTurn && playerId && activeSeatPlayerId && String(activeSeatPlayerId) === String(playerId)) ||
+        (!isBotTurn && !playerId && game.turnIndex === localPlayerIndex))
+  );
+  const isMyTurn = Boolean(
+    game &&
+      !game.roundEnded &&
+      !isBotTurn &&
+      ((playerId && activeSeatPlayerId && String(activeSeatPlayerId) === String(playerId)) ||
+        (!playerId && game.turnIndex === localPlayerIndex) ||
+        (!activeSeatPlayerId && localSeatPlayerId && game.turnIndex === localPlayerIndex))
+  );
   const canSortHand = !game?.roundEnded;
+  const standardThemes = useMemo(
+    () => themes.filter((theme) => (theme.category ?? "standard") === "standard"),
+    [themes]
+  );
+  const specialThemes = useMemo(
+    () => themes.filter((theme) => (theme.category ?? "standard") === "special"),
+    [themes]
+  );
+  const visibleThemes = themeCategory === "special" ? specialThemes : standardThemes;
 
   const teamTotals = useMemo(() => {
     if (!game) return {};
@@ -1152,15 +1231,137 @@ export default function CanastaBoard({
   }, [vibrateOnTurn]);
 
   useEffect(() => {
-    setLobbyPlayers((prev) => {
-      if (!prev.length) return [{ id: "human-1", name: initialPlayerName || "Spelare 1", isBot: false }];
-      const [first, ...rest] = prev;
-      return [
-        { ...first, name: first.name?.trim() ? first.name : initialPlayerName || "Spelare 1", isBot: false },
-        ...rest,
-      ];
+    setLobbyPlayers(syncedLobbyPlayers);
+  }, [syncedLobbyPlayers]);
+
+  useEffect(() => {
+    if (!canastaStorageKey || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(canastaStorageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved?.stage === "game" && saved?.game) {
+        setGame(saved.game);
+        setTotals(Array.isArray(saved.totals) ? saved.totals : []);
+        setSelectedIds([]);
+        setHandOrder([]);
+        setMobileSortMode(false);
+        setMeldPlan(null);
+        setExpandedTeamId(null);
+        setStage("game");
+      }
+    } catch {
+      // Ignore broken saved sessions.
+    }
+  }, [canastaStorageKey]);
+
+  useEffect(() => {
+    if (!canastaStorageKey || typeof window === "undefined") return;
+    try {
+      if (stage === "game" && game) {
+        window.localStorage.setItem(
+          canastaStorageKey,
+          JSON.stringify({
+            stage,
+            mode,
+            targetScore,
+            totals,
+            game,
+            savedAt: Date.now(),
+          })
+        );
+      } else {
+        window.localStorage.removeItem(canastaStorageKey);
+      }
+    } catch {
+      // Ignore persistence issues.
+    }
+  }, [canastaStorageKey, stage, mode, targetScore, totals, game]);
+
+  useEffect(() => {
+    if (sharedLobbyMode === "single" || sharedLobbyMode === "team") {
+      setMode(sharedLobbyMode);
+    }
+  }, [sharedLobbyMode]);
+
+  useEffect(() => {
+    if (sharedTargetScore === 5000 || sharedTargetScore === 10000) {
+      setTargetScore(sharedTargetScore);
+    }
+  }, [sharedTargetScore]);
+
+  useEffect(() => {
+    if (!sharedCanastaMatch?.game || sharedCanastaMatch?.stage !== "game") return;
+    const incomingVersion = Number(sharedCanastaMatch.savedAt || 0);
+    if (incomingVersion && incomingVersion < canastaMatchVersionRef.current) return;
+    const serialized = JSON.stringify({
+      stage: sharedCanastaMatch.stage,
+      game: sharedCanastaMatch.game,
+      totals: sharedCanastaMatch.totals ?? [],
     });
-  }, [initialPlayerName]);
+    if (serialized === canastaMatchSyncRef.current) return;
+    if (incomingVersion) canastaMatchVersionRef.current = incomingVersion;
+    canastaMatchSyncRef.current = serialized;
+    const shouldAnimateStart = stage !== "game";
+    if (shouldAnimateStart) {
+      setTransitioningToGame(true);
+      if (startTransitionTimerRef.current) clearTimeout(startTransitionTimerRef.current);
+      startTransitionTimerRef.current = setTimeout(() => setTransitioningToGame(false), 950);
+      if (sharedCanastaMatch.updatedBy && playerId && String(sharedCanastaMatch.updatedBy) !== String(playerId)) {
+        setLobbyStatus("Värden startade matchen.");
+      }
+    }
+    setGame(sharedCanastaMatch.game);
+    setTotals(Array.isArray(sharedCanastaMatch.totals) ? sharedCanastaMatch.totals : []);
+    setSelectedIds([]);
+    setHandOrder([]);
+    setMobileSortMode(false);
+    setMeldPlan(null);
+    setExpandedTeamId(null);
+    setStage("game");
+  }, [sharedCanastaMatch, stage, playerId]);
+
+  useEffect(() => {
+    if (stage !== "game" || !game || typeof onSyncMatchState !== "function") return;
+    if (!canAuthorMatchUpdate) return;
+    const nextSavedAt = Date.now();
+    if (nextSavedAt < canastaMatchVersionRef.current) return;
+    const payload = {
+      stage: "game",
+      game,
+      totals,
+      mode,
+      targetScore,
+      updatedBy: playerId ?? null,
+      turnOwnerId: activeSeatPlayerId ?? null,
+      savedAt: nextSavedAt,
+    };
+    const serialized = JSON.stringify({
+      stage: payload.stage,
+      game: payload.game,
+      totals: payload.totals,
+    });
+    if (serialized === canastaMatchSyncRef.current) return;
+    canastaMatchVersionRef.current = nextSavedAt;
+    canastaMatchSyncRef.current = serialized;
+    void onSyncMatchState(payload);
+  }, [stage, game, totals, mode, targetScore, playerId, onSyncMatchState, canAuthorMatchUpdate, activeSeatPlayerId]);
+
+  useEffect(() => {
+    const previous = previousLobbyConfigRef.current;
+    if (previous.mode == null && previous.targetScore == null) {
+      previousLobbyConfigRef.current = { mode, targetScore };
+      return;
+    }
+
+    if (!isHost && previous.mode !== mode) {
+      setLobbyStatus(`Värden ändrade spelläge till ${mode === "team" ? "Lag 2v2" : "Singel"}.`);
+    } else if (!isHost && previous.targetScore !== targetScore) {
+      setLobbyStatus(`Värden ändrade matchmålet till ${targetScore.toLocaleString("sv-SE")} poäng.`);
+    }
+
+    previousLobbyConfigRef.current = { mode, targetScore };
+  }, [mode, targetScore, isHost]);
 
   function start() {
     if (!isHost) return;
@@ -1176,24 +1377,81 @@ export default function CanastaBoard({
     setTotals(Array(playerCount).fill(0));
     setSelectedIds([]);
     setHandOrder([]);
-    setStage("game");
+    setTransitioningToGame(true);
+    if (startTransitionTimerRef.current) clearTimeout(startTransitionTimerRef.current);
+    startTransitionTimerRef.current = setTimeout(() => {
+      setStage("game");
+      setTimeout(() => setTransitioningToGame(false), 260);
+    }, 850);
   }
 
   function addBotToLobby() {
-    setLobbyPlayers((prev) => {
-      if (prev.length >= 4) return prev;
-      const botCount = prev.filter((p) => p.isBot).length + 1;
-      return [...prev, { id: `bot-${Date.now()}-${botCount}`, name: `Bot ${botCount}`, isBot: true }];
-    });
+    if (typeof onAddBot === "function") {
+      onAddBot();
+    }
   }
 
   function removeLobbyPlayer(id) {
-    setLobbyPlayers((prev) => {
-      if (!id) return prev;
-      const next = prev.filter((p) => p.id !== id);
-      return next.length ? next : prev;
-    });
+    if (!id) return;
+    if (typeof onRemoveBot === "function") {
+      onRemoveBot(id);
+    }
   }
+
+  useEffect(() => {
+    if (!isHost || typeof onUpdateLobbyConfig !== "function") return;
+    if (sharedLobbyMode === mode && sharedTargetScore === targetScore) return;
+    onUpdateLobbyConfig({
+      mode,
+      targetScore,
+    });
+  }, [isHost, mode, targetScore, onUpdateLobbyConfig, sharedLobbyMode, sharedTargetScore]);
+
+  useEffect(() => {
+    if (stage !== "setup") return;
+    const currentIds = syncedLobbyPlayers.map((p) => p.id);
+    const previousIds = previousLobbyIdsRef.current;
+    if (!previousIds.length) {
+      previousLobbyIdsRef.current = currentIds;
+      return;
+    }
+
+    if (currentIds.length > previousIds.length) {
+      const joined = syncedLobbyPlayers.find((p) => !previousIds.includes(p.id));
+      if (joined) {
+        setLobbyStatus(`${joined.name} gick med i lobbyn.`);
+      }
+    } else if (currentIds.length < previousIds.length) {
+      setLobbyStatus("En spelare lämnade lobbyn.");
+    }
+
+    previousLobbyIdsRef.current = currentIds;
+  }, [stage, syncedLobbyPlayers]);
+
+  useEffect(() => {
+    if (!lobbyStatus) return;
+    if (lobbyStatusTimerRef.current) clearTimeout(lobbyStatusTimerRef.current);
+    lobbyStatusTimerRef.current = setTimeout(() => setLobbyStatus(""), 2600);
+    return () => {
+      if (lobbyStatusTimerRef.current) clearTimeout(lobbyStatusTimerRef.current);
+    };
+  }, [lobbyStatus]);
+
+  useEffect(
+    () => () => {
+      if (startTransitionTimerRef.current) clearTimeout(startTransitionTimerRef.current);
+      if (lobbyStatusTimerRef.current) clearTimeout(lobbyStatusTimerRef.current);
+    },
+    []
+  );
+
+  const handleBack = useCallback(() => {
+    if (canastaStorageKey && typeof window !== "undefined") {
+      window.localStorage.removeItem(canastaStorageKey);
+    }
+    canastaMatchSyncRef.current = "";
+    onBack?.();
+  }, [canastaStorageKey, onBack]);
 
   function drawTwo() {
     if (!game || !isMyTurn || isBotTurn) return;
@@ -1269,7 +1527,7 @@ export default function CanastaBoard({
   }
 
   function applyPlannedMeld() {
-    if (!game || !meldPlan) return;
+    if (!game || !meldPlan || !isMyTurn || isBotTurn || game.roundEnded || game.phase !== "discard") return;
     const { groups, error: groupError } = resolvePlannedGroups(game, meldPlan);
     if (groupError) {
       setMeldPlan((prev) => (prev ? { ...prev, error: groupError } : prev));
@@ -1286,7 +1544,7 @@ export default function CanastaBoard({
   }
 
   useEffect(() => {
-    if (!game || game.roundEnded) return undefined;
+    if (!game || game.roundEnded || !isHost) return undefined;
     const bot = game.players[game.turnIndex];
     if (!bot?.isBot) return undefined;
 
@@ -1318,7 +1576,7 @@ export default function CanastaBoard({
     }, 760);
 
     return () => clearTimeout(id);
-  }, [game, totals]);
+  }, [game, totals, isHost]);
 
   useEffect(() => {
     if (!myPlayer) return;
@@ -1522,10 +1780,13 @@ export default function CanastaBoard({
     const canStart = isHost && lobbyCount >= 1 && lobbyCount <= 4 && (mode === "single" || lobbyCount === 4);
     const humansInLobby = lobbyPlayers.filter((p) => !p.isBot).length;
     const botsInLobby = lobbyPlayers.filter((p) => p.isBot).length;
-    const lobbySeats = seatTemplateList(Math.max(1, Math.min(4, lobbyCount)), isMobile);
+    const lobbySeats = seatTemplateList(4, isMobile);
+    const seatPlayers = Array.from({ length: 4 }, (_, idx) => lobbyPlayers[idx] ?? null);
+    const openSeatCount = Math.max(0, 4 - lobbyCount);
     return (
       <Card
         style={{
+          position: "relative",
           padding: 20,
           background: "linear-gradient(180deg, rgba(8,12,20,.99), rgba(10,16,30,.985))",
           border: "1px solid rgba(148,163,184,.35)",
@@ -1582,11 +1843,12 @@ export default function CanastaBoard({
                 overflow: "hidden",
               }}
             >
-              {lobbyPlayers.map((player, idx) => {
+              {seatPlayers.map((player, idx) => {
                 const seat = lobbySeats[idx] ?? lobbySeats[0] ?? { top: "90%", left: "50%" };
+                const isOpenSeat = !player;
                 return (
                   <div
-                    key={`seat-${player.id}`}
+                    key={player ? `seat-${player.id}` : `seat-open-${idx}`}
                     style={{
                       position: "absolute",
                       left: seat.left,
@@ -1595,21 +1857,41 @@ export default function CanastaBoard({
                       minWidth: isMobile ? 104 : 132,
                       padding: isMobile ? "10px 10px" : "12px 12px",
                       borderRadius: 16,
-                      border: idx === 0
+                      border: isOpenSeat
+                        ? "1px dashed rgba(148,163,184,.3)"
+                        : idx === 0
                         ? "1px solid rgba(56,189,248,.55)"
                         : "1px solid rgba(148,163,184,.24)",
-                      background: idx === 0
+                      background: isOpenSeat
+                        ? "linear-gradient(180deg, rgba(15,23,42,.28), rgba(5,12,18,.18))"
+                        : idx === 0
                         ? "linear-gradient(180deg, rgba(8,47,73,.88), rgba(8,24,40,.92))"
                         : "linear-gradient(180deg, rgba(15,23,42,.88), rgba(5,12,18,.92))",
                       boxShadow: "0 10px 24px rgba(2,6,23,.34)",
                       textAlign: "center",
+                      opacity: isOpenSeat ? 0.82 : 1,
                     }}
                   >
                     <div style={{ fontWeight: 900, fontSize: isMobile ? 14 : 15 }}>
-                      {player.name || (player.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`)}
+                      {isOpenSeat ? "Ledig plats" : player.name || (player.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`)}
                     </div>
-                    <div style={{ color: player.isBot ? "#fde68a" : "#93c5fd", fontWeight: 800, fontSize: 11, marginTop: 4 }}>
-                      {idx === 0 ? (isHost ? "Värd" : "Du") : player.isBot ? "Bot" : "Spelare"}
+                    <div
+                      style={{
+                        color: isOpenSeat ? "rgba(191,219,254,.72)" : player.isBot ? "#fde68a" : "#93c5fd",
+                        fontWeight: 800,
+                        fontSize: 11,
+                        marginTop: 4,
+                      }}
+                    >
+                      {isOpenSeat
+                        ? roomCode
+                          ? "Joina via kod"
+                          : "Väntar"
+                        : idx === 0
+                        ? (isHost ? "Värd" : "Du")
+                        : player.isBot
+                        ? "Bot"
+                        : "Spelare"}
                     </div>
                   </div>
                 );
@@ -1662,28 +1944,34 @@ export default function CanastaBoard({
                   {targetScore === 5000 ? "Halv" : "Full"}
                 </div>
               </div>
+              <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
+                <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Lediga platser</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>{openSeatCount}</div>
+              </div>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button variant={mode === "single" ? "primary" : "ghost"} onClick={() => setMode("single")}>
+            <Button variant={mode === "single" ? "primary" : "ghost"} onClick={() => setMode("single")} disabled={!isHost}>
               Singel
             </Button>
-            <Button variant={mode === "team" ? "primary" : "ghost"} onClick={() => setMode("team")}>
+            <Button variant={mode === "team" ? "primary" : "ghost"} onClick={() => setMode("team")} disabled={!isHost}>
               Lag (2v2)
             </Button>
-            <Button onClick={addBotToLobby} disabled={lobbyCount >= 4}>
+            <Button onClick={addBotToLobby} disabled={!isHost || lobbyCount >= 4}>
               Lägg till bot
             </Button>
             <Button
               variant={targetScore === 5000 ? "primary" : "ghost"}
               onClick={() => setTargetScore(5000)}
+              disabled={!isHost}
             >
               5 000 poäng
             </Button>
             <Button
               variant={targetScore === 10000 ? "primary" : "ghost"}
               onClick={() => setTargetScore(10000)}
+              disabled={!isHost}
             >
               10 000 poäng
             </Button>
@@ -1712,10 +2000,25 @@ export default function CanastaBoard({
             </div>
           )}
 
+          {isHost && (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 14,
+                border: "1px solid rgba(56,189,248,.24)",
+                background: "rgba(56,189,248,.08)",
+                color: "#bae6fd",
+                fontWeight: 800,
+              }}
+            >
+              Du är värd. Bjud in vänner med rumskoden eller fyll ut bordet med bottar innan du startar matchen.
+            </div>
+          )}
+
           <div style={{ display: "grid", gap: 8 }}>
-            {lobbyPlayers.map((p, idx) => (
+            {seatPlayers.map((p, idx) => (
               <div
-                key={p.id}
+                key={p?.id ?? `lobby-open-${idx}`}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr auto auto",
@@ -1724,27 +2027,46 @@ export default function CanastaBoard({
                   padding: "10px 12px",
                   borderRadius: 14,
                   border: "1px solid rgba(148,163,184,.2)",
-                  background: idx === 0 ? "rgba(56,189,248,.08)" : "rgba(255,255,255,.03)",
+                  background: !p
+                    ? "rgba(255,255,255,.02)"
+                    : idx === 0
+                    ? "rgba(56,189,248,.08)"
+                    : "rgba(255,255,255,.03)",
                 }}
               >
                 <div style={{ display: "grid", gap: 2 }}>
                   <div style={{ fontWeight: 800 }}>
-                    {p.name || (p.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`)}
-                    {idx === 0 ? " (du)" : p.isBot ? " (bot)" : ""}
+                    {!p
+                      ? `Plats ${idx + 1}`
+                      : p.name || (p.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`)}
+                    {p ? idx === 0 ? " (du)" : p.isBot ? " (bot)" : "" : ""}
                   </div>
                   <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                    {idx === 0 ? "Värdplats" : p.isBot ? "Automatisk motspelare" : "Inbjuden spelare"}
+                    {!p
+                      ? roomCode
+                        ? "Ledig stol - spelare kan joina via kod eller inbjudan"
+                        : "Ledig stol"
+                      : idx === 0
+                      ? "Värdplats"
+                      : p.isBot
+                      ? "Automatisk motspelare"
+                      : "Inbjuden spelare"}
                   </div>
                 </div>
-                {idx !== 0 && p.isBot ? (
-                  <Button variant="ghost" style={{ width: "auto", padding: "6px 10px" }} onClick={() => removeLobbyPlayer(p.id)}>
+                {p && idx !== 0 && p.isBot ? (
+                  <Button
+                    variant="ghost"
+                    style={{ width: "auto", padding: "6px 10px" }}
+                    onClick={() => removeLobbyPlayer(p.id)}
+                    disabled={!isHost}
+                  >
                     Ta bort
                   </Button>
                 ) : (
                   <div />
                 )}
                 <div style={{ color: "#bfdbfe", fontWeight: 800, fontSize: 12 }}>
-                  {p.isBot ? "Bot" : "Spelare"}
+                  {!p ? "Öppen" : p.isBot ? "Bot" : "Spelare"}
                 </div>
               </div>
             ))}
@@ -1803,6 +2125,11 @@ export default function CanastaBoard({
               Laglage kraver exakt 4 spelare. Singel kan startas direkt och fyllas pa senare.
             </div>
           )}
+          {lobbyStatus && (
+            <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 12 }}>
+              {lobbyStatus}
+            </div>
+          )}
           {targetScore === 5000 && (
             <div style={{ color: "#bfdbfe", fontWeight: 700, fontSize: 12 }}>
               5 000-poängsmatch ger halva leaderboardbonusen jämfört med 10 000.
@@ -1810,14 +2137,51 @@ export default function CanastaBoard({
           )}
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button onClick={start} disabled={!canStart}>
-              {lobbyCount < 2 ? "Skapa lobby" : "Starta match"}
-            </Button>
-            <Button variant="ghost" onClick={onBack}>
+            {isHost ? (
+              <Button onClick={start} disabled={!canStart}>
+                {lobbyCount < 2 ? "Skapa lobby" : "Starta match"}
+              </Button>
+            ) : (
+              <Button variant="ghost" disabled>
+                Väntar på värden
+              </Button>
+            )}
+            <Button variant="ghost" onClick={handleBack}>
               Tillbaka
             </Button>
           </div>
         </div>
+        {transitioningToGame && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 20,
+              display: "grid",
+              placeItems: "center",
+              background: "radial-gradient(circle at 50% 45%, rgba(34,197,94,.18), rgba(2,6,23,.86))",
+              borderRadius: 18,
+            }}
+          >
+            <div
+              style={{
+                padding: "18px 22px",
+                borderRadius: 20,
+                border: "1px solid rgba(125,211,252,.28)",
+                background: "rgba(8,12,20,.82)",
+                boxShadow: "0 18px 40px rgba(2,6,23,.44)",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ color: "#e2e8f0", fontWeight: 900, fontSize: isMobile ? 24 : 30 }}>
+                Match startar
+              </div>
+              <div style={{ color: "#93c5fd", fontWeight: 700, marginTop: 6 }}>
+                Bordet förbereds...
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
     );
   }
@@ -1921,7 +2285,7 @@ export default function CanastaBoard({
           <Button variant="ghost" onClick={() => setSettingsOpen((s) => !s)} style={{ width: "auto" }}>
             Inställningar
           </Button>
-          <Button variant="ghost" onClick={onBack} style={{ width: "auto" }}>
+          <Button variant="ghost" onClick={handleBack} style={{ width: "auto" }}>
             Avsluta
           </Button>
         </div>
@@ -2033,7 +2397,6 @@ export default function CanastaBoard({
             </div>
           </>
         )}
-
         <div
           style={{
             position: "absolute",
@@ -2788,7 +3151,12 @@ export default function CanastaBoard({
               <div style={settingsSectionStyle}>
                 <div style={settingsSectionTitleStyle}>Alert</div>
                 <div style={settingsInlineRowStyle}>
-                  <div style={{ fontWeight: 800 }}>Vibrera när turen byter</div>
+                  <div>
+                    <div style={{ fontWeight: 800 }}>Vibrera när turen byter</div>
+                    <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12, marginTop: 2 }}>
+                      Samma typ av turnotifiering som i 12:an.
+                    </div>
+                  </div>
                   <Button
                     variant={vibrateOnTurn ? "primary" : "ghost"}
                     onClick={() => setVibrateOnTurn((v) => !v)}
@@ -2801,12 +3169,36 @@ export default function CanastaBoard({
               <div style={settingsSectionStyle}>
                 <div style={settingsSectionTitleStyle}>Lobby</div>
                 <div style={{ display: "grid", gap: 10 }}>
-                  <div style={settingsInlineRowStyle}>
-                    <div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                    <div
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(148,163,184,.18)",
+                        background: "rgba(255,255,255,.03)",
+                      }}
+                    >
                       <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Rumskod</div>
-                      <div style={{ fontWeight: 900, fontSize: 18 }}>
+                      <div style={{ fontWeight: 900, fontSize: 20, marginTop: 2 }}>
                         {roomCode ? roomCode.toUpperCase() : "Inte kopplad"}
                       </div>
+                    </div>
+                    <div
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(148,163,184,.18)",
+                        background: "rgba(255,255,255,.03)",
+                      }}
+                    >
+                      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Bord</div>
+                      <div style={{ fontWeight: 900, fontSize: 20, marginTop: 2 }}>{lobbyPlayers.length}/4 spelare</div>
+                    </div>
+                  </div>
+                  <div style={settingsInlineRowStyle}>
+                    <div>
+                      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Värd</div>
+                      <div style={{ fontWeight: 800 }}>{hostName || lobbyPlayers[0]?.name || "Inte satt"}</div>
                     </div>
                     <Button
                       variant="ghost"
@@ -2817,12 +3209,22 @@ export default function CanastaBoard({
                       Dela
                     </Button>
                   </div>
+                  <div style={settingsInlineRowStyle}>
+                    <div>
+                      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Spelläge</div>
+                      <div style={{ fontWeight: 800 }}>{mode === "team" ? "Lag 2v2" : "Singel"}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Matchmål</div>
+                      <div style={{ fontWeight: 800 }}>{targetScore.toLocaleString("sv-SE")} poäng</div>
+                    </div>
+                  </div>
                   <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                    Max 4 spelare totalt. Har du ett rum kopplat kan du bjuda in vanner har.
+                    Max 4 spelare totalt. Har du ett rum kopplat kan du bjuda in vänner här eller låta andra joina via koden.
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {friends.length === 0 ? (
-                      <div style={{ color: "var(--muted)" }}>Inga vanner att bjuda in just nu.</div>
+                      <div style={{ color: "var(--muted)" }}>Inga vänner att bjuda in just nu.</div>
                     ) : (
                       friends.map((friend) => {
                         const sent = Boolean(sentInvites?.[friend.id]);
@@ -2860,17 +3262,53 @@ export default function CanastaBoard({
                 <div style={settingsSectionStyle}>
                   <div style={settingsSectionTitleStyle}>Tema</div>
                   {typeof applyTheme === "function" && themes.length > 0 && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 10 }}>
-                      {themes.map((t) => {
+                    <>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                        <Button
+                          variant={themeCategory === "standard" ? "primary" : "ghost"}
+                          onClick={() => setThemeCategory("standard")}
+                          style={{ padding: "8px 12px" }}
+                        >
+                          Standard ({standardThemes.length})
+                        </Button>
+                        <Button
+                          variant={themeCategory === "special" ? "primary" : "ghost"}
+                          onClick={() => setThemeCategory("special")}
+                          style={{ padding: "8px 12px" }}
+                        >
+                          Specials ({specialThemes.length})
+                        </Button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginBottom: 10 }}>
+                        {visibleThemes.map((t) => {
                         const key = t.key ?? t.name;
                         const selected = externalSettings?.themeKey === key;
                         return (
-                          <Button key={key} variant={selected ? "primary" : "ghost"} onClick={() => applyTheme(t)}>
-                            {t.name}
-                          </Button>
-                        );
-                      })}
-                    </div>
+                            <Button
+                              key={key}
+                              variant={selected ? "primary" : "ghost"}
+                              onClick={() => applyTheme(t)}
+                              style={{ display: "grid", gap: 8, justifyItems: "center" }}
+                            >
+                              <div
+                                style={{
+                                  width: "100%",
+                                  height: 46,
+                                  borderRadius: 10,
+                                  border: "1px solid rgba(148,163,184,.25)",
+                                  backgroundImage: [
+                                    `radial-gradient(120px 60px at 15% 20%, color-mix(in srgb, ${t.bgGlow1} 28%, transparent), transparent 70%)`,
+                                    `radial-gradient(120px 60px at 85% 10%, color-mix(in srgb, ${t.bgGlow2} 24%, transparent), transparent 70%)`,
+                                    `linear-gradient(180deg, #0a0f1b, ${t.bgColor})`,
+                                  ].join(", "),
+                                }}
+                              />
+                              <div style={{ fontWeight: 800, fontSize: 12 }}>{t.name}</div>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
                     <label style={{ display: "grid", gap: 4, color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
