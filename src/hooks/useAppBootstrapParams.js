@@ -4,6 +4,7 @@ import { writeHarpanWins } from "../lib/harpanProgress";
 export function useAppBootstrapParams({
   sanitizeRoomCode,
   setRoomCode,
+  setSelectedPlayMode = null,
   themes,
   applyTheme,
   setAuthNotice,
@@ -13,8 +14,12 @@ export function useAppBootstrapParams({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sharedCode = params.get("room");
+    const sharedGame = params.get("game");
     if (sharedCode) setRoomCode(sanitizeRoomCode(sharedCode));
-  }, [sanitizeRoomCode, setRoomCode]);
+    if (sharedGame === "canasta" && typeof setSelectedPlayMode === "function") {
+      setSelectedPlayMode("canasta");
+    }
+  }, [sanitizeRoomCode, setRoomCode, setSelectedPlayMode]);
 
   useEffect(() => {
     if (themePreviewAppliedRef.current) return;

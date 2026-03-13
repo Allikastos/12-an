@@ -111,7 +111,13 @@ export default function App() {
     sendRoomInvite,
     acceptRoomInvite,
     declineRoomInvite,
-  } = useFriendsInvites({ userId: user?.id ?? null, roomId, kingHistory, joinRoom });
+  } = useFriendsInvites({
+    userId: user?.id ?? null,
+    roomId,
+    kingHistory,
+    joinRoom,
+    joinCanastaLobby,
+  });
   const {
     chatMessages,
     chatInput,
@@ -229,6 +235,7 @@ export default function App() {
   useAppBootstrapParams({
     sanitizeRoomCode,
     setRoomCode,
+    setSelectedPlayMode,
     themes,
     applyTheme,
     setAuthNotice,
@@ -698,6 +705,7 @@ export default function App() {
     localStorage.setItem("scoreboard_room_code", codeOverride || room.code || "");
     localStorage.setItem("scoreboard_room_id", room.id);
     localStorage.setItem("scoreboard_player_id", player.id);
+    localStorage.setItem("scoreboard_step", nextStep);
 
     setRoomCode((codeOverride || room.code || "").toUpperCase());
     setRoomId(room.id);
@@ -802,10 +810,12 @@ export default function App() {
 
   function shareRoomLink() {
     if (!roomCode) return;
-    const url = `${window.location.origin}?room=${roomCode}`;
-    const text = `Kom och spela 12:an! Rumskod: ${roomCode} Länk: ${url}`;
+    const gameParam = step === "canasta" ? "&game=canasta" : "";
+    const url = `${window.location.origin}?room=${roomCode}${gameParam}`;
+    const title = step === "canasta" ? "Canasta" : "12:an";
+    const text = `Kom och spela ${title}! Rumskod: ${roomCode} Länk: ${url}`;
     if (navigator.share) {
-      navigator.share({ title: "12:an", text, url }).catch(() => {});
+      navigator.share({ title, text, url }).catch(() => {});
       return;
     }
     window.location.href = `sms:&body=${encodeURIComponent(text)}`;
@@ -820,6 +830,7 @@ export default function App() {
       localStorage.removeItem("scoreboard_room_code");
       localStorage.removeItem("scoreboard_room_id");
       localStorage.removeItem("scoreboard_player_id");
+      localStorage.removeItem("scoreboard_step");
       window.location.reload();
     }
   }
@@ -830,6 +841,69 @@ export default function App() {
     setRoomState,
     rematchSupportedRef,
   });
+
+  const addCanastaBot = useCallback(async () => {
+    if (!roomId || !playerId || roomState?.host_player_id !== playerId) return;
+    const botCount = players.filter((p) => String(p.device_id ?? "").startsWith("bot:")).length + 1;
+    const botName = `Bot ${botCount}`;
+    const botDeviceId = `bot:${roomId}:${Date.now()}:${botCount}`;
+    const { data: bot, error } = await createPlayer(roomId, botName, botDeviceId, null);
+    if (error || !bot) {
+      alert(formatDbError(error, "Kunde inte lägga till boten."));
+      return;
+    }
+    await ensureScore(roomId, bot.id);
+  }, [roomId, playerId, roomState?.host_player_id, players]);
+
+  const removeCanastaBot = useCallback(async (botPlayerId) => {
+    if (!roomId || !playerId || roomState?.host_player_id !== playerId || !botPlayerId) return;
+    const bot = players.find((p) => p.id === botPlayerId);
+    if (!bot || !String(bot.device_id ?? "").startsWith("bot:")) return;
+    await supabase.from("scores").delete().eq("room_id", roomId).eq("player_id", botPlayerId);
+    await supabase.from("player_state").delete().eq("room_id", roomId).eq("player_id", botPlayerId);
+    await supabase.from("players").delete().eq("id", botPlayerId);
+  }, [roomId, playerId, roomState?.host_player_id, players]);
+
+  const updateCanastaLobbyConfig = useCallback(async (patch) => {
+    if (!roomId || !playerId || roomState?.host_player_id !== playerId) return;
+    const existing = roomState?.round_counts ?? {};
+    const next = {
+      ...existing,
+      __canasta_mode: patch?.mode === "team" ? "team" : "single",
+      __canasta_target_score: Number(patch?.targetScore) === 5000 ? 5000 : 10000,
+    };
+    const { data } = await updateRoomStateSafe({
+      round_counts: next,
+      updated_at: new Date().toISOString(),
+    });
+    if (data) setRoomState(data);
+  }, [roomId, playerId, roomState?.host_player_id, roomState?.round_counts, updateRoomStateSafe]);
+
+  const syncCanastaMatchState = useCallback(async (payload) => {
+    if (!roomId || !playerId) return;
+    const existing = roomState?.round_counts ?? {};
+    const next = {
+      ...existing,
+      __canasta_match: payload,
+    };
+    const { data } = await updateRoomStateSafe({
+      round_counts: next,
+      updated_at: new Date().toISOString(),
+    });
+    if (data) setRoomState(data);
+  }, [roomId, playerId, roomState?.round_counts, updateRoomStateSafe]);
+
+  useEffect(() => {
+    if (step !== "canasta") return;
+    if (!roomId || !playerId) return;
+    if (roomState?.host_player_id && roomState.host_player_id !== playerId) return;
+    const existing = roomState?.round_counts ?? {};
+    if (existing.__canasta_mode && existing.__canasta_target_score) return;
+    void updateCanastaLobbyConfig({
+      mode: existing.__canasta_mode === "team" ? "team" : "single",
+      targetScore: Number(existing.__canasta_target_score) === 5000 ? 5000 : 10000,
+    });
+  }, [step, roomId, playerId, roomState?.host_player_id, roomState?.round_counts, updateCanastaLobbyConfig]);
 
   async function ensurePlayerIdForRoom() {
     if (playerId) return playerId;
@@ -1190,8 +1264,15 @@ export default function App() {
 
   async function signalWin() {
     if (!roomId || !playerId || !roomState?.started) return;
-    const order = roomState.turn_order ?? [];
-    const finishUntil = roomState.finish_until_player_id ?? order[order.length - 1] ?? playerId;
+    const activeOrder = (roomState.turn_order ?? []).filter((id) =>
+      players.some((p) => p.id === id)
+    );
+    const winnerIndex = activeOrder.indexOf(playerId);
+    const finishUntil =
+      roomState.finish_until_player_id ??
+      (winnerIndex >= 0
+        ? activeOrder[(winnerIndex - 1 + activeOrder.length) % activeOrder.length]
+        : activeOrder[activeOrder.length - 1] ?? playerId);
     const baseCounts = roomState.round_counts ?? {};
     const finishUntilRound = Math.max(1, baseCounts[playerId] ?? 1);
     const winners = new Set(roomState.finish_winner_ids ?? []);
@@ -1321,11 +1402,16 @@ export default function App() {
           return;
         }
       }
+      const currentTurnPlayerId = roomState?.turn_player_id ?? playerId;
+      const finishUntilPlayerId = roomState?.finish_until_player_id ?? null;
       const finishUntilRound = roomState?.finish_until_round ?? null;
       const reachedFinishRound =
         finishUntilRound != null &&
         activeOrder.every((id) => (counts?.[id] ?? 0) >= finishUntilRound);
-      const isFinalTurn = roomState?.finish_triggered && (reachedFinishRound || activeOrder.length <= 1);
+      const isFinalTurn =
+        roomState?.finish_triggered &&
+        (activeOrder.length <= 1 ||
+          (finishUntilPlayerId && String(currentTurnPlayerId) === String(finishUntilPlayerId) && reachedFinishRound));
       if (isFinalTurn) {
         await supabase
           .from("room_state")
@@ -1357,9 +1443,12 @@ export default function App() {
       players.some((p) => p.id === id)
     );
     if (!activeOrder.length) return;
+    const finishUntilPlayerId = roomState?.finish_until_player_id ?? null;
+    if (activeOrder.length > 1 && finishUntilPlayerId && activeOrder.includes(finishUntilPlayerId)) return;
     const finishUntilRound = roomState?.finish_until_round ?? null;
-    if (finishUntilRound == null) return;
-    const reachedFinishRound = activeOrder.every((id) => (counts?.[id] ?? 0) >= finishUntilRound);
+    if (activeOrder.length > 1 && finishUntilRound == null) return;
+    const reachedFinishRound =
+      finishUntilRound == null || activeOrder.every((id) => (counts?.[id] ?? 0) >= finishUntilRound);
     if (!reachedFinishRound) return;
     if (finalizeGuardRef.current) return;
     finalizeGuardRef.current = true;
@@ -1371,6 +1460,7 @@ export default function App() {
     isBlitzRoom,
     roomState?.finish_triggered,
     roomState?.finalized_at,
+    roomState?.finish_until_player_id,
     roomState?.finish_until_round,
     roomState?.round_counts,
     roomState?.turn_order,
@@ -1446,6 +1536,13 @@ export default function App() {
             onShareRoom={shareRoomLink}
             isHost={canastaIsHost}
             hostName={canastaHostName}
+            roomPlayers={players}
+            roomState={roomState}
+            playerId={playerId}
+            onAddBot={addCanastaBot}
+            onRemoveBot={removeCanastaBot}
+            onUpdateLobbyConfig={updateCanastaLobbyConfig}
+            onSyncMatchState={syncCanastaMatchState}
             onLeaderboardPointsAwarded={({ points, humans, bots }) => {
               setCanastaNotice(
                 `Canasta leaderboardpoäng: +${points} (${humans} spelare ×4${bots > 0 ? `, ${bots} bottar ×1` : ""})`
@@ -1843,6 +1940,10 @@ export default function App() {
                 >
                   <div style={{ fontWeight: 700 }}>
                     {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
+                    <span style={{ color: "var(--muted)", fontWeight: 700 }}>
+                      {" "}
+                      · {inv.gameType === "canasta" ? "Canasta" : "12:an"}
+                    </span>
                   </div>
                   <Button
                     onClick={() => acceptRoomInvite(inv)}
@@ -1926,7 +2027,7 @@ export default function App() {
           </div>
 
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-            {!isStandalone && installPrompt && (
+            {!isStandalone && (
               <Button variant="ghost" onClick={() => setShowInstallHelp(true)}>
                 Lägg till som app
               </Button>
@@ -2346,6 +2447,10 @@ export default function App() {
                             >
                               <div style={{ fontWeight: 700 }}>
                                 {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
+                                <span style={{ color: "var(--muted)", fontWeight: 700 }}>
+                                  {" "}
+                                  · {inv.gameType === "canasta" ? "Canasta" : "12:an"}
+                                </span>
                               </div>
                               <div style={{ display: "flex", gap: 6 }}>
                                 <Button
@@ -2446,7 +2551,7 @@ export default function App() {
             </div>
           )}
 
-          {showInstallHelp && !isStandalone && installPrompt && (
+          {showInstallHelp && !isStandalone && (
             <div
               onClick={() => setShowInstallHelp(false)}
               style={{

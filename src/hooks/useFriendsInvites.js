@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 
-export function useFriendsInvites({ userId, roomId, kingHistory, joinRoom }) {
+export function useFriendsInvites({ userId, roomId, kingHistory, joinRoom, joinCanastaLobby = null }) {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState({ incoming: [], outgoing: [] });
   const [friendSearch, setFriendSearch] = useState("");
@@ -179,17 +179,26 @@ export function useFriendsInvites({ userId, roomId, kingHistory, joinRoom }) {
     const { data: rooms } = roomIds.length
       ? await supabase.from("rooms").select("id, code").in("id", roomIds)
       : { data: [] };
+    const { data: roomStates } = roomIds.length
+      ? await supabase.from("room_state").select("room_id, round_counts").in("room_id", roomIds)
+      : { data: [] };
     const { data: senders } = senderIds.length
       ? await supabase.from("profiles").select("id, display_name").in("id", senderIds)
       : { data: [] };
 
     const roomById = new Map((rooms ?? []).map((r) => [r.id, r]));
+    const roomStateById = new Map((roomStates ?? []).map((r) => [r.room_id, r]));
     const senderById = new Map((senders ?? []).map((s) => [s.id, s]));
 
     const mapped = (inviteRows ?? []).map((r) => ({
       id: r.id,
       roomId: r.room_id,
       roomCode: roomById.get(r.room_id)?.code ?? "",
+      gameType:
+        roomStateById.get(r.room_id)?.round_counts?.__canasta_mode ||
+        roomStateById.get(r.room_id)?.round_counts?.__canasta_match
+          ? "canasta"
+          : "12an",
       sender: senderById.get(r.sender_profile_id) ?? null,
     }));
     setRoomInvites(mapped);
@@ -221,8 +230,12 @@ export function useFriendsInvites({ userId, roomId, kingHistory, joinRoom }) {
   const acceptRoomInvite = useCallback(async (invite) => {
     if (!invite?.id || !invite?.roomCode) return;
     await supabase.from("room_invites").update({ status: "accepted" }).eq("id", invite.id);
+    if (invite.gameType === "canasta" && typeof joinCanastaLobby === "function") {
+      await joinCanastaLobby(invite.roomCode);
+      return;
+    }
     await joinRoom(invite.roomCode);
-  }, [joinRoom]);
+  }, [joinRoom, joinCanastaLobby]);
 
   const declineRoomInvite = useCallback(async (inviteId) => {
     if (!inviteId) return;
