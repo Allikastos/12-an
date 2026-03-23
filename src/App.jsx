@@ -3012,13 +3012,19 @@ export default function App() {
                         </Button>
                       )}
                   </div>
-                  <div
-                    style={{
-                      fontWeight: 900,
-                      color: p.percent >= 100 ? "#22c55e" : "inherit",
-                    }}
-                  >
-                    {p.percent}%
+                  <div style={{ display: "grid", gap: 2, textAlign: "right" }}>
+                    <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 11 }}>
+                      Viktad procent
+                    </div>
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 14,
+                        color: p.percent >= 100 ? "#22c55e" : "inherit",
+                      }}
+                    >
+                      {p.percent}%
+                    </div>
                   </div>
                 </div>
               ))}
@@ -3853,7 +3859,10 @@ export default function App() {
                         bgPattern: theme.bgPattern ?? settings.bgPattern,
                         bgPatternOpacity: theme.bgPatternOpacity ?? settings.bgPatternOpacity,
                       };
-                      const pattern = BG_PATTERNS[previewTheme.bgPattern] ?? BG_PATTERNS.none;
+                      const pattern =
+                        BG_PATTERNS[previewTheme.bgPattern] ??
+                        BG_PATTERNS[settings.bgPattern] ??
+                        BG_PATTERNS.none;
                       const baseColor = previewTheme.bgColor ?? "#0b1020";
                       const glow1 = previewTheme.bgGlow1 ?? "#38bdf8";
                       const glow2 = previewTheme.bgGlow2 ?? "#22c55e";
@@ -3927,14 +3936,14 @@ export default function App() {
                                 {p.name}
                                 {p.id === playerId ? " (du)" : ""}
                               </div>
-                              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 11 }}>
                                 Viktad procent
                               </div>
                             </div>
                             <div
                               style={{
                                 fontWeight: 900,
-                                fontSize: 16,
+                                fontSize: 14,
                                 color: percent >= 100 ? "#22c55e" : "inherit",
                               }}
                             >
@@ -3958,6 +3967,20 @@ export default function App() {
                     const inspectSettings = theme
                       ? { ...settings, ...theme, boxSize: "small" }
                       : { ...settings, boxSize: "small" };
+                    const previewTheme = {
+                      bgColor: theme?.bgColor ?? settings.bgColor,
+                      bgGlow1: theme?.bgGlow1 ?? settings.bgGlow1,
+                      bgGlow2: theme?.bgGlow2 ?? settings.bgGlow2,
+                      bgPattern: theme?.bgPattern ?? settings.bgPattern,
+                      bgPatternOpacity: theme?.bgPatternOpacity ?? settings.bgPatternOpacity,
+                    };
+                    const previewPattern =
+                      BG_PATTERNS[previewTheme.bgPattern] ??
+                      BG_PATTERNS[settings.bgPattern] ??
+                      BG_PATTERNS.none;
+                    const previewBase = previewTheme.bgColor ?? "#0b1020";
+                    const previewGlow1 = previewTheme.bgGlow1 ?? "#38bdf8";
+                    const previewGlow2 = previewTheme.bgGlow2 ?? "#22c55e";
                     const diceStyle = theme?.diceStyle ?? settings.diceStyle;
                     const hasDice = Array.isArray(lastDice) && lastDice.length === 6;
                     const targetLocks =
@@ -4003,6 +4026,51 @@ export default function App() {
                               100%
                             </span>
                           )}
+                        </div>
+
+                        <div
+                          style={{
+                            position: "relative",
+                            borderRadius: 16,
+                            overflow: "hidden",
+                            border: "1px solid rgba(148,163,184,.28)",
+                            background: [
+                              `radial-gradient(120px 80px at 12% 8%, color-mix(in srgb, ${previewGlow1} 70%, transparent), transparent 70%)`,
+                              `radial-gradient(120px 80px at 88% 12%, color-mix(in srgb, ${previewGlow2} 65%, transparent), transparent 70%)`,
+                              `linear-gradient(180deg, ${previewBase}, color-mix(in srgb, ${previewBase} 70%, #000))`,
+                            ].join(", "),
+                          }}
+                        >
+                          {previewPattern.image !== "none" && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                inset: 0,
+                                backgroundImage: previewPattern.image,
+                                backgroundSize: previewPattern.size ?? "160px",
+                                backgroundRepeat: previewPattern.repeat ?? "repeat",
+                                backgroundPosition: previewPattern.position ?? "0 0",
+                                opacity: previewTheme.bgPatternOpacity ?? 0.25,
+                                mixBlendMode: "screen",
+                              }}
+                            />
+                          )}
+                          <div
+                            style={{
+                              position: "relative",
+                              padding: "10px 12px 12px",
+                              minHeight: 74,
+                              display: "flex",
+                              alignItems: "flex-end",
+                              justifyContent: "space-between",
+                              gap: 10,
+                            }}
+                          >
+                            <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Temabakgrund</div>
+                            <div style={{ color: "rgba(226,232,240,.8)", fontWeight: 700, fontSize: 12 }}>
+                              Viktad: {summaryById.get(inspectPlayerId)?.percent ?? 0}%
+                            </div>
+                          </div>
                         </div>
 
                         {hasDice && (
