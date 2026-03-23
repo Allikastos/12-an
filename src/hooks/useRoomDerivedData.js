@@ -42,14 +42,14 @@ export function useRoomDerivedData({
 
   const rematchReady = useMemo(() => {
     if (!activeTurnOrder.length) return false;
-    return activeTurnOrder.every((id) => rematchVotes?.[id]);
+    return activeTurnOrder.some((id) => rematchVotes?.[id]);
   }, [activeTurnOrder, rematchVotes]);
 
   const blitzRiskIds = useMemo(() => {
     if (!isBlitzRoom) return new Set();
     const activeCount = playerSummaries.length;
-    if (activeCount <= 1) return new Set();
-    const eliminateCount = activeCount > 10 && activeCount > 4 ? 2 : 1;
+    if (activeCount <= 3) return new Set();
+    const eliminateCount = activeCount > 10 ? 2 : 1;
     const sorted = [...playerSummaries].sort((a, b) => {
       if (a.percent !== b.percent) return a.percent - b.percent;
       if (a.rows !== b.rows) return a.rows - b.rows;

@@ -10,6 +10,7 @@ export function useRoomRestoreSession({
   setRoomId,
   setPlayerId,
   setStep,
+  setSelectedPlayMode,
 }) {
   useEffect(() => {
     let cancelled = false;
@@ -18,6 +19,7 @@ export function useRoomRestoreSession({
       const savedCode = localStorage.getItem("scoreboard_room_code");
       const savedRoomId = localStorage.getItem("scoreboard_room_id");
       const savedPlayerId = localStorage.getItem("scoreboard_player_id");
+      const savedStep = localStorage.getItem("scoreboard_step");
 
       if (!savedCode || !savedRoomId || !savedPlayerId) return;
 
@@ -26,6 +28,7 @@ export function useRoomRestoreSession({
         localStorage.removeItem("scoreboard_room_code");
         localStorage.removeItem("scoreboard_room_id");
         localStorage.removeItem("scoreboard_player_id");
+        localStorage.removeItem("scoreboard_step");
         return;
       }
 
@@ -46,10 +49,23 @@ export function useRoomRestoreSession({
         localStorage.removeItem("scoreboard_room_code");
         localStorage.removeItem("scoreboard_room_id");
         localStorage.removeItem("scoreboard_player_id");
+        localStorage.removeItem("scoreboard_step");
         return;
       }
 
       await ensureScore(room.id, player.id);
+
+      const { data: roomState } = await supabase
+        .from("room_state")
+        .select("round_counts")
+        .eq("room_id", room.id)
+        .maybeSingle();
+
+      const restoredStep =
+        savedStep === "canasta" ||
+        Boolean(roomState?.round_counts?.__canasta_mode || roomState?.round_counts?.__canasta_match)
+          ? "canasta"
+          : "room";
 
       if (cancelled) return;
 
@@ -57,16 +73,20 @@ export function useRoomRestoreSession({
       setRoomId(room.id);
       setPlayerId(player.id);
       if (!name && player.name) setName(player.name);
-      setStep("room");
+      if (restoredStep === "canasta") {
+        setSelectedPlayMode?.("canasta");
+      }
+      setStep(restoredStep);
 
       localStorage.setItem("scoreboard_room_code", savedCode);
       localStorage.setItem("scoreboard_room_id", room.id);
       localStorage.setItem("scoreboard_player_id", player.id);
+      localStorage.setItem("scoreboard_step", restoredStep);
     }
 
     void restore();
     return () => {
       cancelled = true;
     };
-  }, [deviceId, name, setName, setPlayerId, setRoomCode, setRoomId, setStep]);
+  }, [deviceId, name, setName, setPlayerId, setRoomCode, setRoomId, setStep, setSelectedPlayMode]);
 }

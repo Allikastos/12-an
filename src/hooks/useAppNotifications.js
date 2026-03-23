@@ -138,11 +138,20 @@ export function useAppNotifications({
 
   useEffect(() => {
     const handler = (e) => {
-      e.preventDefault();
       setInstallPrompt(e);
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  useEffect(() => {
+    const handleInstalled = () => {
+      setInstallPrompt(null);
+      setShowInstallHelp(false);
+      setIsStandalone(true);
+    };
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => window.removeEventListener("appinstalled", handleInstalled);
   }, []);
 
   useEffect(() => {

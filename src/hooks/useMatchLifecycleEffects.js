@@ -10,6 +10,8 @@ export function useMatchLifecycleEffects({
   roomFinalizedAt,
   isSolo,
   rematchReady,
+  hasHostVoted,
+  isHost,
   rematchStartingRef,
   startRematch,
   forceTick,
@@ -34,10 +36,12 @@ export function useMatchLifecycleEffects({
 
   useEffect(() => {
     if (!roomFinalizedAt || isSolo) return;
+    if (!isHost) return;
     if (!rematchReady) return;
+    if (!hasHostVoted) return;
     if (rematchStartingRef.current) return;
     void startRematch();
-  }, [roomFinalizedAt, rematchReady, isSolo, rematchStartingRef, startRematch]);
+  }, [roomFinalizedAt, rematchReady, hasHostVoted, isSolo, isHost, rematchStartingRef, startRematch]);
 
   useEffect(() => {
     const id = setInterval(() => forceTick((x) => x + 1), 1000);

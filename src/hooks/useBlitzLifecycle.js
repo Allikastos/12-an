@@ -9,6 +9,18 @@ export function useBlitzLifecycle() {
   const blitzAutoStartRef = useRef({ dateKey: null, lastAttempt: 0 });
   const blitzBootstrapRef = useRef({ dateKey: null, lastAttempt: 0 });
   const blitzTickRef = useRef({ eventId: null, lastAttempt: 0 });
+  const blitzTickAuthBlockedUntilRef = useRef(0);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      if (session) {
+        blitzTickAuthBlockedUntilRef.current = 0;
+      }
+    });
+    return () => {
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   const loadBlitzParticipants = useCallback(async (eventId) => {
     if (!eventId) {
@@ -163,14 +175,20 @@ export function useBlitzLifecycle() {
       const now = new Date();
       setBlitzNowState(now);
       if (blitzEvent?.id && blitzEvent?.status === "running" && blitzEvent?.next_elim_at) {
-        const last = blitzTickRef.current;
-        const due = now.getTime() >= new Date(blitzEvent.next_elim_at).getTime();
-        const staleAttempt = now.getTime() - (last?.lastAttempt ?? 0) > 12000;
-        if ((due || staleAttempt) && (last?.eventId !== blitzEvent.id || staleAttempt)) {
-          blitzTickRef.current = { eventId: blitzEvent.id, lastAttempt: now.getTime() };
-          void supabase.functions.invoke("blitz-tick").catch(() => {
-            // ignore; regular refresh/realtime will resync state
-          });
+        if (now.getTime() >= blitzTickAuthBlockedUntilRef.current) {
+          const last = blitzTickRef.current;
+          const due = now.getTime() >= new Date(blitzEvent.next_elim_at).getTime();
+          const staleAttempt = now.getTime() - (last?.lastAttempt ?? 0) > 12000;
+          if ((due || staleAttempt) && (last?.eventId !== blitzEvent.id || staleAttempt)) {
+            blitzTickRef.current = { eventId: blitzEvent.id, lastAttempt: now.getTime() };
+            void supabase.functions.invoke("blitz-tick").catch((err) => {
+              const status = err?.context?.status ?? err?.status;
+              if (Number(status) === 401) {
+                // Back off for one minute on unauthorized.
+                blitzTickAuthBlockedUntilRef.current = now.getTime() + 60000;
+              }
+            });
+          }
         }
       }
       if (blitzEvent?.status === "lobby") {

@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function getStockholmDateKey(date = new Date()): string {
   const parts = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Stockholm",
@@ -45,7 +51,11 @@ function countBoxes(progress: Record<string, boolean[]> | null): number {
   return count;
 }
 
-serve(async () => {
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const client = createClient(supabaseUrl, serviceKey);
@@ -58,7 +68,7 @@ serve(async () => {
     .maybeSingle();
 
   if (!event || event.status !== "running") {
-    return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 });
+    return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200, headers: corsHeaders });
   }
 
   const { data: participants } = await client
@@ -78,16 +88,30 @@ serve(async () => {
   // they must not block elimination balancing forever.
   if (active.length <= 1) {
     await finalizeBlitz(client, event, participants ?? []);
-    return new Response(JSON.stringify({ ok: true, finished: true }), { status: 200 });
+    return new Response(JSON.stringify({ ok: true, finished: true }), { status: 200, headers: corsHeaders });
+  }
+
+  // Final: last three keep playing until someone wins.
+  if (active.length <= 3) {
+    if (event.next_elim_at) {
+      await client
+        .from("blitz_events")
+        .update({ next_elim_at: null })
+        .eq("id", event.id);
+    }
+    return new Response(JSON.stringify({ ok: true, final: true }), { status: 200, headers: corsHeaders });
   }
 
   const now = new Date();
   const playerIds = active.map((p) => p.player_id);
   let { data: roomState } = await client
     .from("room_state")
-    .select("turn_player_id, turn_order, round_counts, finish_until_round, updated_at")
+    .select("turn_player_id, turn_order, round_counts, finish_until_round, finish_triggered, updated_at")
     .eq("room_id", event.room_id)
     .maybeSingle();
+  if (roomState?.finish_triggered) {
+    return new Response(JSON.stringify({ ok: true, finish_triggered: true }), { status: 200, headers: corsHeaders });
+  }
 
   const activeOrder = ((roomState?.turn_order as string[] | null) ?? []).filter((id: string) =>
     playerIds.includes(id)
@@ -127,10 +151,10 @@ serve(async () => {
   const rawTargetRound = Number(roomState?.finish_until_round ?? 0);
   let elimTargetRound = Number.isFinite(rawTargetRound) && rawTargetRound > 0 ? rawTargetRound : null;
   if (!elimTargetRound && !elimDue) {
-    return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
+    return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200, headers: corsHeaders });
   }
 
-  const roundCounts = roomState?.round_counts ?? {};
+  let roundCounts = roomState?.round_counts ?? {};
   if (!elimTargetRound && elimDue) {
     elimTargetRound = Math.max(0, ...playerIds.map((id) => Number(roundCounts?.[id] ?? 0)));
     await client
@@ -142,17 +166,32 @@ serve(async () => {
       .eq("room_id", event.room_id);
     return new Response(
       JSON.stringify({ ok: true, waiting: true, elimination_round: true, target_round: elimTargetRound }),
-      { status: 200 }
+      { status: 200, headers: corsHeaders }
     );
   }
 
   if (elimTargetRound) {
     const roundsBalanced = playerIds.every((id) => Number(roundCounts?.[id] ?? 0) >= elimTargetRound);
     if (!roundsBalanced) {
-      return new Response(
-        JSON.stringify({ ok: true, waiting: true, elimination_round: true, target_round: elimTargetRound }),
-        { status: 200 }
-      );
+      const forcedCounts = { ...roundCounts };
+      let changed = false;
+      playerIds.forEach((id) => {
+        const current = Number(forcedCounts?.[id] ?? 0);
+        if (current < elimTargetRound) {
+          forcedCounts[id] = elimTargetRound;
+          changed = true;
+        }
+      });
+      if (changed) {
+        await client
+          .from("room_state")
+          .update({
+            round_counts: forcedCounts,
+            updated_at: now.toISOString(),
+          })
+          .eq("room_id", event.room_id);
+        roundCounts = forcedCounts;
+      }
     }
   }
 
@@ -190,7 +229,7 @@ serve(async () => {
     toEliminate = sorted.slice(0, Math.max(1, sorted.length - 1));
   }
   if (toEliminate.length === 0) {
-    return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200 });
+    return new Response(JSON.stringify({ ok: true, waiting: true }), { status: 200, headers: corsHeaders });
   }
 
   const maxSeq = Math.max(0, ...(participants ?? []).map((p) => p.eliminated_seq ?? 0));
@@ -227,7 +266,7 @@ serve(async () => {
     }).eq("id", event.id);
   }
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: corsHeaders });
 });
 
 async function finalizeBlitz(client: ReturnType<typeof createClient>, event: any, participants: any[]) {

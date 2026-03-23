@@ -126,6 +126,11 @@ export function useThemeManager({
 
   const themeSnapshot = useMemo(
     () => ({
+      bgColor: settings.bgColor,
+      bgGlow1: settings.bgGlow1,
+      bgGlow2: settings.bgGlow2,
+      bgPattern: settings.bgPattern,
+      bgPatternOpacity: settings.bgPatternOpacity,
       boxSize: settings.boxSize,
       rowCompleteBg: settings.rowCompleteBg,
       checkColor: settings.checkColor,
@@ -142,6 +147,11 @@ export function useThemeManager({
       dicePipLocked: settings.dicePipLocked,
     }),
     [
+      settings.bgColor,
+      settings.bgGlow1,
+      settings.bgGlow2,
+      settings.bgPattern,
+      settings.bgPatternOpacity,
       settings.boxSize,
       settings.rowCompleteBg,
       settings.checkColor,

@@ -265,9 +265,11 @@ export default function App() {
       ((blitzEvent?.room_id && roomId === blitzEvent.room_id) ||
         (roomCode && roomCode.toUpperCase().startsWith("BLITZ-")))
   );
+  const isHost = roomState?.host_player_id ? roomState.host_player_id === playerId : true;
 
   const blitzActiveCount = blitzParticipants.filter((p) => p.status === "active").length;
   const blitzEliminatedCount = blitzParticipants.filter((p) => p.status === "eliminated").length;
+  const blitzFinalRound = blitzRunning && blitzActiveCount > 0 && blitzActiveCount <= 3;
   const blitzJoined = Boolean(
     user?.id && blitzParticipants.some((p) => p.profile_id === user.id && p.status === "active")
   );
@@ -522,6 +524,15 @@ export default function App() {
     roomState,
     isBlitzRoom,
   });
+  const activeTurnSet = useMemo(() => new Set(activeTurnOrder), [activeTurnOrder]);
+  const summaryById = useMemo(
+    () => new Map(playerSummaries.map((summary) => [summary.id, summary])),
+    [playerSummaries]
+  );
+  const playerStateById = useMemo(
+    () => new Map(playerStates.map((state) => [state.player_id, state])),
+    [playerStates]
+  );
 
   const {
     blitzPointsByProfile,
@@ -545,6 +556,31 @@ export default function App() {
     rematchVotes,
   });
 
+  const finishTriggered = Boolean(roomState?.finish_triggered && !roomState?.finalized_at);
+  const finishUntilRound = finishTriggered ? roomState?.finish_until_round ?? null : null;
+  const finalRoundRemaining =
+    finishTriggered && finishUntilRound != null
+      ? activeTurnOrder.filter((id) => (roomState?.round_counts?.[id] ?? 0) < finishUntilRound).length
+      : null;
+  const finalRoundLabel =
+    finishTriggered && finishUntilRound != null
+      ? finalRoundRemaining && finalRoundRemaining > 0
+        ? `Väntar på ${finalRoundRemaining} spelare att nå runda ${finishUntilRound}.`
+        : "Alla är klara med slutrundan."
+      : finishTriggered
+      ? "Avslutar matchen."
+      : "";
+  const hostPlayerId = roomState?.host_player_id ?? null;
+  const hasHostVoted = Boolean(hostPlayerId && rematchVotes?.[hostPlayerId]);
+  const rematchParticipantIds = useMemo(() => {
+    const voteMap = rematchVotes ?? {};
+    const allowed = new Set(activeTurnOrder);
+    return Object.entries(voteMap)
+      .filter(([, voted]) => voted)
+      .map(([id]) => id)
+      .filter((id) => allowed.has(id));
+  }, [rematchVotes, activeTurnOrder]);
+
   const [, forceTick] = useState(0);
 
   useRoomRestoreSession({
@@ -555,6 +591,7 @@ export default function App() {
     setRoomId,
     setPlayerId,
     setStep,
+    setSelectedPlayMode,
   });
 
   useMatchLifecycleEffects({
@@ -567,6 +604,8 @@ export default function App() {
     roomFinalizedAt: roomState?.finalized_at ?? null,
     isSolo,
     rematchReady,
+    hasHostVoted,
+    isHost,
     rematchStartingRef,
     startRematch,
     forceTick,
@@ -926,7 +965,7 @@ export default function App() {
     return null;
   }
 
-  async function startGame() {
+  async function startGame(playerIdsOverride = null) {
     if (isBlitzRoom) return;
     if (startGameBusy) return;
     setStartGameBusy(true);
@@ -950,9 +989,13 @@ export default function App() {
         alert("Kunde inte hämta spelare. Försök igen.");
         return;
       }
-      const ids = (latestPlayers ?? []).map((p) => p.id);
+      let ids = (latestPlayers ?? []).map((p) => p.id);
+      if (Array.isArray(playerIdsOverride) && playerIdsOverride.length) {
+        const allowed = new Set(playerIdsOverride.map(String));
+        ids = ids.filter((id) => allowed.has(String(id)));
+      }
       if (!ids.length) {
-        alert("Inga spelare i rummet ännu.");
+        alert("Inga spelare valda för matchen.");
         return;
       }
       const hostId =
@@ -1017,10 +1060,13 @@ export default function App() {
 
   async function startRematch() {
     if (!roomId || !playerId || !players.length) return;
+    if (roomState?.host_player_id && roomState.host_player_id !== playerId) return;
     if (rematchStartingRef.current) return;
     rematchStartingRef.current = true;
     const now = new Date().toISOString();
     try {
+      const rematchIds = rematchParticipantIds;
+      if (!rematchIds.length) return;
       await supabase
         .from("player_state")
         .update({
@@ -1050,7 +1096,7 @@ export default function App() {
       resetTurnState();
       setShowMatchSummary(false);
       setDismissedMatchId(null);
-      await startGame();
+      await startGame(rematchIds);
     } finally {
       rematchStartingRef.current = false;
     }
@@ -1271,14 +1317,17 @@ export default function App() {
     const activeOrder = (roomState.turn_order ?? []).filter((id) =>
       players.some((p) => p.id === id)
     );
-    const winnerIndex = activeOrder.indexOf(playerId);
-    const finishUntil =
-      roomState.finish_until_player_id ??
-      (winnerIndex >= 0
-        ? activeOrder[(winnerIndex - 1 + activeOrder.length) % activeOrder.length]
-        : activeOrder[activeOrder.length - 1] ?? playerId);
     const baseCounts = roomState.round_counts ?? {};
     const finishUntilRound = Math.max(1, baseCounts[playerId] ?? 1);
+    let finishUntil = roomState.finish_until_player_id ?? null;
+    if (!finishUntil) {
+      const needingFinalRound = activeOrder.filter(
+        (id) => (baseCounts[id] ?? 0) < finishUntilRound
+      );
+      finishUntil = needingFinalRound.length
+        ? needingFinalRound[needingFinalRound.length - 1]
+        : playerId;
+    }
     const winners = new Set(roomState.finish_winner_ids ?? []);
     winners.add(playerId);
 
@@ -1391,7 +1440,7 @@ export default function App() {
       const activeOrder = (roomState?.turn_order ?? []).filter((id) =>
         players.some((p) => p.id === id)
       );
-      if (isBlitzRoom) {
+      if (isBlitzRoom && !roomState?.finish_triggered) {
         const elimTargetRound = roomState?.finish_until_round ?? null;
         const reachedElimRound =
           elimTargetRound != null &&
@@ -1406,16 +1455,13 @@ export default function App() {
           return;
         }
       }
-      const currentTurnPlayerId = roomState?.turn_player_id ?? playerId;
-      const finishUntilPlayerId = roomState?.finish_until_player_id ?? null;
       const finishUntilRound = roomState?.finish_until_round ?? null;
       const reachedFinishRound =
         finishUntilRound != null &&
         activeOrder.every((id) => (counts?.[id] ?? 0) >= finishUntilRound);
       const isFinalTurn =
         roomState?.finish_triggered &&
-        (activeOrder.length <= 1 ||
-          (finishUntilPlayerId && String(currentTurnPlayerId) === String(finishUntilPlayerId) && reachedFinishRound));
+        (activeOrder.length <= 1 || reachedFinishRound);
       if (isFinalTurn) {
         await supabase
           .from("room_state")
@@ -1428,7 +1474,7 @@ export default function App() {
         return;
       }
       await advanceTurn(counts);
-      if (isBlitzRoom) {
+      if (isBlitzRoom && !roomState?.finish_triggered) {
         try {
           await supabase.functions.invoke("blitz-tick");
         } catch (err) {
@@ -1992,9 +2038,11 @@ export default function App() {
                     ? "Anmälan öppen (19:45–20:00)"
                     : "Anmälan öppnar 19:45"}
                 </div>
-                {blitzEliminationRound && (
+                {blitzFinalRound ? (
+                  <div style={{ color: "#86efac", fontWeight: 900 }}>FINAL – inga fler elimineringar</div>
+                ) : blitzEliminationRound ? (
                   <div style={{ color: "#f87171", fontWeight: 900 }}>ELIMINERINGSRUNDA!!</div>
-                )}
+                ) : null}
                 {blitzEvent?.award_points === false && (
                   <div style={{ color: "#fbbf24", fontWeight: 800 }}>Testläge – inga poäng delas ut</div>
                 )}
@@ -2823,6 +2871,24 @@ export default function App() {
               background: "rgba(255,255,255,.02)",
             }}
           >
+            {isBlitzRoom && finishTriggered && (
+              <div
+                style={{
+                  marginBottom: 10,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(251,191,36,.6)",
+                  background: "rgba(251,191,36,.12)",
+                  color: "#fde68a",
+                  fontWeight: 900,
+                  fontSize: 12,
+                  letterSpacing: 0.2,
+                }}
+              >
+                Slutrunda pågår
+                {finalRoundLabel && <span style={{ fontWeight: 700 }}> – {finalRoundLabel}</span>}
+              </div>
+            )}
             <div
               style={{
                 display: "flex",
@@ -2837,11 +2903,19 @@ export default function App() {
                 <div
                   style={{
                     fontSize: 12,
-                    color: blitzEliminationRound ? "#f87171" : "var(--muted)",
-                    fontWeight: blitzEliminationRound ? 900 : 700,
+                    color: blitzFinalRound
+                      ? "#86efac"
+                      : blitzEliminationRound
+                      ? "#f87171"
+                      : "var(--muted)",
+                    fontWeight: blitzFinalRound || blitzEliminationRound ? 900 : 700,
                   }}
                 >
-                  {blitzEliminationRound ? "ELIMINERINGSRUNDA!!" : `Nästa eliminering om ${blitzElimIn ?? "—"}`}
+                  {blitzFinalRound
+                    ? "FINAL – inga fler elimineringar"
+                    : blitzEliminationRound
+                    ? "ELIMINERINGSRUNDA!!"
+                    : `Nästa eliminering om ${blitzElimIn ?? "—"}`}
                 </div>
               )}
             </div>
@@ -2855,14 +2929,20 @@ export default function App() {
                     alignItems: "center",
                     padding: "8px 10px",
                     borderRadius: 10,
-                    border: blitzRiskIds.has(p.id)
-                      ? "1px solid rgba(239,68,68,.6)"
-                      : "1px solid var(--border)",
-                    background: blitzRiskIds.has(p.id)
-                      ? "rgba(239,68,68,.12)"
-                      : p.id === playerId
-                      ? "rgba(255,255,255,.03)"
-                      : "transparent",
+                    border:
+                      p.percent >= 100
+                        ? "1px solid rgba(34,197,94,.7)"
+                        : blitzRiskIds.has(p.id)
+                        ? "1px solid rgba(239,68,68,.6)"
+                        : "1px solid var(--border)",
+                    background:
+                      p.percent >= 100
+                        ? "rgba(34,197,94,.16)"
+                        : blitzRiskIds.has(p.id)
+                        ? "rgba(239,68,68,.12)"
+                        : p.id === playerId
+                        ? "rgba(255,255,255,.03)"
+                        : "transparent",
                   }}
                 >
                   <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
@@ -2884,6 +2964,36 @@ export default function App() {
                       {p.name}
                       {p.id === playerId ? " (du)" : ""}
                     </button>
+                    {gameStarted && !activeTurnSet.has(p.id) && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          color: "var(--muted)",
+                          border: "1px solid rgba(148,163,184,.35)",
+                          background: "rgba(15,23,42,.4)",
+                          padding: "2px 6px",
+                          borderRadius: 999,
+                        }}
+                      >
+                        Spectator
+                      </span>
+                    )}
+                    {p.percent >= 100 && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 900,
+                          color: "#22c55e",
+                          border: "1px solid rgba(34,197,94,.6)",
+                          background: "rgba(34,197,94,.12)",
+                          padding: "2px 6px",
+                          borderRadius: 999,
+                        }}
+                      >
+                        100%
+                      </span>
+                    )}
                     {selectedStandingPlayerId === p.id &&
                       user?.id &&
                       p.profileId &&
@@ -2902,7 +3012,14 @@ export default function App() {
                         </Button>
                       )}
                   </div>
-                  <div style={{ fontWeight: 900 }}>{p.percent}%</div>
+                  <div
+                    style={{
+                      fontWeight: 900,
+                      color: p.percent >= 100 ? "#22c55e" : "inherit",
+                    }}
+                  >
+                    {p.percent}%
+                  </div>
                 </div>
               ))}
               {playerSummaries.length === 0 && (
@@ -3715,20 +3832,118 @@ export default function App() {
                   </Button>
                 </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {players.map((p) => (
-                    <Button
-                      key={p.id}
-                      variant={inspectPlayerId === p.id ? "primary" : "ghost"}
-                      onClick={() => {
-                        setFollowActivePlayer(false);
-                        setInspectPlayerId(p.id);
-                      }}
-                      style={{ width: "auto", padding: "8px 10px" }}
-                    >
-                      {p.name}
-                    </Button>
-                  ))}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  {players
+                    .filter((p) => activeTurnSet.has(p.id))
+                    .map((p) => {
+                      const summary = summaryById.get(p.id);
+                      const percent = summary?.percent ?? 0;
+                      const ps = playerStateById.get(p.id);
+                      const theme = ps?.theme_snapshot ?? {};
+                      const previewTheme = {
+                        bgColor: theme.bgColor ?? settings.bgColor,
+                        bgGlow1: theme.bgGlow1 ?? settings.bgGlow1,
+                        bgGlow2: theme.bgGlow2 ?? settings.bgGlow2,
+                        bgPattern: theme.bgPattern ?? settings.bgPattern,
+                        bgPatternOpacity: theme.bgPatternOpacity ?? settings.bgPatternOpacity,
+                      };
+                      const pattern = BG_PATTERNS[previewTheme.bgPattern] ?? BG_PATTERNS.none;
+                      const baseColor = previewTheme.bgColor ?? "#0b1020";
+                      const glow1 = previewTheme.bgGlow1 ?? "#38bdf8";
+                      const glow2 = previewTheme.bgGlow2 ?? "#22c55e";
+                      const swatchBase = [
+                        `radial-gradient(60px 40px at 15% 5%, color-mix(in srgb, ${glow1} 70%, transparent), transparent 70%)`,
+                        `radial-gradient(60px 40px at 85% 10%, color-mix(in srgb, ${glow2} 65%, transparent), transparent 70%)`,
+                        `linear-gradient(180deg, ${baseColor}, color-mix(in srgb, ${baseColor} 70%, #000))`,
+                      ].join(", ");
+                      const isSelected = inspectPlayerId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setFollowActivePlayer(false);
+                            setInspectPlayerId(p.id);
+                          }}
+                          aria-pressed={isSelected}
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            padding: "10px 12px",
+                            borderRadius: 14,
+                            border: isSelected
+                              ? "1px solid rgba(56,189,248,.55)"
+                              : "1px solid rgba(148,163,184,.25)",
+                            background: isSelected ? "rgba(30,41,59,.6)" : "rgba(15,23,42,.4)",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            color: "inherit",
+                            boxShadow: isSelected ? "0 0 0 1px rgba(56,189,248,.25)" : "none",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "auto 1fr auto",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: "relative",
+                                width: 46,
+                                height: 46,
+                                borderRadius: 12,
+                                overflow: "hidden",
+                                background: swatchBase,
+                                boxShadow:
+                                  "inset 0 0 0 1px rgba(255,255,255,.15), 0 6px 14px rgba(0,0,0,.35)",
+                              }}
+                            >
+                              {pattern.image !== "none" && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    backgroundImage: pattern.image,
+                                    backgroundSize: pattern.size ?? "160px",
+                                    backgroundRepeat: pattern.repeat ?? "repeat",
+                                    backgroundPosition: pattern.position ?? "0 0",
+                                    opacity: previewTheme.bgPatternOpacity ?? 0.25,
+                                    mixBlendMode: "screen",
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <div style={{ display: "grid", gap: 2 }}>
+                              <div style={{ fontWeight: 800 }}>
+                                {p.name}
+                                {p.id === playerId ? " (du)" : ""}
+                              </div>
+                              <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
+                                Viktad procent
+                              </div>
+                            </div>
+                            <div
+                              style={{
+                                fontWeight: 900,
+                                fontSize: 16,
+                                color: percent >= 100 ? "#22c55e" : "inherit",
+                              }}
+                            >
+                              {percent}%
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                 </div>
 
                 {inspectPlayerId ? (
@@ -3738,6 +3953,7 @@ export default function App() {
                     const lastDice = ps?.last_dice ?? [];
                     const lastTarget = ps?.last_target;
                     const player = players.find((p) => p.id === inspectPlayerId);
+                    const isInspectWinner = isProgressWin(prog);
                     const theme = ps?.theme_snapshot ?? null;
                     const inspectSettings = theme
                       ? { ...settings, ...theme, boxSize: "small" }
@@ -3759,9 +3975,34 @@ export default function App() {
                       : {};
                     return (
                       <div style={{ display: "grid", gap: 12 }}>
-                        <div style={{ fontWeight: 800 }}>
-                          {player?.name ?? "Spelare"}
-                          {roomState?.turn_player_id === inspectPlayerId ? " (aktiv)" : ""}
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            color: isInspectWinner ? "#22c55e" : "inherit",
+                          }}
+                        >
+                          <span>
+                            {player?.name ?? "Spelare"}
+                            {roomState?.turn_player_id === inspectPlayerId ? " (aktiv)" : ""}
+                          </span>
+                          {isInspectWinner && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 900,
+                                color: "#22c55e",
+                                border: "1px solid rgba(34,197,94,.6)",
+                                background: "rgba(34,197,94,.12)",
+                                padding: "2px 6px",
+                                borderRadius: 999,
+                              }}
+                            >
+                              100%
+                            </span>
+                          )}
                         </div>
 
                         {hasDice && (

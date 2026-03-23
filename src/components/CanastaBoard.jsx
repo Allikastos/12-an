@@ -1231,7 +1231,7 @@ export default function CanastaBoard({
     const x = clientX - rect.left;
     const dragIdx = orderedHand.findIndex((c) => c.id === dragCardId);
     const centers = orderedHand.map((_, idx) => rect.width / 2 + (idx - handCenter) * handStep);
-    const sideInset = Math.max(10, Math.min(isMobile ? 18 : 28, handStep * 0.45));
+    const sideInset = Math.max(6, Math.min(isMobile ? 10 : 16, handStep * 0.28));
 
     if (x <= centers[0] - sideInset) {
       return { side: "left", targetId: orderedHand[0]?.id ?? null };
@@ -1240,18 +1240,17 @@ export default function CanastaBoard({
       return { side: "right", targetId: orderedHand[orderedHand.length - 1]?.id ?? null };
     }
 
-    let insertionIndex = 0;
-    while (insertionIndex < centers.length && x > centers[insertionIndex]) {
-      insertionIndex += 1;
+    let targetIdx = centers.length - 1;
+    for (let i = 0; i < centers.length - 1; i += 1) {
+      const midpoint = (centers[i] + centers[i + 1]) / 2;
+      if (x < midpoint) {
+        targetIdx = i;
+        break;
+      }
+      targetIdx = i + 1;
     }
 
-    let targetIdx = Math.min(orderedHand.length - 1, insertionIndex);
     if (dragIdx >= 0) {
-      if (insertionIndex > dragIdx) {
-        targetIdx = Math.min(orderedHand.length - 1, insertionIndex);
-      } else {
-        targetIdx = Math.max(0, insertionIndex - 1);
-      }
       if (targetIdx === dragIdx) {
         targetIdx = x >= centers[dragIdx]
           ? Math.min(orderedHand.length - 1, dragIdx + 1)
