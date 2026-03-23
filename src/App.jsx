@@ -343,11 +343,12 @@ export default function App() {
 
   useEffect(() => {
     if (isSolo || !gameStarted) return;
+    if (!isActivePlayer) return;
     if (!hasSignaledWin && isProgressWin(progress)) {
       setHasSignaledWin(true);
       signalWin();
     }
-  }, [progress, isSolo, gameStarted, hasSignaledWin, isMyTurn]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [progress, isSolo, gameStarted, hasSignaledWin, isActivePlayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!gameStarted) {
@@ -525,6 +526,10 @@ export default function App() {
     isBlitzRoom,
   });
   const activeTurnSet = useMemo(() => new Set(activeTurnOrder), [activeTurnOrder]);
+  const isActivePlayer = useMemo(() => {
+    if (!playerId) return false;
+    return activeTurnOrder.includes(playerId);
+  }, [activeTurnOrder, playerId]);
   const summaryById = useMemo(
     () => new Map(playerSummaries.map((summary) => [summary.id, summary])),
     [playerSummaries]
@@ -533,6 +538,38 @@ export default function App() {
     () => new Map(playerStates.map((state) => [state.player_id, state])),
     [playerStates]
   );
+  const inspectThemePreview = useMemo(() => {
+    if (!inspectPlayerId) return null;
+    const theme = playerStateById.get(inspectPlayerId)?.theme_snapshot ?? null;
+    return {
+      bgColor: theme?.bgColor ?? settings.bgColor,
+      bgGlow1: theme?.bgGlow1 ?? settings.bgGlow1,
+      bgGlow2: theme?.bgGlow2 ?? settings.bgGlow2,
+      bgPattern: theme?.bgPattern ?? settings.bgPattern,
+      bgPatternOpacity: theme?.bgPatternOpacity ?? settings.bgPatternOpacity,
+    };
+  }, [inspectPlayerId, playerStateById, settings]);
+  const inspectPattern = useMemo(() => {
+    const key = inspectThemePreview?.bgPattern ?? settings.bgPattern;
+    return BG_PATTERNS[key] ?? BG_PATTERNS.none;
+  }, [inspectThemePreview, settings.bgPattern]);
+  const inspectPatternOpacity =
+    inspectThemePreview?.bgPatternOpacity ?? settings.bgPatternOpacity ?? 0.25;
+  const inspectBackground = useMemo(() => {
+    const base = inspectThemePreview?.bgColor ?? settings.bgColor ?? "#0b1020";
+    const glow1 = inspectThemePreview?.bgGlow1 ?? settings.bgGlow1 ?? "#38bdf8";
+    const glow2 = inspectThemePreview?.bgGlow2 ?? settings.bgGlow2 ?? "#22c55e";
+    return [
+      `radial-gradient(520px 320px at 14% -10%, color-mix(in srgb, ${glow1} 24%, transparent), transparent 60%)`,
+      `radial-gradient(520px 320px at 86% 12%, color-mix(in srgb, ${glow2} 20%, transparent), transparent 65%)`,
+      `linear-gradient(180deg, color-mix(in srgb, ${base} 90%, #020617), ${base})`,
+    ].join(", ");
+  }, [
+    inspectThemePreview,
+    settings.bgColor,
+    settings.bgGlow1,
+    settings.bgGlow2,
+  ]);
 
   const {
     blitzPointsByProfile,
@@ -1317,6 +1354,7 @@ export default function App() {
     const activeOrder = (roomState.turn_order ?? []).filter((id) =>
       players.some((p) => p.id === id)
     );
+    if (!activeOrder.includes(playerId)) return;
     const baseCounts = roomState.round_counts ?? {};
     const finishUntilRound = Math.max(1, baseCounts[playerId] ?? 1);
     let finishUntil = roomState.finish_until_player_id ?? null;
@@ -3818,25 +3856,49 @@ export default function App() {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
-            <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto", background: "rgba(8,12,20,.985)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <h3 style={{ margin: 0 }}>Inspektera</h3>
-                <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowInspect(false)}>
-                  Stäng
-                </Button>
-              </div>
-
-              <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            <Card
+              style={{
+                padding: 18,
+                maxHeight: "82vh",
+                overflow: "auto",
+                position: "relative",
+                background: inspectBackground,
+              }}
+            >
+              {inspectPattern.image !== "none" && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backgroundImage: inspectPattern.image,
+                    backgroundSize: inspectPattern.size ?? "220px",
+                    backgroundRepeat: inspectPattern.repeat ?? "repeat",
+                    backgroundPosition: inspectPattern.position ?? "0 0",
+                    opacity: inspectPatternOpacity,
+                    mixBlendMode: "screen",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+              <div style={{ position: "relative", zIndex: 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                  <div style={{ color: "var(--muted)", fontWeight: 700 }}>Följ aktiv spelare</div>
-                  <Button
-                    variant={followActivePlayer ? "primary" : "ghost"}
-                    onClick={() => setFollowActivePlayer((v) => !v)}
-                    style={{ width: "auto", padding: "8px 10px" }}
-                  >
-                    {followActivePlayer ? "På" : "Av"}
+                  <h3 style={{ margin: 0 }}>Inspektera</h3>
+                  <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowInspect(false)}>
+                    Stäng
                   </Button>
                 </div>
+
+                <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <div style={{ color: "var(--muted)", fontWeight: 700 }}>Följ aktiv spelare</div>
+                    <Button
+                      variant={followActivePlayer ? "primary" : "ghost"}
+                      onClick={() => setFollowActivePlayer((v) => !v)}
+                      style={{ width: "auto", padding: "8px 10px" }}
+                    >
+                      {followActivePlayer ? "På" : "Av"}
+                    </Button>
+                  </div>
 
                 <div
                   style={{
@@ -3967,20 +4029,6 @@ export default function App() {
                     const inspectSettings = theme
                       ? { ...settings, ...theme, boxSize: "small" }
                       : { ...settings, boxSize: "small" };
-                    const previewTheme = {
-                      bgColor: theme?.bgColor ?? settings.bgColor,
-                      bgGlow1: theme?.bgGlow1 ?? settings.bgGlow1,
-                      bgGlow2: theme?.bgGlow2 ?? settings.bgGlow2,
-                      bgPattern: theme?.bgPattern ?? settings.bgPattern,
-                      bgPatternOpacity: theme?.bgPatternOpacity ?? settings.bgPatternOpacity,
-                    };
-                    const previewPattern =
-                      BG_PATTERNS[previewTheme.bgPattern] ??
-                      BG_PATTERNS[settings.bgPattern] ??
-                      BG_PATTERNS.none;
-                    const previewBase = previewTheme.bgColor ?? "#0b1020";
-                    const previewGlow1 = previewTheme.bgGlow1 ?? "#38bdf8";
-                    const previewGlow2 = previewTheme.bgGlow2 ?? "#22c55e";
                     const diceStyle = theme?.diceStyle ?? settings.diceStyle;
                     const hasDice = Array.isArray(lastDice) && lastDice.length === 6;
                     const targetLocks =
@@ -4026,51 +4074,6 @@ export default function App() {
                               100%
                             </span>
                           )}
-                        </div>
-
-                        <div
-                          style={{
-                            position: "relative",
-                            borderRadius: 16,
-                            overflow: "hidden",
-                            border: "1px solid rgba(148,163,184,.28)",
-                            background: [
-                              `radial-gradient(120px 80px at 12% 8%, color-mix(in srgb, ${previewGlow1} 70%, transparent), transparent 70%)`,
-                              `radial-gradient(120px 80px at 88% 12%, color-mix(in srgb, ${previewGlow2} 65%, transparent), transparent 70%)`,
-                              `linear-gradient(180deg, ${previewBase}, color-mix(in srgb, ${previewBase} 70%, #000))`,
-                            ].join(", "),
-                          }}
-                        >
-                          {previewPattern.image !== "none" && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                inset: 0,
-                                backgroundImage: previewPattern.image,
-                                backgroundSize: previewPattern.size ?? "160px",
-                                backgroundRepeat: previewPattern.repeat ?? "repeat",
-                                backgroundPosition: previewPattern.position ?? "0 0",
-                                opacity: previewTheme.bgPatternOpacity ?? 0.25,
-                                mixBlendMode: "screen",
-                              }}
-                            />
-                          )}
-                          <div
-                            style={{
-                              position: "relative",
-                              padding: "10px 12px 12px",
-                              minHeight: 74,
-                              display: "flex",
-                              alignItems: "flex-end",
-                              justifyContent: "space-between",
-                              gap: 10,
-                            }}
-                          >
-                            <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Temabakgrund</div>
-                            <div style={{ color: "rgba(226,232,240,.8)", fontWeight: 700, fontSize: 12 }}>
-                              Viktad: {summaryById.get(inspectPlayerId)?.percent ?? 0}%
-                            </div>
-                          </div>
                         </div>
 
                         {hasDice && (
@@ -4121,6 +4124,7 @@ export default function App() {
                   <div style={{ color: "var(--muted)" }}>Inga spelare.</div>
                 )}
               </div>
+            </div>
             </Card>
           </div>
         </div>

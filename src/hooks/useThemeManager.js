@@ -263,45 +263,10 @@ export function useThemeManager({
   useEffect(() => {
     if (!isKingReady) return;
     const currentTheme = themes.find((theme) => (theme.key ?? theme.name) === settings.themeKey);
-    if (!currentTheme || isThemeLocked(currentTheme)) {
-      const fallback = themes.find((theme) => theme.key === "Standard");
-      if (fallback) applyTheme(fallback);
-    }
-  }, [isKingReady, settings.themeKey, themes, applyTheme, isThemeLocked]);
-
-  useEffect(() => {
-    if (!isKingReady) return;
-    if (UNLOCK_KING_FOR_PREVIEW) return;
-    if (isKing) return;
-    const kingOnly = {
-      themeKey: settings.themeKey === "King" ? "Standard" : settings.themeKey,
-      bgPattern: settings.bgPattern === "royal" ? "none" : settings.bgPattern,
-      diceStyle: settings.diceStyle === "king" ? "classic" : settings.diceStyle,
-      buttonIcon: settings.buttonIcon === "crown-outline" ? "" : settings.buttonIcon,
-    };
-    if (
-      kingOnly.themeKey !== settings.themeKey ||
-      kingOnly.bgPattern !== settings.bgPattern ||
-      kingOnly.diceStyle !== settings.diceStyle ||
-      kingOnly.buttonIcon !== settings.buttonIcon
-    ) {
-      setSettings((s) => ({
-        ...s,
-        themeKey: kingOnly.themeKey,
-        bgPattern: kingOnly.bgPattern,
-        diceStyle: kingOnly.diceStyle,
-        buttonIcon: kingOnly.buttonIcon,
-      }));
-    }
-  }, [
-    isKing,
-    isKingReady,
-    settings.themeKey,
-    settings.bgPattern,
-    settings.diceStyle,
-    settings.buttonIcon,
-    setSettings,
-  ]);
+    if (currentTheme) return;
+    const fallback = themes.find((theme) => theme.key === "Standard");
+    if (fallback) applyTheme(fallback);
+  }, [isKingReady, settings.themeKey, themes, applyTheme]);
 
   return {
     themes,
