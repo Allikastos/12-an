@@ -342,15 +342,6 @@ export default function App() {
   }, [progress, progressStorageKey]);
 
   useEffect(() => {
-    if (isSolo || !gameStarted) return;
-    if (!isActivePlayer) return;
-    if (!hasSignaledWin && isProgressWin(progress)) {
-      setHasSignaledWin(true);
-      signalWin();
-    }
-  }, [progress, isSolo, gameStarted, hasSignaledWin, isActivePlayer]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
     if (!gameStarted) {
       setHasSignaledWin(false);
     }
@@ -530,6 +521,14 @@ export default function App() {
     if (!playerId) return false;
     return activeTurnOrder.includes(playerId);
   }, [activeTurnOrder, playerId]);
+  useEffect(() => {
+    if (isSolo || !gameStarted) return;
+    if (!isActivePlayer) return;
+    if (!hasSignaledWin && isProgressWin(progress)) {
+      setHasSignaledWin(true);
+      signalWin();
+    }
+  }, [progress, isSolo, gameStarted, hasSignaledWin, isActivePlayer]); // eslint-disable-line react-hooks/exhaustive-deps
   const summaryById = useMemo(
     () => new Map(playerSummaries.map((summary) => [summary.id, summary])),
     [playerSummaries]
