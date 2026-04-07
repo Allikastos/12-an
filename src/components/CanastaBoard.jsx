@@ -48,13 +48,10 @@ function rankLabel(rank) {
 }
 
 function handSortWeight(card) {
-  if (card.joker) return 0;
-  if (card.rank === 2) return 1;
-  if (card.rank === 1) return 2;
-  if (card.rank === 13) return 3;
-  if (card.rank === 12) return 4;
-  if (card.rank === 11) return 5;
-  return 20 + Number(card.rank || 0);
+  if (card.joker) return 14;
+  if (card.rank === 1) return 12;
+  if (card.rank === 2) return 13;
+  return Number(card.rank || 0);
 }
 
 function suitSortWeight(card) {
