@@ -166,6 +166,16 @@ function updateTotalsAfterRound(state, totals) {
   return state.players.map((player) => nextByTeam[player.teamId] ?? 0);
 }
 
+function getMatchWinnerTeamId(state, totals, targetScore) {
+  if (!state?.players?.length) return null;
+  const teamIds = [...new Set(state.players.map((player) => player.teamId))];
+  const qualified = teamIds.filter((teamId) => getTeamTotalFromTotals(state, totals, teamId) >= Number(targetScore || 0));
+  if (qualified.length === 0) return null;
+  return qualified.sort(
+    (a, b) => getTeamTotalFromTotals(state, totals, b) - getTeamTotalFromTotals(state, totals, a)
+  )[0];
+}
+
 function drawOneWithRedThreeRule(state, playerIndex) {
   const stock = [...state.stock];
   const players = state.players.map((p) => ({ ...p, hand: [...p.hand], redThrees: [...p.redThrees] }));
@@ -1186,6 +1196,7 @@ export default function CanastaBoard({
   const [inactiveFlash, setInactiveFlash] = useState(false);
   const [roundLeaderboardPoints, setRoundLeaderboardPoints] = useState(null);
   const [roundResult, setRoundResult] = useState(null);
+  const [nextRoundCountdown, setNextRoundCountdown] = useState(null);
   const [transitioningToGame, setTransitioningToGame] = useState(false);
   const [lobbyStatus, setLobbyStatus] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
@@ -1204,6 +1215,8 @@ export default function CanastaBoard({
   const roundScoreAppliedRef = useRef(false);
   const startTransitionTimerRef = useRef(null);
   const lobbyStatusTimerRef = useRef(null);
+  const nextRoundTimerRef = useRef(null);
+  const nextRoundIntervalRef = useRef(null);
   const previousLobbyIdsRef = useRef([]);
   const previousLobbyConfigRef = useRef({ mode: null, targetScore: null });
   const canastaMatchSyncRef = useRef("");
@@ -1275,6 +1288,7 @@ export default function CanastaBoard({
         (!activeSeatPlayerId && localSeatPlayerId && game.turnIndex === localPlayerIndex))
   );
   const canSortHand = !game?.roundEnded;
+  const handReorderEnabled = canSortHand && (!isMobile || mobileSortMode);
   const standardThemes = useMemo(
     () => themes.filter((theme) => (theme.category ?? "standard") === "standard"),
     [themes]
@@ -1581,6 +1595,28 @@ export default function CanastaBoard({
     }, 850);
   }
 
+  function startNextRound() {
+    if (!isHost || !game?.roundEnded) return;
+    const playersConfig = game.players.map((player, idx) => ({
+      name: player.name?.trim() || (player.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`),
+      isBot: Boolean(player.isBot),
+    }));
+    const next = makeGame({ names: playersConfig.map((player) => player.name), mode: game.mode, playersConfig });
+    pointsAwardedRef.current = false;
+    roundScoreAppliedRef.current = false;
+    setRoundLeaderboardPoints(null);
+    setRoundResult(null);
+    setNextRoundCountdown(null);
+    setSelectedIds([]);
+    setHandOrder([]);
+    setMobileSortMode(false);
+    setMeldPlan(null);
+    setExpandedTeamId(null);
+    setTurnFlash(false);
+    setInactiveFlash(false);
+    setGame(next);
+  }
+
   function addBotToLobby() {
     if (typeof onAddBot === "function") {
       onAddBot();
@@ -1637,6 +1673,8 @@ export default function CanastaBoard({
     () => () => {
       if (startTransitionTimerRef.current) clearTimeout(startTransitionTimerRef.current);
       if (lobbyStatusTimerRef.current) clearTimeout(lobbyStatusTimerRef.current);
+      if (nextRoundTimerRef.current) clearTimeout(nextRoundTimerRef.current);
+      if (nextRoundIntervalRef.current) clearInterval(nextRoundIntervalRef.current);
     },
     []
   );
@@ -1688,6 +1726,20 @@ export default function CanastaBoard({
     setHoverCardId(null);
     setHandDropSide(null);
   }, [orderedHand]);
+
+  function toggleMobileSortMode() {
+    if (!isMobile || !canSortHand) return;
+    setMobileSortMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        setDragCardId(null);
+        setHoverCardId(null);
+        setHandDropSide(null);
+        suppressTapRef.current = false;
+      }
+      return next;
+    });
+  }
 
   function tryDiscardSelected() {
     if (!game || !isMyTurn || isBotTurn || game.phase !== "discard" || game.roundEnded) return;
@@ -1795,6 +1847,7 @@ export default function CanastaBoard({
       roundScoreAppliedRef.current = false;
       setRoundLeaderboardPoints(null);
       setRoundResult(null);
+      setNextRoundCountdown(null);
       return;
     }
 
@@ -1826,6 +1879,46 @@ export default function CanastaBoard({
       onLeaderboardPointsAwarded(payload);
     }
   }, [game, onLeaderboardPointsAwarded, targetScore, canAuthorMatchUpdate]);
+
+  useEffect(() => {
+    if (!game?.roundEnded || !isHost) {
+      setNextRoundCountdown(null);
+      if (nextRoundTimerRef.current) clearTimeout(nextRoundTimerRef.current);
+      if (nextRoundIntervalRef.current) clearInterval(nextRoundIntervalRef.current);
+      return;
+    }
+
+    const winnerTeamId = getMatchWinnerTeamId(game, totals, targetScore);
+    if (winnerTeamId) {
+      setNextRoundCountdown(null);
+      if (nextRoundTimerRef.current) clearTimeout(nextRoundTimerRef.current);
+      if (nextRoundIntervalRef.current) clearInterval(nextRoundIntervalRef.current);
+      return;
+    }
+
+    const durationSeconds = 15;
+    setNextRoundCountdown(durationSeconds);
+
+    if (nextRoundTimerRef.current) clearTimeout(nextRoundTimerRef.current);
+    if (nextRoundIntervalRef.current) clearInterval(nextRoundIntervalRef.current);
+
+    nextRoundIntervalRef.current = setInterval(() => {
+      setNextRoundCountdown((prev) => {
+        if (prev == null) return prev;
+        return prev > 0 ? prev - 1 : 0;
+      });
+    }, 1000);
+
+    nextRoundTimerRef.current = setTimeout(() => {
+      if (nextRoundIntervalRef.current) clearInterval(nextRoundIntervalRef.current);
+      startNextRound();
+    }, durationSeconds * 1000);
+
+    return () => {
+      if (nextRoundTimerRef.current) clearTimeout(nextRoundTimerRef.current);
+      if (nextRoundIntervalRef.current) clearInterval(nextRoundIntervalRef.current);
+    };
+  }, [game, totals, targetScore, isHost]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -2453,6 +2546,12 @@ export default function CanastaBoard({
     ids.map((id) => selectedForPlan.find((c) => c.id === id)).filter(Boolean)
   );
   const expandedTeam = expandedTeamId ? teamZones.find((z) => z.teamId === expandedTeamId) ?? null : null;
+  const matchWinnerTeamId = game?.roundEnded ? getMatchWinnerTeamId(game, totals, targetScore) : null;
+  const matchWinnerLabel = matchWinnerTeamId
+    ? teamZones.find((zone) => zone.teamId === matchWinnerTeamId)?.label ??
+      game.players.find((player) => player.teamId === matchWinnerTeamId)?.name ??
+      matchWinnerTeamId
+    : null;
 
   return (
     <Card style={{ padding: 14, display: "grid", gap: 10 }}>
@@ -2519,11 +2618,45 @@ export default function CanastaBoard({
                 .join(" • ")}
             </span>
           ) : null}
+          {roundResult ? (
+            <span style={{ display: "block", marginTop: 6 }}>
+              Nya totaler:{" "}
+              {Object.entries(roundResult.scoresByTeam)
+                .map(([teamId]) => {
+                  const label =
+                    teamZones.find((zone) => zone.teamId === teamId)?.label ??
+                    game.players.find((p) => p.teamId === teamId)?.name ??
+                    teamId;
+                  const total = getTeamTotalFromTotals(game, totals, teamId);
+                  return `${label} ${total >= 0 ? "" : "-"}${Math.abs(total).toLocaleString("sv-SE")}`;
+                })
+                .join(" • ")}
+            </span>
+          ) : null}
           {roundLeaderboardPoints ? (
             <span style={{ display: "block", marginTop: 6 }}>
               Leaderboardpoäng: +{roundLeaderboardPoints.points} ({roundLeaderboardPoints.humans} vinnande spelare ×4
               {roundLeaderboardPoints.bots > 0 ? `, ${roundLeaderboardPoints.bots} vinnande bottar ×1` : ""})
             </span>
+          ) : null}
+          {matchWinnerLabel ? (
+            <span style={{ display: "block", marginTop: 6 }}>
+              Matchvinnare: {matchWinnerLabel} nådde {targetScore.toLocaleString("sv-SE")} poäng.
+            </span>
+          ) : null}
+          {!matchWinnerTeamId && nextRoundCountdown != null ? (
+            <span style={{ display: "block", marginTop: 8 }}>
+              Nästa hand startar om {nextRoundCountdown} s.
+            </span>
+          ) : null}
+          {matchWinnerTeamId ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              {isHost && (
+              <Button onClick={startNextRound} style={{ width: "auto" }}>
+                Spela ny rond ändå
+              </Button>
+              )}
+            </div>
           ) : null}
         </div>
       )}
@@ -2837,19 +2970,40 @@ export default function CanastaBoard({
             <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Klicka för markering • Dra för ordning • Släng via slänghög</div>
           </div>
         )}
-        {isMobile ? <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 12 }}>Tryck och dra direkt för att sortera korten.</div> : null}
+        {isMobile ? (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 12 }}>
+              {mobileSortMode ? "Sorteringsläge aktivt: dra korten till ny plats." : "Tryck för att markera kort. Slå på sortering för att flytta dem."}
+            </div>
+            <Button
+              variant={mobileSortMode ? "primary" : "ghost"}
+              onClick={toggleMobileSortMode}
+              disabled={!canSortHand}
+              style={{ width: "auto", padding: "8px 10px", flexShrink: 0 }}
+            >
+              {mobileSortMode ? "Klar" : "Sortera kort"}
+            </Button>
+          </div>
+        ) : null}
 
         <div
           ref={handAreaRef}
-          style={{ position: "relative", height: handAreaHeight, touchAction: isMobile ? "none" : "auto" }}
+          style={{
+            position: "relative",
+            height: handAreaHeight,
+            touchAction: isMobile ? "none" : "auto",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            WebkitTouchCallout: "none",
+          }}
           onPointerMove={(e) => {
-            if (!isMobile || !dragCardId || !canSortHand) return;
+            if (!isMobile || !dragCardId || !handReorderEnabled) return;
             const resolved = resolveHandDropTarget(e.clientX);
             setHandDropSide(resolved.side);
             setHoverCardId(resolved.side ? null : resolved.targetId);
           }}
           onDragOver={(e) => {
-            if (!canSortHand) return;
+            if (!handReorderEnabled) return;
             e.preventDefault();
             const resolved = resolveHandDropTarget(e.clientX);
             setHandDropSide(resolved.side);
@@ -2857,7 +3011,7 @@ export default function CanastaBoard({
           }}
           onDragLeave={() => setHandDropSide(null)}
           onDrop={(e) => {
-            if (!canSortHand) return;
+            if (!handReorderEnabled) return;
             e.preventDefault();
             const fromId = e.dataTransfer.getData("text/plain") || dragCardId;
             if (!fromId || orderedHand.length < 2) return;
@@ -2907,9 +3061,9 @@ export default function CanastaBoard({
                   }
                   toggleSelect(c.id);
                 }}
-                draggable={canSortHand}
+                draggable={handReorderEnabled}
                 onPointerDown={(e) => {
-                  if (!isMobile || !canSortHand) return;
+                  if (!isMobile || !handReorderEnabled) return;
                   if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                   pointerStartRef.current = { x: e.clientX, y: e.clientY };
                   pressedCardIdRef.current = c.id;
@@ -2919,15 +3073,15 @@ export default function CanastaBoard({
                     setDragCardId(c.id);
                     setHoverCardId(c.id);
                     setHandDropSide(null);
-                  }, 90);
+                  }, 180);
                 }}
                 onPointerMove={(e) => {
-                  if (!isMobile || !canSortHand || dragCardId || pressedCardIdRef.current !== c.id) return;
+                  if (!isMobile || !handReorderEnabled || dragCardId || pressedCardIdRef.current !== c.id) return;
                   const start = pointerStartRef.current;
                   if (!start) return;
                   const dx = e.clientX - start.x;
                   const dy = e.clientY - start.y;
-                  if (Math.hypot(dx, dy) < 8) return;
+                  if (Math.hypot(dx, dy) < 14) return;
                   if (longPressTimerRef.current) {
                     clearTimeout(longPressTimerRef.current);
                     longPressTimerRef.current = null;
@@ -2972,13 +3126,13 @@ export default function CanastaBoard({
                   suppressTapRef.current = false;
                 }}
                 onDragOver={(e) => {
-                  if (!canSortHand) return;
+                  if (!handReorderEnabled) return;
                   e.preventDefault();
                   if (handDropSide) setHandDropSide(null);
                   if (hoverCardId !== c.id) setHoverCardId(c.id);
                 }}
                 onDrop={(e) => {
-                  if (!canSortHand) return;
+                  if (!handReorderEnabled) return;
                   e.preventDefault();
                   e.stopPropagation();
                   const fromId = e.dataTransfer.getData("text/plain") || dragCardId;
@@ -3004,13 +3158,16 @@ export default function CanastaBoard({
                   fontWeight: 900,
                   fontSize: 13,
                   zIndex: 120 + i,
-                  cursor: canSortHand ? "grab" : "not-allowed",
+                  cursor: handReorderEnabled ? "grab" : "pointer",
                   opacity: canSortHand ? 1 : 0.72,
                   boxShadow: selected
                     ? "0 0 0 1px rgba(103,232,249,.45), 0 12px 20px rgba(2,6,23,.42), inset 0 1px 0 rgba(255,255,255,.8)"
                     : "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.78)",
                   padding: 3,
                   transition: "left .14s ease, bottom .14s ease, transform .14s ease, border-color .12s ease",
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  WebkitTouchCallout: "none",
                 }}
               >
                 <CanastaFace card={c} />
