@@ -47,6 +47,35 @@ function rankLabel(rank) {
   return String(rank);
 }
 
+function handSortWeight(card) {
+  if (card.joker) return 0;
+  if (card.rank === 2) return 1;
+  if (card.rank === 1) return 2;
+  if (card.rank === 13) return 3;
+  if (card.rank === 12) return 4;
+  if (card.rank === 11) return 5;
+  return 20 + Number(card.rank || 0);
+}
+
+function suitSortWeight(card) {
+  if (card.joker) return 0;
+  if (card.suit === "spades") return 0;
+  if (card.suit === "hearts") return 1;
+  if (card.suit === "diamonds") return 2;
+  if (card.suit === "clubs") return 3;
+  return 4;
+}
+
+function sortHandCards(cards) {
+  return [...(cards ?? [])].sort((a, b) => {
+    const rankDiff = handSortWeight(a) - handSortWeight(b);
+    if (rankDiff !== 0) return rankDiff;
+    const suitDiff = suitSortWeight(a) - suitSortWeight(b);
+    if (suitDiff !== 0) return suitDiff;
+    return String(a.id).localeCompare(String(b.id));
+  });
+}
+
 function cardLabel(card) {
   if (!card) return "—";
   if (card.joker) return "Joker ★";
@@ -1311,6 +1340,7 @@ export default function CanastaBoard({
   const [hoverCardId, setHoverCardId] = useState(null);
   const [handDropSide, setHandDropSide] = useState(null);
   const [mobileSortMode, setMobileSortMode] = useState(false);
+  const [recentDrawnIds, setRecentDrawnIds] = useState([]);
   const [meldPlan, setMeldPlan] = useState(null);
   const [expandedTeamId, setExpandedTeamId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1346,6 +1376,7 @@ export default function CanastaBoard({
   const previousLobbyConfigRef = useRef({ mode: null, targetScore: null });
   const canastaMatchSyncRef = useRef("");
   const canastaMatchVersionRef = useRef(0);
+  const prevHandIdsRef = useRef([]);
 
   const canastaStorageKey = useMemo(() => {
     if (!roomCode) return null;
@@ -1956,6 +1987,9 @@ export default function CanastaBoard({
     setMeldPlan(null);
     setHandOrder((prev) => {
       const currentIds = myPlayer.hand.map((c) => c.id);
+      if (isMobile && !mobileSortMode) {
+        return sortHandCards(myPlayer.hand).map((card) => card.id);
+      }
       const keep = prev.filter((id) => currentIds.includes(id));
       const missing = currentIds.filter((id) => !keep.includes(id));
       return [...keep, ...missing];
@@ -1964,7 +1998,27 @@ export default function CanastaBoard({
     setDragCardId(null);
     setHoverCardId(null);
     setHandDropSide(null);
-  }, [myPlayer]);
+  }, [myPlayer, isMobile, mobileSortMode]);
+
+  useEffect(() => {
+    if (!myPlayer) {
+      prevHandIdsRef.current = [];
+      setRecentDrawnIds([]);
+      return;
+    }
+    const currentIds = myPlayer.hand.map((card) => card.id);
+    const previousIds = prevHandIdsRef.current;
+    if (previousIds.length === 0) {
+      setRecentDrawnIds([]);
+    } else if (isMyTurn && game?.phase === "discard" && currentIds.length > previousIds.length) {
+      setRecentDrawnIds(currentIds.filter((id) => !previousIds.includes(id)));
+    } else if (!isMyTurn || game?.phase !== "discard") {
+      setRecentDrawnIds([]);
+    } else {
+      setRecentDrawnIds((prev) => prev.filter((id) => currentIds.includes(id)));
+    }
+    prevHandIdsRef.current = currentIds;
+  }, [myPlayer, game?.phase, isMyTurn]);
 
   useEffect(() => {
     if (!game?.roundEnded) {
@@ -3096,17 +3150,14 @@ export default function CanastaBoard({
           </div>
         )}
         {isMobile ? (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div style={{ color: "#93c5fd", fontWeight: 700, fontSize: 12 }}>
-              {mobileSortMode ? "Sorteringsläge aktivt: dra korten till ny plats." : "Tryck för att markera kort. Slå på sortering för att flytta dem."}
-            </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
             <Button
               variant={mobileSortMode ? "primary" : "ghost"}
               onClick={toggleMobileSortMode}
               disabled={!canSortHand}
               style={{ width: "auto", padding: "8px 10px", flexShrink: 0 }}
             >
-              {mobileSortMode ? "Klar" : "Sortera kort"}
+              {mobileSortMode ? "Automatisk sortering" : "Sortera manuellt"}
             </Button>
           </div>
         ) : null}
@@ -3169,6 +3220,7 @@ export default function CanastaBoard({
           )}
           {orderedHand.map((c, i) => {
             const selected = selectedIds.includes(c.id);
+            const recentlyDrawn = recentDrawnIds.includes(c.id);
             const prevSelected = i > 0 && selectedIds.includes(orderedHand[i - 1]?.id);
             const nextSelected = i < orderedHand.length - 1 && selectedIds.includes(orderedHand[i + 1]?.id);
             const offset = handOffsetAt(i);
@@ -3278,7 +3330,7 @@ export default function CanastaBoard({
                     : selected
                       ? "2px solid #67e8f9"
                       : "1px solid rgba(15,23,42,.3)",
-                  background: "#fffdf8",
+                  background: recentlyDrawn ? "#efe8d4" : "#fffdf8",
                   color: "#0f172a",
                   fontWeight: 900,
                   fontSize: 13,
@@ -3287,9 +3339,11 @@ export default function CanastaBoard({
                   opacity: canSortHand ? 1 : 0.72,
                   boxShadow: selected
                     ? "0 0 0 1px rgba(103,232,249,.45), 0 12px 20px rgba(2,6,23,.42), inset 0 1px 0 rgba(255,255,255,.8)"
+                    : recentlyDrawn
+                    ? "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 999px rgba(15,23,42,.06)"
                     : "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.78)",
                   padding: 3,
-                  transition: "left .14s ease, bottom .14s ease, transform .14s ease, border-color .12s ease",
+                  transition: "left .14s ease, bottom .14s ease, transform .14s ease, border-color .12s ease, background .16s ease, box-shadow .16s ease",
                   userSelect: "none",
                   WebkitUserSelect: "none",
                   WebkitTouchCallout: "none",
