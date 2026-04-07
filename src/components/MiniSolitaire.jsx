@@ -517,7 +517,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     color: "#cbd5e1",
                   }}
                 >
-                  {stats.currentStreak > 0 ? `Streak: ${stats.currentStreak}` : `Klarat: ${stats.wins}`}
+                  {`Streak: ${stats.currentStreak}`}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
