@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HARPAN_WINS_KEY, writeHarpanWins } from "../lib/harpanProgress";
+import {
+  readHarpanStats,
+  recordHarpanWin,
+  resetHarpanStreak,
+} from "../lib/harpanProgress";
 
 const SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const CARD_WIDTH = "clamp(34px, 11vw, 72px)";
@@ -206,14 +210,9 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
     return new URLSearchParams(window.location.search).get("harpan") === "1";
   });
   const [showRules, setShowRules] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [openSignal, setOpenSignal] = useState(0);
-  const [winsCount, setWinsCount] = useState(() => {
-    try {
-      return Number(localStorage.getItem(HARPAN_WINS_KEY) || 0);
-    } catch {
-      return 0;
-    }
-  });
+  const [stats, setStats] = useState(() => readHarpanStats());
   const [game, setGame] = useState(() => loadSavedGame() ?? initGame());
   const [selected, setSelected] = useState(null);
   const [notice, setNotice] = useState("Klicka på ♠ för att öppna Harpan.");
@@ -250,15 +249,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
     }
     if (!prevWonRef.current && won) {
       const id = setTimeout(() => {
-        setWinsCount((prev) => {
-          const next = prev + 1;
-          try {
-            writeHarpanWins(next);
-          } catch {
-            // ignore persistence issues
-          }
-          return next;
-        });
+        setStats(recordHarpanWin());
       }, 0);
       prevWonRef.current = won;
       return () => clearTimeout(id);
@@ -292,6 +283,12 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
   }
 
   function restartGame() {
+    if (!won) {
+      setStats((prev) => {
+        if (prev.currentStreak === 0) return prev;
+        return resetHarpanStreak();
+      });
+    }
     setGame(initGame());
     setSelected(null);
     prevWonRef.current = false;
@@ -340,6 +337,7 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
         const foundations = { ...prev.foundations, [suitKey]: [...foundationPile, card] };
         return { ...prev, tableau: nextTableau, foundations };
       }
+      if (selected.type === "foundation") return prev;
       return prev;
     });
     clearSelection();
@@ -376,9 +374,35 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
         }
         return { ...prev, tableau: nextTableau };
       }
+      if (selected.type === "foundation") {
+        const source = prev.foundations[selected.suit];
+        const card = source[source.length - 1];
+        if (!card) return prev;
+        if (!canPlaceOnTableau(card, targetPile)) return prev;
+        const foundations = { ...prev.foundations, [selected.suit]: source.slice(0, -1) };
+        const nextTableau = prev.tableau.map((pile, i) =>
+          i === targetPileIndex ? [...pile, { ...card, faceUp: true }] : [...pile]
+        );
+        return { ...prev, foundations, tableau: nextTableau };
+      }
       return prev;
     });
     clearSelection();
+  }
+
+  function handleFoundationClick(suitKey) {
+    const pile = game.foundations[suitKey];
+    const top = pile[pile.length - 1];
+    if (selected) {
+      if (selected.type === "foundation" && selected.suit === suitKey) {
+        clearSelection();
+        return;
+      }
+      tryMoveSelectedToFoundation(suitKey);
+      return;
+    }
+    if (!top) return;
+    setSelected({ type: "foundation", suit: suitKey });
   }
 
   function handleTableauCardClick(pileIndex, cardIndex) {
@@ -493,10 +517,26 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     color: "#cbd5e1",
                   }}
                 >
-                  Klarat: {winsCount}
+                  {stats.currentStreak > 0 ? `Streak: ${stats.currentStreak}` : `Klarat: ${stats.wins}`}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowStats(true)}
+                  title="Statistik"
+                  style={{
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,.35)",
+                    background: "rgba(15,23,42,.85)",
+                    color: "#e2e8f0",
+                    fontWeight: 700,
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Statistik
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowRules(true)}
@@ -632,17 +672,21 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
 
               {SUITS.map((suit) => {
                 const top = game.foundations[suit][game.foundations[suit].length - 1];
+                const isSelected =
+                  selected?.type === "foundation" && selected.suit === suit;
                 return (
                   <button
                     key={suit}
                     type="button"
-                    onClick={() => tryMoveSelectedToFoundation(suit)}
+                    onClick={() => handleFoundationClick(suit)}
                     style={{
                       width: CARD_WIDTH,
                       height: CARD_HEIGHT,
                       justifySelf: "end",
                       borderRadius: 12,
-                      border: "1px solid rgba(15,23,42,.35)",
+                      border: isSelected
+                        ? "2px solid #67e8f9"
+                        : "1px solid rgba(15,23,42,.35)",
                       background: top
                         ? "linear-gradient(180deg, #ffffff, #f8fafc)"
                         : "rgba(2,6,23,.75)",
@@ -650,9 +694,17 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                       fontWeight: 900,
                       fontSize: top ? 22 : 20,
                       cursor: "pointer",
-                      boxShadow: top ? "0 3px 8px rgba(2,6,23,.16)" : "none",
+                      boxShadow: top
+                        ? isSelected
+                          ? "0 0 0 1px rgba(103,232,249,.4), 0 3px 8px rgba(2,6,23,.16)"
+                          : "0 3px 8px rgba(2,6,23,.16)"
+                        : "none",
                     }}
-                    title={`Esshög ${SUIT_SYMBOL[suit]}`}
+                    title={
+                      top
+                        ? `Esshög ${SUIT_SYMBOL[suit]} - klicka för att välja översta kortet`
+                        : `Esshög ${SUIT_SYMBOL[suit]}`
+                    }
                   >
                     {top ? (
                       <div style={{ display: "grid", gridTemplateRows: "1fr auto 1fr", alignItems: "start" }}>
@@ -805,6 +857,88 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     Dra kort från högen till vänster, flytta kort mellan kolumner i fallande ordning
                     och med växlande färg (röd/svart). Endast kung får flyttas till en tom kolumn.
                     Kort i esshögar byggs upp i samma färg.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showStats && (
+              <div
+                onClick={() => setShowStats(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,.62)",
+                  display: "grid",
+                  placeItems: "center",
+                  padding: 12,
+                  zIndex: 96,
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: "min(460px, 100%)",
+                    borderRadius: 14,
+                    border: "1px solid rgba(148,163,184,.35)",
+                    background: "rgba(8,12,20,.98)",
+                    padding: 14,
+                    display: "grid",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontWeight: 900 }}>Statistik - Harpan</div>
+                    <button
+                      type="button"
+                      onClick={() => setShowStats(false)}
+                      style={{
+                        borderRadius: 10,
+                        border: "1px solid rgba(148,163,184,.35)",
+                        background: "rgba(15,23,42,.85)",
+                        color: "#e2e8f0",
+                        fontWeight: 700,
+                        padding: "6px 10px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Stäng
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    {[
+                      { label: "Nuvarande streak", value: stats.currentStreak },
+                      { label: "Bästa streak", value: stats.bestStreak },
+                      { label: "Totala vinster", value: stats.wins },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        style={{
+                          borderRadius: 12,
+                          border: "1px solid rgba(148,163,184,.25)",
+                          background: "rgba(15,23,42,.5)",
+                          padding: "12px 10px",
+                          display: "grid",
+                          gap: 6,
+                        }}
+                      >
+                        <div style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
+                          {item.label}
+                        </div>
+                        <div style={{ color: "#f8fafc", fontSize: 22, fontWeight: 900 }}>
+                          {item.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.45, fontWeight: 650 }}>
+                    Du kan nu klicka på ett översta kort i esshögarna och flytta tillbaka det till en giltig kolumn om du vill ångra ett drag.
                   </div>
                 </div>
               </div>
