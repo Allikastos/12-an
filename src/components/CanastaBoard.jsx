@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
 
 const MOBILE_QUERY = "(max-width: 1024px), (pointer: coarse)";
 
@@ -81,6 +80,90 @@ function openingRequirement(total) {
   if (total < 3000) return 90;
   if (total < 5000) return 120;
   return "canasta";
+}
+
+function getTeamTotalFromTotals(state, totals, teamId) {
+  if (!state?.players?.length || !teamId) return 0;
+  return state.players.reduce((best, player, index) => {
+    if (player.teamId !== teamId) return best;
+    return Math.max(best, Number(totals?.[index] || 0));
+  }, 0);
+}
+
+function getPlayerOpeningTotal(state, totals, playerIndex) {
+  if (!state?.players?.length) return 0;
+  if (state.mode === "single") return Number(totals?.[playerIndex] || 0);
+  const teamId = state.players[playerIndex]?.teamId;
+  return getTeamTotalFromTotals(state, totals, teamId);
+}
+
+function findExistingNaturalMeld(team, rank) {
+  return team?.melds?.find((meld) => meld.rank === rank && meld.rank !== 0) ?? null;
+}
+
+function meldBonus(meld) {
+  if (!meld || (meld.cards?.length ?? 0) < 7) return 0;
+  if (meld.rank === 0) return 1000;
+  const wildCount = meld.cards.filter((card) => isWild(card)).length;
+  return wildCount > 0 ? 300 : 500;
+}
+
+function sumCardPoints(cards) {
+  return (cards ?? []).reduce((acc, card) => acc + cardPoints(card), 0);
+}
+
+function redThreeBonus(count, hasQualifiedMeld) {
+  if (!count) return 0;
+  const base = count * 100 + (count === 4 ? 400 : 0);
+  return hasQualifiedMeld ? base : -base;
+}
+
+function computeRoundScore(state, teamId, wentOut = false) {
+  const team = state?.teams?.[teamId];
+  const teamPlayers = state?.players?.filter((player) => player.teamId === teamId) ?? [];
+  const meldPoints = (team?.melds ?? []).reduce((acc, meld) => acc + sumCardPoints(meld.cards), 0);
+  const meldBonuses = (team?.melds ?? []).reduce((acc, meld) => acc + meldBonus(meld), 0);
+  const handPenalty = teamPlayers.reduce((acc, player) => acc + sumCardPoints(player.hand), 0);
+  const redThreeCount = teamPlayers.reduce((acc, player) => acc + (player.redThrees?.length ?? 0), 0);
+  const hasQualifiedMeld = Boolean((team?.melds?.length ?? 0) > 0);
+  return (
+    meldPoints +
+    meldBonuses +
+    redThreeBonus(redThreeCount, hasQualifiedMeld) +
+    (wentOut ? 100 : 0) -
+    handPenalty
+  );
+}
+
+function computeRoundResults(state) {
+  if (!state?.players?.length) return { scoresByTeam: {}, winnerTeamId: null };
+  const scoresByTeam = {};
+  const teamIds = [...new Set(state.players.map((player) => player.teamId))];
+  for (const teamId of teamIds) {
+    scoresByTeam[teamId] = computeRoundScore(state, teamId, state.winnerTeamId === teamId);
+  }
+  const winnerTeamId =
+    state.winnerTeamId ??
+    teamIds.sort((a, b) => (scoresByTeam[b] ?? 0) - (scoresByTeam[a] ?? 0))[0] ??
+    null;
+  return { scoresByTeam, winnerTeamId };
+}
+
+function updateTotalsAfterRound(state, totals) {
+  if (!state?.players?.length) return totals;
+  const { scoresByTeam } = computeRoundResults(state);
+  const previous = Array.isArray(totals) ? [...totals] : [];
+  if (state.mode === "single") {
+    return state.players.map((player, index) => Number(previous[index] || 0) + Number(scoresByTeam[player.teamId] || 0));
+  }
+
+  const nextByTeam = {};
+  for (const player of state.players) {
+    if (nextByTeam[player.teamId] != null) continue;
+    nextByTeam[player.teamId] =
+      getTeamTotalFromTotals(state, previous, player.teamId) + Number(scoresByTeam[player.teamId] || 0);
+  }
+  return state.players.map((player) => nextByTeam[player.teamId] ?? 0);
 }
 
 function drawOneWithRedThreeRule(state, playerIndex) {
@@ -519,6 +602,7 @@ function makeGame({ names, mode, playersConfig = null }) {
     mode,
     stock,
     discard: [],
+    discardFrozen: false,
     players,
     teams,
     turnIndex: 0,
@@ -540,6 +624,7 @@ function makeGame({ names, mode, playersConfig = null }) {
     state.stock = state.stock.slice(0, -1);
     if (!isRedThree(top)) {
       state.discard = [top];
+      state.discardFrozen = isWild(top) || isBlackThree(top);
       break;
     }
   }
@@ -570,32 +655,83 @@ function drawTwoState(state) {
   return { ...next, phase: "discard", notice: `${next.players[next.turnIndex].name} drog 2 kort.` };
 }
 
-function canTakeDiscard(state) {
+function getDiscardPickupSelection(state, totals = []) {
+  if (!state || state.roundEnded || state.phase !== "draw") return null;
   const top = state.discard[state.discard.length - 1];
-  if (!top || top.joker || isBlackThree(top)) return false;
-  const hand = state.players[state.turnIndex].hand;
-  const naturals = hand.filter((c) => !isWild(c) && c.rank === top.rank).length;
-  return naturals >= 2;
+  const player = state.players[state.turnIndex];
+  if (!top || !player || top.joker || isWild(top) || isBlackThree(top)) return null;
+
+  const naturalMatches = player.hand.filter((card) => !isWild(card) && card.rank === top.rank);
+  const team = state.teams[player.teamId];
+  const existingMeld = findExistingNaturalMeld(team, top.rank);
+  const isFrozen = Boolean(state.discardFrozen);
+
+  if (isFrozen) {
+    if (naturalMatches.length < 2) return null;
+    return [top.id, naturalMatches[0].id, naturalMatches[1].id];
+  }
+
+  if (existingMeld && naturalMatches.length >= 1) {
+    return [top.id, naturalMatches[0].id];
+  }
+  if (naturalMatches.length >= 2) {
+    return [top.id, naturalMatches[0].id, naturalMatches[1].id];
+  }
+  return null;
 }
 
-function takeDiscardStackState(state) {
-  if (!state || state.roundEnded || state.phase !== "draw") return state;
-  if (!canTakeDiscard(state)) return { ...state, notice: "Du kan inte ta kasthögen nu." };
-  const takeCount = Math.min(10, state.discard.length);
-  const taken = state.discard.slice(state.discard.length - takeCount);
-  const next = {
+function canTakeDiscard(state, totals = []) {
+  const pickupIds = getDiscardPickupSelection(state, totals);
+  if (!pickupIds?.length) return false;
+
+  const liftedState = {
     ...state,
-    discard: state.discard.slice(0, state.discard.length - takeCount),
-    players: state.players.map((p) => ({ ...p, hand: [...p.hand], redThrees: [...p.redThrees] })),
+    discard: [],
+    discardFrozen: false,
+    players: state.players.map((player, index) =>
+      index === state.turnIndex
+        ? {
+            ...player,
+            hand: [...player.hand, ...state.discard],
+            redThrees: [...player.redThrees],
+          }
+        : { ...player, hand: [...player.hand], redThrees: [...player.redThrees] }
+    ),
   };
-  for (const card of taken) {
-    if (isRedThree(card)) next.players[next.turnIndex].redThrees.push(card);
-    else next.players[next.turnIndex].hand.push(card);
+  const preview = applyMeld(liftedState, pickupIds, totals);
+  return !preview.error;
+}
+
+function takeDiscardStackState(state, totals = []) {
+  if (!state || state.roundEnded || state.phase !== "draw") return state;
+  const pickupIds = getDiscardPickupSelection(state, totals);
+  if (!pickupIds?.length) return { ...state, notice: "Du kan inte ta kasthögen nu." };
+
+  const taken = [...state.discard];
+  const liftedState = {
+    ...state,
+    discard: [],
+    discardFrozen: false,
+    players: state.players.map((player, index) =>
+      index === state.turnIndex
+        ? {
+            ...player,
+            hand: [...player.hand, ...taken],
+            redThrees: [...player.redThrees],
+          }
+        : { ...player, hand: [...player.hand], redThrees: [...player.redThrees] }
+    ),
+  };
+
+  const meldResult = applyMeld(liftedState, pickupIds, totals);
+  if (meldResult.error) {
+    return { ...state, notice: meldResult.error };
   }
+
   return {
-    ...next,
+    ...meldResult.state,
     phase: "discard",
-    notice: `${next.players[next.turnIndex].name} tog ${takeCount} kort från kasthögen.`,
+    notice: `${meldResult.state.players[meldResult.state.turnIndex].name} tog hela kasthögen och la toppkortet direkt.`,
   };
 }
 
@@ -679,6 +815,7 @@ function discardState(state, cardId) {
     ...state,
     players,
     discard: [...state.discard, card],
+    discardFrozen: Boolean(state.discardFrozen || isWild(card) || isBlackThree(card)),
     turnIndex: nextTurn,
     phase: "draw",
     notice: `${player.name} slängde ${cardLabel(card)}.`,
@@ -755,13 +892,7 @@ function applyMeld(state, cardIds, totals) {
     }
   }
 
-  const teamTotal =
-    state.mode === "single"
-      ? Number(totals[state.turnIndex] || 0)
-      : state.players
-          .map((p, i) => ({ p, i }))
-          .filter((x) => x.p.teamId === teamId)
-          .reduce((acc, x) => acc + Number(totals[x.i] || 0), 0);
+  const teamTotal = getPlayerOpeningTotal(state, totals, state.turnIndex);
 
   if (!team.opened) {
     const req = openingRequirement(teamTotal);
@@ -780,6 +911,24 @@ function applyMeld(state, cardIds, totals) {
   const nextPlayers = state.players.map((p, i) =>
     i === state.turnIndex ? { ...p, hand, redThrees: [...p.redThrees] } : { ...p, hand: [...p.hand], redThrees: [...p.redThrees] }
   );
+
+  if (hand.length === 0) {
+    if (teamCanastaCount(nextTeams[teamId]) < 2) {
+      return { state, error: "Ni måste ha minst 2 canastor för att få gå ut." };
+    }
+    return {
+      state: {
+        ...state,
+        players: nextPlayers,
+        teams: nextTeams,
+        roundEnded: true,
+        winnerPlayerId: player.id,
+        winnerTeamId: player.teamId,
+        notice: `${player.name} gick ut genom att lägga sista korten.`,
+      },
+      error: null,
+    };
+  }
 
   return {
     state: {
@@ -811,13 +960,7 @@ function applyMeldMany(state, cardIds, totals) {
   // Opening check must validate the entire batch, not each stick individually.
   const teamId = player.teamId;
   const team = state.teams[teamId];
-  const teamTotal =
-    state.mode === "single"
-      ? Number(totals[state.turnIndex] || 0)
-      : state.players
-          .map((p, i) => ({ p, i }))
-          .filter((x) => x.p.teamId === teamId)
-          .reduce((acc, x) => acc + Number(totals[x.i] || 0), 0);
+  const teamTotal = getPlayerOpeningTotal(state, totals, state.turnIndex);
   const req = openingRequirement(teamTotal);
   const selectionPoints = selectedCards.reduce((acc, c) => acc + Math.max(0, cardPoints(c)), 0);
 
@@ -955,13 +1098,7 @@ function applyMeldGroups(state, groupIdsList, selectedIds, totals) {
     return { state, error: "Treor kan inte meldas här." };
   }
 
-  const teamTotal =
-    state.mode === "single"
-      ? Number(totals[state.turnIndex] || 0)
-      : state.players
-          .map((p, i) => ({ p, i }))
-          .filter((x) => x.p.teamId === teamId)
-          .reduce((acc, x) => acc + Number(totals[x.i] || 0), 0);
+  const teamTotal = getPlayerOpeningTotal(state, totals, state.turnIndex);
   const req = openingRequirement(teamTotal);
   const selectionPoints = selectedCards.reduce((acc, c) => acc + Math.max(0, cardPoints(c)), 0);
 
@@ -1048,6 +1185,7 @@ export default function CanastaBoard({
   const [turnFlash, setTurnFlash] = useState(false);
   const [inactiveFlash, setInactiveFlash] = useState(false);
   const [roundLeaderboardPoints, setRoundLeaderboardPoints] = useState(null);
+  const [roundResult, setRoundResult] = useState(null);
   const [transitioningToGame, setTransitioningToGame] = useState(false);
   const [lobbyStatus, setLobbyStatus] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
@@ -1063,6 +1201,7 @@ export default function CanastaBoard({
   const pressedCardIdRef = useRef(null);
   const dragTargetRef = useRef({ side: null, targetId: null });
   const pointsAwardedRef = useRef(false);
+  const roundScoreAppliedRef = useRef(false);
   const startTransitionTimerRef = useRef(null);
   const lobbyStatusTimerRef = useRef(null);
   const previousLobbyIdsRef = useRef([]);
@@ -1121,10 +1260,11 @@ export default function CanastaBoard({
   const localSeatPlayerId = seatPlayers[localPlayerIndex]?.id ?? null;
   const canAuthorMatchUpdate = Boolean(
     game &&
-      !game.roundEnded &&
-      ((isBotTurn && isHost) ||
-        (!isBotTurn && playerId && activeSeatPlayerId && String(activeSeatPlayerId) === String(playerId)) ||
-        (!isBotTurn && !playerId && game.turnIndex === localPlayerIndex))
+      (game.roundEnded
+        ? isHost
+        : (isBotTurn && isHost) ||
+          (!isBotTurn && playerId && activeSeatPlayerId && String(activeSeatPlayerId) === String(playerId)) ||
+          (!isBotTurn && !playerId && game.turnIndex === localPlayerIndex))
   );
   const isMyTurn = Boolean(
     game &&
@@ -1147,11 +1287,12 @@ export default function CanastaBoard({
 
   const teamTotals = useMemo(() => {
     if (!game) return {};
-    const byTeam = {};
-    for (let i = 0; i < game.players.length; i += 1) {
-      const t = game.players[i].teamId;
-      byTeam[t] = (byTeam[t] ?? 0) + Number(totals[i] || 0);
-    }
+    const byTeam = Object.fromEntries(
+      [...new Set(game.players.map((player) => player.teamId))].map((teamId) => [
+        teamId,
+        getTeamTotalFromTotals(game, totals, teamId),
+      ])
+    );
     return byTeam;
   }, [game, totals]);
 
@@ -1185,11 +1326,8 @@ export default function CanastaBoard({
   const visibleTeamZones = teamZones;
   const openingByPlayer = useMemo(() => {
     if (!game) return [];
-    return game.players.map((p, i) => {
-      const totalForReq = game.mode === "single" ? Number(totals[i] || 0) : Number(teamTotals[p.teamId] || 0);
-      return openingRequirement(totalForReq);
-    });
-  }, [game, totals, teamTotals]);
+    return game.players.map((_, i) => openingRequirement(getPlayerOpeningTotal(game, totals, i)));
+  }, [game, totals]);
   const seatTemplates = useMemo(
     () => seatTemplateList(game?.players?.length ?? 0, isMobile),
     [game?.players?.length, isMobile]
@@ -1293,6 +1431,7 @@ export default function CanastaBoard({
 
   useEffect(() => {
     if (!canastaStorageKey || typeof window === "undefined") return;
+    if (roomCode && typeof onSyncMatchState === "function") return;
     try {
       const raw = window.localStorage.getItem(canastaStorageKey);
       if (!raw) return;
@@ -1310,7 +1449,7 @@ export default function CanastaBoard({
     } catch {
       // Ignore broken saved sessions.
     }
-  }, [canastaStorageKey]);
+  }, [canastaStorageKey, roomCode, onSyncMatchState]);
 
   useEffect(() => {
     if (!canastaStorageKey || typeof window === "undefined") return;
@@ -1523,7 +1662,7 @@ export default function CanastaBoard({
     setMobileSortMode(false);
     setMeldPlan(null);
     setSelectedIds([]);
-    setGame((prev) => takeDiscardStackState(prev));
+    setGame((prev) => takeDiscardStackState(prev, totals));
   }
 
   function discard(cardId) {
@@ -1613,7 +1752,7 @@ export default function CanastaBoard({
         let next = prev;
 
         if (next.phase === "draw") {
-          next = canTakeDiscard(next) ? takeDiscardStackState(next) : drawTwoState(next);
+          next = canTakeDiscard(next, totals) ? takeDiscardStackState(next, totals) : drawTwoState(next);
         }
 
         if (next.phase === "discard") {
@@ -1653,21 +1792,40 @@ export default function CanastaBoard({
   useEffect(() => {
     if (!game?.roundEnded) {
       pointsAwardedRef.current = false;
+      roundScoreAppliedRef.current = false;
       setRoundLeaderboardPoints(null);
+      setRoundResult(null);
       return;
     }
+
+    const { scoresByTeam, winnerTeamId } = computeRoundResults(game);
+    setRoundResult({ scoresByTeam, winnerTeamId });
+
+    if (!roundScoreAppliedRef.current && canAuthorMatchUpdate) {
+      roundScoreAppliedRef.current = true;
+      setTotals((prev) => updateTotalsAfterRound(game, prev));
+    }
+
     if (pointsAwardedRef.current) return;
     pointsAwardedRef.current = true;
-    const humans = game.players.filter((p) => !p.isBot).length;
-    const bots = game.players.filter((p) => p.isBot).length;
+    const winners = game.players.filter((player) => player.teamId === winnerTeamId);
+    const humans = winners.filter((player) => !player.isBot).length;
+    const bots = winners.filter((player) => player.isBot).length;
     const basePoints = humans * 4 + bots;
     const points = targetScore === 5000 ? basePoints / 2 : basePoints;
-    const payload = { points, humans, bots, totalPlayers: game.players.length };
+    const payload = {
+      points,
+      humans,
+      bots,
+      totalPlayers: game.players.length,
+      teamId: winnerTeamId,
+      roundScore: Number(scoresByTeam[winnerTeamId] || 0),
+    };
     setRoundLeaderboardPoints(payload);
-    if (typeof onLeaderboardPointsAwarded === "function") {
+    if (typeof onLeaderboardPointsAwarded === "function" && points > 0) {
       onLeaderboardPointsAwarded(payload);
     }
-  }, [game, onLeaderboardPointsAwarded, targetScore]);
+  }, [game, onLeaderboardPointsAwarded, targetScore, canAuthorMatchUpdate]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -2222,7 +2380,7 @@ export default function CanastaBoard({
 
   if (!game || !activePlayer || !myPlayer) return null;
 
-  const canTakeDiscardNow = canTakeDiscard(game);
+  const canTakeDiscardNow = canTakeDiscard(game, totals);
   const themeBgColor = externalSettings?.bgColor ?? "#0f172a";
   const themeGlow1 = externalSettings?.bgGlow1 ?? "#22c55e";
   const themeGlow2 = externalSettings?.bgGlow2 ?? "#38bdf8";
@@ -2340,13 +2498,31 @@ export default function CanastaBoard({
             padding: "8px 10px",
           }}
         >
-          {game.winnerPlayerId
-            ? `Rundan är slut. Vinnare: ${game.players.find((p) => p.id === game.winnerPlayerId)?.name ?? "okänd"} (${game.winnerTeamId})`
+          {roundResult?.winnerTeamId
+            ? `Rundan är slut. Vinnande sida: ${
+                teamZones.find((zone) => zone.teamId === roundResult.winnerTeamId)?.label ??
+                game.players.find((p) => p.teamId === roundResult.winnerTeamId)?.name ??
+                roundResult.winnerTeamId
+              }`
             : "Rundan är slut."}
+          {roundResult ? (
+            <span style={{ display: "block", marginTop: 6 }}>
+              Rondpoäng:{" "}
+              {Object.entries(roundResult.scoresByTeam)
+                .map(([teamId, score]) => {
+                  const label =
+                    teamZones.find((zone) => zone.teamId === teamId)?.label ??
+                    game.players.find((p) => p.teamId === teamId)?.name ??
+                    teamId;
+                  return `${label} ${score >= 0 ? "+" : ""}${score}`;
+                })
+                .join(" • ")}
+            </span>
+          ) : null}
           {roundLeaderboardPoints ? (
             <span style={{ display: "block", marginTop: 6 }}>
-              Leaderboardpoäng: +{roundLeaderboardPoints.points} ({roundLeaderboardPoints.humans} spelare ×4
-              {roundLeaderboardPoints.bots > 0 ? `, ${roundLeaderboardPoints.bots} bottar ×1` : ""})
+              Leaderboardpoäng: +{roundLeaderboardPoints.points} ({roundLeaderboardPoints.humans} vinnande spelare ×4
+              {roundLeaderboardPoints.bots > 0 ? `, ${roundLeaderboardPoints.bots} vinnande bottar ×1` : ""})
             </span>
           ) : null}
         </div>
@@ -2635,7 +2811,7 @@ export default function CanastaBoard({
           onClick={takeDiscardStack}
           disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn || !canTakeDiscardNow}
         >
-          {isMobile ? "Ta kasthög" : "Ta kasthög (10)"}
+          {isMobile ? "Ta kasthög" : "Ta hela kasthögen"}
         </Button>
         <Button
           onClick={laySelected}
@@ -2844,30 +3020,44 @@ export default function CanastaBoard({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
-        {game.players.map((p, i) => (
-          <div key={`${p.id}-score`} style={{ display: "grid", gap: 4 }}>
-            <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>{p.name} totalpoäng</div>
-            <Input
-              value={totals[i]}
-              onChange={(e) =>
-                setTotals((prev) => {
-                  const next = [...prev];
-                  next[i] = Number(e.target.value || 0);
-                  return next;
-                })
-              }
-              type="number"
-            />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+        {(game.mode === "team"
+          ? teamZones.map((zone) => ({
+              key: zone.teamId,
+              label: zone.label,
+              total: teamTotals[zone.teamId] ?? 0,
+              opening: openingRequirement(teamTotals[zone.teamId] ?? 0),
+            }))
+          : game.players.map((player, index) => ({
+              key: player.id,
+              label: player.name,
+              total: Number(totals[index] || 0),
+              opening: openingByPlayer[index],
+            }))).map((entry) => (
+          <div
+            key={`${entry.key}-score`}
+            style={{
+              display: "grid",
+              gap: 4,
+              borderRadius: 12,
+              border: "1px solid rgba(148,163,184,.25)",
+              background: "rgba(15,23,42,.45)",
+              padding: "10px 12px",
+            }}
+          >
+            <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>{entry.label} totalpoäng</div>
+            <div style={{ color: "#f8fafc", fontSize: 22, fontWeight: 900 }}>
+              {Number(entry.total || 0).toLocaleString("sv-SE")}
+            </div>
             <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 11 }}>
-              Öppning: {openingByPlayer[i] === "canasta" ? "Canasta" : openingByPlayer[i]}
+              Öppning: {entry.opening === "canasta" ? "Canasta" : entry.opening}
             </div>
           </div>
         ))}
       </div>
 
       <div style={{ color: "var(--muted)", fontWeight: 600, fontSize: 12 }}>
-        Nästa steg: exakt utgångslogik (2 canastas), full rondsluträkning och leaderboard-poäng kopplad till Canasta-match.
+        Kasthögen tas nu i sin helhet, frusen hög hanteras separat och rondpoäng räknas automatiskt.
       </div>
       {meldPlan && (
         <div
@@ -3390,3 +3580,16 @@ export default function CanastaBoard({
     </Card>
   );
 }
+
+export const __CANASTA_TESTING__ = {
+  makeGame,
+  drawTwoState,
+  canTakeDiscard,
+  takeDiscardStackState,
+  pickBotMeldCardIds,
+  discardState,
+  applyMeld,
+  applyMeldMany,
+  computeRoundResults,
+  updateTotalsAfterRound,
+};
