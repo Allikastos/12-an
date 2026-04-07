@@ -672,50 +672,50 @@ function getDiscardPickupSelection(state, totals = []) {
   if (!top || !player || top.joker || isWild(top) || isBlackThree(top)) return null;
 
   const naturalMatches = player.hand.filter((card) => !isWild(card) && card.rank === top.rank);
-  const team = state.teams[player.teamId];
-  const existingMeld = findExistingNaturalMeld(team, top.rank);
-  const isFrozen = Boolean(state.discardFrozen);
-
-  if (isFrozen) {
-    if (naturalMatches.length < 2) return null;
-    return [top.id, naturalMatches[0].id, naturalMatches[1].id];
-  }
-
-  if (existingMeld && naturalMatches.length >= 1) {
-    return [top.id, naturalMatches[0].id];
-  }
   if (naturalMatches.length >= 2) {
     return [top.id, naturalMatches[0].id, naturalMatches[1].id];
   }
   return null;
 }
 
-function canTakeDiscard(state, totals = []) {
-  const pickupIds = getDiscardPickupSelection(state, totals);
-  if (!pickupIds?.length) return false;
-
-  const liftedState = {
-    ...state,
-    discard: [],
-    discardFrozen: false,
-    players: state.players.map((player, index) =>
-      index === state.turnIndex
-        ? {
-            ...player,
-            hand: [...player.hand, ...state.discard],
-            redThrees: [...player.redThrees],
-          }
-        : { ...player, hand: [...player.hand], redThrees: [...player.redThrees] }
-    ),
-  };
-  const preview = applyMeld(liftedState, pickupIds, totals);
-  return !preview.error;
+function canAddWildToRankGroup(cards, addCount = 1) {
+  const naturals = cards.filter((card) => !isWild(card)).length;
+  const nextLength = cards.length + addCount;
+  if (naturals < 2) return false;
+  if (nextLength >= 7 && naturals < 4) return false;
+  return true;
 }
 
-function takeDiscardStackState(state, totals = []) {
-  if (!state || state.roundEnded || state.phase !== "draw") return state;
+function buildRankGroupOptions(naturalCards, wildCountLimit, minNaturals) {
+  if ((naturalCards?.length ?? 0) < minNaturals) return [];
+  const options = [];
+  for (let naturalCount = minNaturals; naturalCount <= naturalCards.length; naturalCount += 1) {
+    const chosenNaturals = naturalCards.slice(0, naturalCount);
+    const maxWilds = Math.min(wildCountLimit, naturalCount - 1);
+    for (let wildCount = 0; wildCount <= maxWilds; wildCount += 1) {
+      const totalCount = naturalCount + wildCount;
+      if (totalCount < 3) continue;
+      if (!canAddWildToRankGroup(chosenNaturals, wildCount)) continue;
+      options.push({
+        naturalIds: chosenNaturals.map((card) => card.id),
+        points: sumCardPoints(chosenNaturals),
+        wildCount,
+        cardCount: totalCount,
+      });
+    }
+  }
+
+  options.sort((a, b) => {
+    if (a.cardCount !== b.cardCount) return a.cardCount - b.cardCount;
+    if (a.points !== b.points) return b.points - a.points;
+    return a.wildCount - b.wildCount;
+  });
+  return options;
+}
+
+function buildDiscardPickupPlan(state, totals = []) {
   const pickupIds = getDiscardPickupSelection(state, totals);
-  if (!pickupIds?.length) return { ...state, notice: "Du kan inte ta kasthögen nu." };
+  if (!pickupIds?.length) return null;
 
   const taken = [...state.discard];
   const liftedState = {
@@ -733,7 +733,132 @@ function takeDiscardStackState(state, totals = []) {
     ),
   };
 
-  const meldResult = applyMeld(liftedState, pickupIds, totals);
+  const player = liftedState.players[liftedState.turnIndex];
+  const team = liftedState.teams[player.teamId];
+  const req = openingRequirement(getPlayerOpeningTotal(liftedState, totals, liftedState.turnIndex));
+
+  if (team?.opened) {
+    return { liftedState, groups: [[...pickupIds]], selectedIds: [...pickupIds] };
+  }
+
+  const top = state.discard[state.discard.length - 1];
+  const selectedCards = player.hand.filter((card) => pickupIds.includes(card.id));
+  const pickupRank = top?.rank ?? selectedCards.find((card) => !isWild(card))?.rank ?? null;
+  if (!Number.isFinite(pickupRank)) return null;
+
+  const used = new Set(pickupIds);
+  const pickupNaturals = selectedCards
+    .filter((card) => !isWild(card) && card.rank === pickupRank)
+    .sort((a, b) => cardPoints(b) - cardPoints(a));
+  const extraPickupNaturals = player.hand
+    .filter((card) => !used.has(card.id) && !isWild(card) && card.rank === pickupRank)
+    .sort((a, b) => cardPoints(b) - cardPoints(a));
+
+  const naturalsByRank = new Map();
+  for (const card of player.hand) {
+    if (used.has(card.id) || isWild(card) || card.rank === 3 || card.rank === pickupRank) continue;
+    const arr = naturalsByRank.get(card.rank) ?? [];
+    arr.push(card);
+    naturalsByRank.set(card.rank, arr);
+  }
+
+  naturalsByRank.forEach((cards, rank) => {
+    naturalsByRank.set(
+      rank,
+      [...cards].sort((a, b) => cardPoints(b) - cardPoints(a))
+    );
+  });
+
+  const wildPool = player.hand
+    .filter((card) => !used.has(card.id) && isWild(card))
+    .sort((a, b) => cardPoints(b) - cardPoints(a));
+
+  const rankOrder = [pickupRank, ...[...naturalsByRank.keys()].sort((a, b) => a - b)];
+  const optionsByRank = new Map();
+  optionsByRank.set(
+    pickupRank,
+    buildRankGroupOptions([...pickupNaturals, ...extraPickupNaturals], wildPool.length, pickupNaturals.length)
+  );
+  for (const [rank, cards] of naturalsByRank.entries()) {
+    const options = buildRankGroupOptions(cards, wildPool.length, 2);
+    if (options.length > 0) optionsByRank.set(rank, options);
+  }
+
+  let bestPlan = null;
+
+  function maybeStorePlan(groups) {
+    const selectedIds = groups.flat();
+    const preview = applyMeldGroups(liftedState, groups, selectedIds, totals);
+    if (preview.error) return;
+
+    if (req === "canasta") {
+      const before = teamCanastaCount(liftedState.teams[player.teamId]);
+      const after = teamCanastaCount(preview.state.teams[player.teamId]);
+      if (after <= before) return;
+    } else {
+      const selectionPoints = player.hand
+        .filter((card) => selectedIds.includes(card.id))
+        .reduce((acc, card) => acc + Math.max(0, cardPoints(card)), 0);
+      if (selectionPoints < req) return;
+    }
+
+    const cardCount = selectedIds.length;
+    if (
+      !bestPlan ||
+      cardCount < bestPlan.cardCount ||
+      (cardCount === bestPlan.cardCount && selectedIds.length < bestPlan.selectedIds.length)
+    ) {
+      bestPlan = { groups: groups.map((group) => [...group]), selectedIds: [...selectedIds], cardCount };
+    }
+  }
+
+  function search(rankIndex, availableWilds, groups) {
+    if (rankIndex >= rankOrder.length) {
+      maybeStorePlan(groups);
+      return;
+    }
+
+    const rank = rankOrder[rankIndex];
+    const options = optionsByRank.get(rank) ?? [];
+    const isPickupRank = rank === pickupRank;
+
+    if (!isPickupRank) {
+      search(rankIndex + 1, availableWilds, groups);
+    }
+
+    for (const option of options) {
+      if (option.wildCount > availableWilds.length) continue;
+      const assignedWilds = availableWilds.slice(0, option.wildCount).map((card) => card.id);
+      search(
+        rankIndex + 1,
+        availableWilds.slice(option.wildCount),
+        [...groups, [...option.naturalIds, ...assignedWilds]]
+      );
+    }
+  }
+
+  search(0, wildPool, []);
+  if (!bestPlan) return null;
+  return {
+    liftedState,
+    groups: bestPlan.groups,
+    selectedIds: bestPlan.selectedIds,
+  };
+}
+
+function canTakeDiscard(state, totals = []) {
+  const plan = buildDiscardPickupPlan(state, totals);
+  if (!plan) return false;
+  const preview = applyMeldGroups(plan.liftedState, plan.groups, plan.selectedIds, totals);
+  return !preview.error;
+}
+
+function takeDiscardStackState(state, totals = []) {
+  if (!state || state.roundEnded || state.phase !== "draw") return state;
+  const plan = buildDiscardPickupPlan(state, totals);
+  if (!plan) return { ...state, notice: "Du kan inte ta kasthögen nu." };
+
+  const meldResult = applyMeldGroups(plan.liftedState, plan.groups, plan.selectedIds, totals);
   if (meldResult.error) {
     return { ...state, notice: meldResult.error };
   }
@@ -741,7 +866,7 @@ function takeDiscardStackState(state, totals = []) {
   return {
     ...meldResult.state,
     phase: "discard",
-    notice: `${meldResult.state.players[meldResult.state.turnIndex].name} tog hela kasthögen och la toppkortet direkt.`,
+    notice: `${meldResult.state.players[meldResult.state.turnIndex].name} tog hela kasthögen och öppnade direkt.`,
   };
 }
 
