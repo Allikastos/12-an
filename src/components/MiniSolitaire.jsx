@@ -504,23 +504,21 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>Harpan</div>
-                <div
-                  style={{
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,.35)",
-                    background: "rgba(15,23,42,.72)",
-                    padding: "4px 10px",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: "#cbd5e1",
-                  }}
-                >
-                  {`Streak: ${stats.currentStreak}`}
-                </div>
+              <div
+                style={{
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,.35)",
+                  background: "rgba(15,23,42,.72)",
+                  padding: "4px 9px",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: "#cbd5e1",
+                  flexShrink: 0,
+                }}
+              >
+                {`Streak: ${stats.currentStreak}`}
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", minWidth: 0 }}>
                 <button
                   type="button"
                   onClick={() => setShowStats(true)}
@@ -531,7 +529,8 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     background: "rgba(15,23,42,.85)",
                     color: "#e2e8f0",
                     fontWeight: 700,
-                    padding: "8px 10px",
+                    padding: "8px 9px",
+                    fontSize: 13,
                     cursor: "pointer",
                   }}
                 >
@@ -542,13 +541,14 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                   onClick={() => setShowRules(true)}
                   title="Regler"
                   style={{
-                    width: 32,
-                    height: 32,
+                    width: 30,
+                    height: 30,
                     borderRadius: 999,
                     border: "1px solid rgba(148,163,184,.35)",
                     background: "rgba(15,23,42,.85)",
                     color: "#e2e8f0",
                     fontWeight: 800,
+                    fontSize: 13,
                     cursor: "pointer",
                   }}
                 >
@@ -563,7 +563,8 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     background: "rgba(15,23,42,.85)",
                     color: "#e2e8f0",
                     fontWeight: 700,
-                    padding: "8px 10px",
+                    padding: "8px 9px",
+                    fontSize: 13,
                     cursor: "pointer",
                   }}
                 >
@@ -578,7 +579,8 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                     background: "rgba(15,23,42,.85)",
                     color: "#e2e8f0",
                     fontWeight: 700,
-                    padding: "8px 10px",
+                    padding: "8px 9px",
+                    fontSize: 13,
                     cursor: "pointer",
                   }}
                 >
@@ -936,9 +938,6 @@ export default function MiniSolitaire({ closeSignal = 0 }) {
                         </div>
                       </div>
                     ))}
-                  </div>
-                  <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.45, fontWeight: 650 }}>
-                    Du kan nu klicka på ett översta kort i esshögarna och flytta tillbaka det till en giltig kolumn om du vill ångra ett drag.
                   </div>
                 </div>
               </div>
