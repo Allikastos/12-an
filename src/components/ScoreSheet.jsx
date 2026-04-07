@@ -305,11 +305,11 @@ export default function ScoreSheet({
                         isolation: "isolate",
                         padding: 0,
                         boxShadow:
+                          isCrownOutline || isSkullShape ? "none" : cellPreset.shadow,
+                        filter:
                           isCrownOutline && checked
-                            ? "0 0 10px color-mix(in srgb, var(--accent) 40%, transparent)"
-                            : isSkullShape
-                            ? "none"
-                            : cellPreset.shadow,
+                            ? `drop-shadow(0 0 3px color-mix(in srgb, ${crownStroke} 78%, transparent)) drop-shadow(0 0 9px color-mix(in srgb, ${crownStroke} 52%, transparent))`
+                            : "none",
                       }}
                       aria-label={`Rad ${row}, ruta ${i + 1}`}
                       type="button"
