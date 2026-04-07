@@ -79,10 +79,6 @@ export default function ScoreSheet({
   const isCrownOutline = checkIcon === "crown-outline";
   const isSuitsCycle = checkIcon === "suits-cycle";
   const isSvgIcon = typeof checkIcon === "string" && checkIcon.startsWith("data:image/svg+xml");
-  const crownOutlineData = (color) => {
-    const stroke = String(color ?? "#f5d77b").replace("#", "%23");
-    return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><path d='M6 46 L12 22 L26 36 L32 16 L38 36 L52 22 L58 46 Z' fill='none' stroke='${stroke}' stroke-width='3.2' stroke-linejoin='round'/><path d='M10 48 H54' stroke='${stroke}' stroke-width='3.2' stroke-linecap='round'/><path d='M16 44 H48' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-opacity='0.75'/><circle cx='12' cy='22' r='3' fill='${stroke}'/><circle cx='32' cy='16' r='3.2' fill='${stroke}'/><circle cx='52' cy='22' r='3' fill='${stroke}'/></svg>")`;
-  };
 
   useEffect(() => {
     if (!showWin || !winVideoSrc) return;
@@ -289,7 +285,7 @@ export default function ScoreSheet({
                           : isSkullShape
                           ? "transparent"
                           : cellPreset.bg,
-                        backgroundImage: isCrownOutline ? crownOutlineData(crownStroke) : "none",
+                        backgroundImage: "none",
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center",
                         backgroundSize: isSkullShape ? "92% 92%" : "85% 85%",
@@ -315,6 +311,46 @@ export default function ScoreSheet({
                       type="button"
                       disabled={readOnly}
                     >
+                      {isCrownOutline && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            inset: "10%",
+                            display: "grid",
+                            placeItems: "center",
+                            pointerEvents: "none",
+                            filter: checked
+                              ? `drop-shadow(0 0 3px color-mix(in srgb, ${crownStroke} 82%, transparent)) drop-shadow(0 0 9px color-mix(in srgb, ${crownStroke} 58%, transparent))`
+                              : "none",
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 64 64"
+                            width="100%"
+                            height="100%"
+                            aria-hidden="true"
+                            focusable="false"
+                            style={{ overflow: "visible" }}
+                          >
+                            <g
+                              fill="none"
+                              stroke={crownStroke}
+                              strokeWidth="3.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeOpacity={checked ? 1 : 0.82}
+                            >
+                              <path d="M6 46 L12 22 L26 36 L32 16 L38 36 L52 22 L58 46 Z" />
+                              <path d="M10 48 H54" />
+                              <path d="M16 44 H48" strokeWidth="2.4" strokeOpacity={checked ? 0.82 : 0.68} />
+                              <circle cx="12" cy="22" r="3" fill={crownStroke} stroke="none" />
+                              <circle cx="32" cy="16" r="3.2" fill={crownStroke} stroke="none" />
+                              <circle cx="52" cy="22" r="3" fill={crownStroke} stroke="none" />
+                            </g>
+                          </svg>
+                        </span>
+                      )}
+
                       {isSkullShape && !checked && (
                         <span
                           style={{
