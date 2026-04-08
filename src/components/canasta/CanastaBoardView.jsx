@@ -1,4 +1,5 @@
 import CanastaMobileBoard from "./CanastaMobileBoard";
+import CanastaErrorBoundary from "./CanastaErrorBoundary";
 
 export default function CanastaBoardView({
   isMobile,
@@ -47,12 +48,14 @@ export default function CanastaBoardView({
   getTeamTotal,
   rankLabel,
 }) {
-  const otherPlayerHands = game.players.filter((player) => player.id !== myPlayerId);
-  const myTeamZone = teamZones.find((zone) => zone.teamId === myTeamId) ?? null;
-  const opponentPanels = teamZones
+  const safeGame = game ?? { players: [], discard: [], stock: [], phase: "draw", roundEnded: false, turnIndex: 0 };
+  const safeTeamZones = teamZones ?? [];
+  const otherPlayerHands = safeGame.players.filter((player) => player.id !== myPlayerId);
+  const myTeamZone = safeTeamZones.find((zone) => zone.teamId === myTeamId) ?? null;
+  const opponentPanels = safeTeamZones
     .filter((zone) => zone.teamId !== myTeamId)
     .map((zone) => {
-      const players = game.players.filter((player) => player.teamId === zone.teamId);
+      const players = safeGame.players.filter((player) => player.teamId === zone.teamId);
       return {
         teamId: zone.teamId,
         label: zone.label,
@@ -68,36 +71,38 @@ export default function CanastaBoardView({
 
   if (isMobile) {
     return (
-      <CanastaMobileBoard
-        game={game}
-        myTeamZone={myTeamZone}
-        opponentPanels={opponentPanels}
-        topDiscard={topDiscard}
-        canDrawFromStock={canDrawFromStock}
-        drawTwo={drawTwo}
-        canPickDiscardPile={canPickDiscardPile}
-        takeDiscardStack={takeDiscardStack}
-        tryDiscardSelected={tryDiscardSelected}
-        canDiscardSelectedCard={canDiscardSelectedCard}
-        selectedCards={selectedCards}
-        selectedSummary={selectedSummary}
-        laySelected={laySelected}
-        setExpandedTeamId={setExpandedTeamId}
-        renderCardFace={renderCardFace}
-        rankLabel={rankLabel}
-      />
+      <CanastaErrorBoundary>
+        <CanastaMobileBoard
+          game={safeGame}
+          myTeamZone={myTeamZone}
+          opponentPanels={opponentPanels}
+          topDiscard={topDiscard}
+          canDrawFromStock={canDrawFromStock}
+          drawTwo={drawTwo}
+          canPickDiscardPile={canPickDiscardPile}
+          takeDiscardStack={takeDiscardStack}
+          tryDiscardSelected={tryDiscardSelected}
+          canDiscardSelectedCard={canDiscardSelectedCard}
+          selectedCards={selectedCards}
+          selectedSummary={selectedSummary}
+          laySelected={laySelected}
+          setExpandedTeamId={setExpandedTeamId}
+          renderCardFace={renderCardFace}
+          rankLabel={rankLabel}
+        />
+      </CanastaErrorBoundary>
     );
   }
 
   return (
     <>
-      {!game.roundEnded && actionHint ? (
+      {!safeGame.roundEnded && actionHint ? (
         <div style={{ color: "#bfdbfe", fontWeight: 700, fontSize: 12 }}>{actionHint}</div>
       ) : null}
-      {isBotTurn && !game.roundEnded && (
+      {isBotTurn && !safeGame.roundEnded && (
         <div style={{ color: "#7dd3fc", fontWeight: 800 }}>Boten tänker...</div>
       )}
-      {game.roundEnded && (
+      {safeGame.roundEnded && (
         <div
           style={{
             color: "#86efac",
@@ -110,8 +115,8 @@ export default function CanastaBoardView({
         >
           {roundResult?.winnerTeamId
             ? `Rundan är slut. Vinnande sida: ${
-                teamZones.find((zone) => zone.teamId === roundResult.winnerTeamId)?.label ??
-                game.players.find((p) => p.teamId === roundResult.winnerTeamId)?.name ??
+                safeTeamZones.find((zone) => zone.teamId === roundResult.winnerTeamId)?.label ??
+                safeGame.players.find((p) => p.teamId === roundResult.winnerTeamId)?.name ??
                 roundResult.winnerTeamId
               }`
             : "Rundan är slut."}
@@ -121,8 +126,8 @@ export default function CanastaBoardView({
               {Object.entries(roundResult.scoresByTeam)
                 .map(([teamId, score]) => {
                   const label =
-                    teamZones.find((zone) => zone.teamId === teamId)?.label ??
-                    game.players.find((p) => p.teamId === teamId)?.name ??
+                    safeTeamZones.find((zone) => zone.teamId === teamId)?.label ??
+                    safeGame.players.find((p) => p.teamId === teamId)?.name ??
                     teamId;
                   return `${label} ${score >= 0 ? "+" : ""}${score}`;
                 })
@@ -135,8 +140,8 @@ export default function CanastaBoardView({
               {Object.entries(roundResult.scoresByTeam)
                 .map(([teamId]) => {
                   const label =
-                    teamZones.find((zone) => zone.teamId === teamId)?.label ??
-                    game.players.find((p) => p.teamId === teamId)?.name ??
+                    safeTeamZones.find((zone) => zone.teamId === teamId)?.label ??
+                    safeGame.players.find((p) => p.teamId === teamId)?.name ??
                     teamId;
                   const total = getTeamTotal(teamId);
                   return `${label} ${total >= 0 ? "" : "-"}${Math.abs(total).toLocaleString("sv-SE")}`;

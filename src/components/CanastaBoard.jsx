@@ -139,7 +139,8 @@ export default function CanastaBoard({
   const sharedTargetScore = Number(roomRoundCounts?.__canasta_target_score);
   const sharedCanastaMatch = roomRoundCounts?.__canasta_match ?? null;
 
-  const activePlayer = game ? game.players[game.turnIndex] : null;
+  const safePlayers = game?.players ?? [];
+  const activePlayer = game ? safePlayers[game.turnIndex] ?? safePlayers[0] ?? null : null;
   const seatPlayers = useMemo(() => {
     if (Array.isArray(syncedLobbyPlayers) && syncedLobbyPlayers.length > 0) {
       return syncedLobbyPlayers;
@@ -162,26 +163,29 @@ export default function CanastaBoard({
     const firstHuman = game.players.findIndex((p) => !p.isBot);
     return firstHuman >= 0 ? firstHuman : 0;
   }, [game, playerId, seatPlayers]);
-  const myPlayer = game ? game.players[localPlayerIndex] : null;
+  const resolvedLocalPlayerIndex = game
+    ? Math.min(Math.max(localPlayerIndex, 0), Math.max(safePlayers.length - 1, 0))
+    : 0;
+  const myPlayer = game ? safePlayers[resolvedLocalPlayerIndex] ?? safePlayers[0] ?? null : null;
   const topDiscard = game?.discard?.[game.discard.length - 1] ?? null;
   const isBotTurn = Boolean(activePlayer?.isBot);
   const activeSeatPlayerId = game && seatPlayers[game.turnIndex] ? seatPlayers[game.turnIndex].id : null;
-  const localSeatPlayerId = seatPlayers[localPlayerIndex]?.id ?? null;
+  const localSeatPlayerId = seatPlayers[resolvedLocalPlayerIndex]?.id ?? null;
   const canAuthorMatchUpdate = Boolean(
     game &&
       (game.roundEnded
         ? isHost
         : (isBotTurn && isHost) ||
           (!isBotTurn && playerId && activeSeatPlayerId && String(activeSeatPlayerId) === String(playerId)) ||
-          (!isBotTurn && !playerId && game.turnIndex === localPlayerIndex))
+          (!isBotTurn && !playerId && game.turnIndex === resolvedLocalPlayerIndex))
   );
   const isMyTurn = Boolean(
     game &&
       !game.roundEnded &&
       !isBotTurn &&
       ((playerId && activeSeatPlayerId && String(activeSeatPlayerId) === String(playerId)) ||
-        (!playerId && game.turnIndex === localPlayerIndex) ||
-        (!activeSeatPlayerId && localSeatPlayerId && game.turnIndex === localPlayerIndex))
+        (!playerId && game.turnIndex === resolvedLocalPlayerIndex) ||
+        (!activeSeatPlayerId && localSeatPlayerId && game.turnIndex === resolvedLocalPlayerIndex))
   );
   const canSortHand = !game?.roundEnded;
   const handReorderEnabled = canSortHand && (!isMobile || mobileSortMode);
@@ -1020,7 +1024,7 @@ export default function CanastaBoard({
     );
   }
 
-  if (!game || !activePlayer || !myPlayer) return null;
+  if (!game || safePlayers.length === 0 || !activePlayer || !myPlayer) return null;
 
   const canTakeDiscardNow = canTakeDiscard(game, totals);
   const themeBgColor = externalSettings?.bgColor ?? "#0f172a";
@@ -1128,7 +1132,7 @@ export default function CanastaBoard({
   const canDiscardSelectedCard = game.phase === "discard" && selectedIds.length === 1 && !game.roundEnded && !isBotTurn && isMyTurn;
   const myTeamId = myPlayer?.teamId ?? null;
   const myTeam = game.teams?.[myTeamId] ?? null;
-  const openingTarget = openingRequirement(getPlayerOpeningTotal(game, totals, localPlayerIndex));
+  const openingTarget = openingRequirement(getPlayerOpeningTotal(game, totals, resolvedLocalPlayerIndex));
   const selectedPositivePoints = selectedCards.reduce((acc, card) => acc + Math.max(0, cardPoints(card)), 0);
   const selectedNaturalRanks = [...new Set(selectedCards.filter((card) => !isWild(card) && card.rank !== 3).map((card) => card.rank))];
   const primarySelectedRank = selectedNaturalRanks.length === 1 ? selectedNaturalRanks[0] : null;
@@ -1166,6 +1170,7 @@ export default function CanastaBoard({
       : selectedMakesDiscardPickup
         ? "Markerade kort gör högen möjlig att ta"
         : "Kasthögen kan inte tas nu";
+  const actionHint = "";
   const intentLabel =
     selectedIds.length === 0
       ? ""
@@ -1221,7 +1226,6 @@ export default function CanastaBoard({
     restingTitle: game.phase === "draw" ? "Steg 1: dra" : "Steg 2-3: lägg ut eller kasta",
     restingSubtitle: game.phase === "draw" ? discardStatus : openingStatus,
   };
-  const actionHint = "";
 
   const clearSelected = () => {
     setMeldPlan(null);

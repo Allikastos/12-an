@@ -45,10 +45,12 @@ export default function CanastaHandPanel({
   canDiscardSelectedCard,
   canLaySelectedCards,
 }) {
+  const safeSelectedSummary = selectedSummary ?? {};
+  const safeHand = (orderedHand ?? []).filter(Boolean);
   const hasSelection = selectedIds.length > 0;
   const mobileActions = hasSelection
     ? [
-        { key: "lay", label: selectedSummary?.intentActionLabel ?? "Lay", onPress: laySelected, disabled: !canLaySelectedCards, variant: "primary" },
+        { key: "lay", label: safeSelectedSummary.intentActionLabel ?? "Lay", onPress: laySelected, disabled: !canLaySelectedCards, variant: "primary" },
         { key: "discard", label: "Discard", onPress: tryDiscardSelected, disabled: !canDiscardSelectedCard },
         { key: "clear", label: "Clear", onPress: clearSelected },
       ]
@@ -59,7 +61,7 @@ export default function CanastaHandPanel({
       ];
 
   if (isMobile) {
-    const spreadBase = Math.max(orderedHand.length - 1, 1);
+    const spreadBase = Math.max(safeHand.length - 1, 1);
     return (
       <div
         style={{
@@ -75,11 +77,11 @@ export default function CanastaHandPanel({
         <CanastaActionBar actions={mobileActions} />
 
         <div style={{ position: "relative", minHeight: 168 }}>
-          {orderedHand.map((c, index) => {
+          {safeHand.map((c, index) => {
             const selected = selectedIds.includes(c.id);
             const recentlyDrawn = recentDrawnIds.includes(c.id);
             const isWild = c.joker || c.rank === 2;
-            const leftPercent = orderedHand.length === 1 ? 50 : 7 + (index / spreadBase) * 86;
+            const leftPercent = safeHand.length <= 1 ? 50 : 7 + (index / spreadBase) * 86;
             const rotation = (index - spreadBase / 2) * 1.2;
 
             return (
@@ -91,7 +93,7 @@ export default function CanastaHandPanel({
                     suppressTapRef.current = false;
                     return;
                   }
-                  toggleSelect(c.id);
+                  toggleSelect?.(c.id);
                 }}
                 style={{
                   position: "absolute",
@@ -183,7 +185,7 @@ export default function CanastaHandPanel({
             WebkitTouchCallout: "none",
           }}
         >
-          {orderedHand.map((c) => {
+          {safeHand.map((c) => {
             const selected = selectedIds.includes(c.id);
             const recentlyDrawn = recentDrawnIds.includes(c.id);
             return (
@@ -195,7 +197,7 @@ export default function CanastaHandPanel({
                     suppressTapRef.current = false;
                     return;
                   }
-                  toggleSelect(c.id);
+                  toggleSelect?.(c.id);
                 }}
                 style={{
                   flex: "0 0 auto",
@@ -248,13 +250,13 @@ export default function CanastaHandPanel({
             if (!handReorderEnabled) return;
             e.preventDefault();
             const fromId = e.dataTransfer.getData("text/plain") || dragCardId;
-            if (!fromId || orderedHand.length < 2) return;
+            if (!fromId || safeHand.length < 2) return;
             const resolved = resolveHandDropTarget(e.clientX);
             const targetId =
               resolved.side === "left"
-                ? orderedHand[0]?.id
+                ? safeHand[0]?.id
                 : resolved.side === "right"
-                  ? orderedHand[orderedHand.length - 1]?.id
+                  ? safeHand[safeHand.length - 1]?.id
                   : resolved.targetId;
             if (targetId) moveHandCard(fromId, targetId);
           }}
@@ -276,11 +278,11 @@ export default function CanastaHandPanel({
               }}
             />
           )}
-          {orderedHand.map((c, i) => {
+          {safeHand.map((c, i) => {
             const selected = selectedIds.includes(c.id);
             const recentlyDrawn = recentDrawnIds.includes(c.id);
-            const prevSelected = i > 0 && selectedIds.includes(orderedHand[i - 1]?.id);
-            const nextSelected = i < orderedHand.length - 1 && selectedIds.includes(orderedHand[i + 1]?.id);
+            const prevSelected = i > 0 && selectedIds.includes(safeHand[i - 1]?.id);
+            const nextSelected = i < safeHand.length - 1 && selectedIds.includes(safeHand[i + 1]?.id);
             const offset = handOffsetAt(i);
             const rot = (i - handCenter) * 0.6;
             const isHoverTarget = hoverCardId === c.id && dragCardId && dragCardId !== c.id;
@@ -294,7 +296,7 @@ export default function CanastaHandPanel({
                     suppressTapRef.current = false;
                     return;
                   }
-                  toggleSelect(c.id);
+                  toggleSelect?.(c.id);
                 }}
                 draggable={handReorderEnabled}
                 onPointerDown={(e) => {

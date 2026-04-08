@@ -175,12 +175,15 @@ export default function CanastaMobileBoard({
   renderCardFace,
   rankLabel,
 }) {
-  const myMelds = myTeamZone?.melds ?? [];
+  const safeGame = game ?? { phase: "draw", stock: [], discard: [], discardFrozen: false };
+  const myMelds = (myTeamZone?.melds ?? []).filter(Boolean);
+  const safeOpponentPanels = (opponentPanels ?? []).filter(Boolean);
+  const safeSelectedSummary = selectedSummary ?? {};
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <div style={{ display: "grid", gap: 2 }}>
-        {opponentPanels.map((panel) => (
+        {safeOpponentPanels.map((panel) => (
           <OpponentLine key={panel.teamId} panel={panel} />
         ))}
       </div>
@@ -200,13 +203,13 @@ export default function CanastaMobileBoard({
         }}
       >
         <div style={{ position: "absolute", left: 2, top: 6 }}>
-          <StepIndicator phase={game.phase} />
+          <StepIndicator phase={safeGame.phase} />
         </div>
 
         <div style={{ position: "absolute", left: "23%", top: "22%", transform: "translateX(-50%)" }}>
           <Pile
             label="Draw"
-            count={game.stock.length}
+            count={safeGame.stock.length}
             onPress={drawTwo}
             disabled={!canDrawFromStock}
             renderCardFace={renderCardFace}
@@ -217,12 +220,12 @@ export default function CanastaMobileBoard({
         <div style={{ position: "absolute", right: "23%", top: "22%", transform: "translateX(50%)" }}>
           <Pile
             label="Discard"
-            count={game.discard.length}
-            onPress={game.phase === "draw" ? takeDiscardStack : tryDiscardSelected}
-            disabled={game.phase === "draw" ? !canPickDiscardPile : !canDiscardSelectedCard}
+            count={safeGame.discard.length}
+            onPress={safeGame.phase === "draw" ? takeDiscardStack : tryDiscardSelected}
+            disabled={safeGame.phase === "draw" ? !canPickDiscardPile : !canDiscardSelectedCard}
             card={topDiscard}
             renderCardFace={renderCardFace}
-            tone={game.discardFrozen ? "warning" : canPickDiscardPile ? "success" : "neutral"}
+            tone={safeGame.discardFrozen ? "warning" : canPickDiscardPile ? "success" : "neutral"}
           />
         </div>
 
@@ -244,9 +247,9 @@ export default function CanastaMobileBoard({
                 meld={meld}
                 rankLabel={rankLabel}
                 renderCardFace={renderCardFace}
-                highlighted={selectedSummary.targetExistingRank === meld.rank && selectedSummary.canLayNow}
+                highlighted={safeSelectedSummary.targetExistingRank === meld.rank && safeSelectedSummary.canLayNow}
                 onClick={() => {
-                  if (selectedSummary.targetExistingRank === meld.rank && selectedSummary.canLayNow) laySelected();
+                  if (safeSelectedSummary.targetExistingRank === meld.rank && safeSelectedSummary.canLayNow) laySelected?.();
                   else setExpandedTeamId(myTeamZone?.teamId ?? null);
                 }}
               />
@@ -267,8 +270,8 @@ export default function CanastaMobileBoard({
             }}
           >
             <div style={{ color: "#7dd3fc", fontWeight: 800, fontSize: 10 }}>{selectedCards.length}</div>
-            {selectedSummary.intentLabel ? (
-              <div style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 10 }}>{selectedSummary.intentLabel}</div>
+            {safeSelectedSummary.intentLabel ? (
+              <div style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 10 }}>{safeSelectedSummary.intentLabel}</div>
             ) : null}
           </div>
         ) : null}
