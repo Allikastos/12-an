@@ -44,62 +44,22 @@ export default function CanastaHandPanel({
   canPickDiscardPile,
   canDiscardSelectedCard,
   canLaySelectedCards,
-  showTip,
 }) {
   const hasSelection = selectedIds.length > 0;
   const mobileActions = hasSelection
     ? [
-        {
-          key: "lay",
-          label: selectedSummary?.intentActionLabel ?? "Lägg ut",
-          onPress: laySelected,
-          disabled: !canLaySelectedCards,
-          variant: "primary",
-        },
-        {
-          key: "discard",
-          label: "Kasta",
-          onPress: tryDiscardSelected,
-          disabled: !canDiscardSelectedCard,
-        },
-        {
-          key: "clear",
-          label: "Avmarkera",
-          onPress: clearSelected,
-        },
-        {
-          key: "sort",
-          label: "Sortera",
-          onPress: sortHandNow,
-        },
+        { key: "lay", label: selectedSummary?.intentActionLabel ?? "Lay", onPress: laySelected, disabled: !canLaySelectedCards, variant: "primary" },
+        { key: "discard", label: "Discard", onPress: tryDiscardSelected, disabled: !canDiscardSelectedCard },
+        { key: "clear", label: "Clear", onPress: clearSelected },
       ]
     : [
-        {
-          key: "draw",
-          label: "Dra från talong",
-          onPress: drawTwo,
-          disabled: !canDrawFromStock,
-          variant: "primary",
-        },
-        {
-          key: "pickup",
-          label: "Ta kasthög",
-          onPress: takeDiscardStack,
-          disabled: !canPickDiscardPile,
-        },
-        {
-          key: "sort",
-          label: "Sortera",
-          onPress: sortHandNow,
-        },
-        {
-          key: "tip",
-          label: "Tips",
-          onPress: showTip,
-        },
+        { key: "draw", label: "Draw", onPress: drawTwo, disabled: !canDrawFromStock, variant: "primary" },
+        { key: "take", label: "Take", onPress: takeDiscardStack, disabled: !canPickDiscardPile },
+        { key: "sort", label: "Sort", onPress: sortHandNow },
       ];
 
   if (isMobile) {
+    const spreadBase = Math.max(orderedHand.length - 1, 1);
     return (
       <div
         style={{
@@ -107,108 +67,73 @@ export default function CanastaHandPanel({
           bottom: 0,
           zIndex: 50,
           display: "grid",
-          gap: 8,
-          marginTop: 4,
+          gap: 6,
+          marginTop: -8,
+          paddingBottom: 8,
         }}
       >
-        <CanastaActionBar
-          title={hasSelection ? `${selectedIds.length} selected` : "Actions"}
-          subtitle={hasSelection ? selectedSummary?.intentLabel ?? selectedSummary?.openingValueLabel ?? "" : ""}
-          actions={mobileActions}
-        />
+        <CanastaActionBar actions={mobileActions} />
 
-        <div
-          style={{
-            minHeight: "44vh",
-            borderTopLeftRadius: 26,
-            borderTopRightRadius: 26,
-            background: "linear-gradient(180deg, rgba(6,10,20,.98), rgba(15,23,42,.98))",
-            padding: "12px 12px 18px",
-            boxShadow: "0 -8px 24px rgba(2,6,23,.35)",
-            display: "grid",
-            gap: 10,
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "grid", gap: 2 }}>
-              <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 15 }}>Hand</div>
-              <div style={{ color: "#64748b", fontWeight: 700, fontSize: 11 }}>{myPlayer.hand.length} cards</div>
-            </div>
-            {hasSelection ? (
-              <div style={{ color: "#7dd3fc", fontWeight: 800, fontSize: 11 }}>{selectedIds.length}</div>
-            ) : null}
-          </div>
+        <div style={{ position: "relative", minHeight: 168 }}>
+          {orderedHand.map((c, index) => {
+            const selected = selectedIds.includes(c.id);
+            const recentlyDrawn = recentDrawnIds.includes(c.id);
+            const isWild = c.joker || c.rank === 2;
+            const leftPercent = orderedHand.length === 1 ? 50 : 7 + (index / spreadBase) * 86;
+            const rotation = (index - spreadBase / 2) * 1.2;
 
-          <div
-            style={{
-              display: "flex",
-              overflowX: "auto",
-              gap: 0,
-              paddingTop: 10,
-              paddingBottom: 10,
-              scrollbarWidth: "thin",
-              touchAction: "pan-x",
-              minHeight: 154,
-              alignItems: "flex-end",
-            }}
-          >
-            {orderedHand.map((c, index) => {
-              const selected = selectedIds.includes(c.id);
-              const recentlyDrawn = recentDrawnIds.includes(c.id);
-              const isWild = c.joker || c.rank === 2;
-              return (
-                <button
-                  key={`mobile-hand-${c.id}`}
-                  type="button"
-                  onClick={() => {
-                    if (suppressTapRef.current) {
-                      suppressTapRef.current = false;
-                      return;
-                    }
-                    toggleSelect(c.id);
-                  }}
-                  style={{
-                    flex: "0 0 auto",
-                    width: 76,
-                    height: 116,
-                    marginLeft: index === 0 ? 0 : -24,
-                    borderRadius: 14,
-                    padding: 3,
-                    background: recentlyDrawn ? "#efe8d4" : "#fffdf8",
-                    border: "none",
-                    transform: selected ? "translateY(-18px)" : "translateY(0)",
-                    boxShadow: selected
-                      ? "0 0 0 2px rgba(103,232,249,.45), 0 20px 32px rgba(2,6,23,.42)"
-                      : isWild
-                        ? "0 16px 24px rgba(2,6,23,.3), 0 0 0 2px rgba(250,204,21,.2)"
-                        : "0 16px 24px rgba(2,6,23,.3)",
-                    transition: "transform .15s ease, box-shadow .15s ease, border-color .15s ease",
-                    position: "relative",
-                    zIndex: selected ? 40 + index : index,
-                  }}
-                >
-                  {renderCardFace(c, false)}
-                  {isWild ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        right: 7,
-                        top: 7,
-                        padding: "2px 6px",
-                        borderRadius: 999,
-                        background: "rgba(250,204,21,.88)",
-                        color: "#111827",
-                        fontWeight: 900,
-                        fontSize: 9,
-                      }}
-                    >
-                      Wild
-                    </div>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+            return (
+              <button
+                key={`mobile-hand-${c.id}`}
+                type="button"
+                onClick={() => {
+                  if (suppressTapRef.current) {
+                    suppressTapRef.current = false;
+                    return;
+                  }
+                  toggleSelect(c.id);
+                }}
+                style={{
+                  position: "absolute",
+                  left: `${leftPercent}%`,
+                  bottom: 0,
+                  width: 76,
+                  height: 116,
+                  borderRadius: 14,
+                  padding: 3,
+                  background: recentlyDrawn ? "#efe8d4" : "#fffdf8",
+                  border: "none",
+                  transform: `translateX(-50%) rotate(${rotation}deg) translateY(${selected ? "-12px" : "0"})`,
+                  boxShadow: selected
+                    ? "0 0 0 2px rgba(103,232,249,.45), 0 20px 32px rgba(2,6,23,.42)"
+                    : isWild
+                      ? "0 16px 24px rgba(2,6,23,.28), 0 0 0 2px rgba(250,204,21,.18)"
+                      : "0 16px 24px rgba(2,6,23,.26)",
+                  transition: "transform .15s ease, box-shadow .15s ease",
+                  zIndex: selected ? 200 + index : 40 + index,
+                }}
+              >
+                {renderCardFace(c, false)}
+                {isWild ? (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 7,
+                      top: 7,
+                      padding: "2px 6px",
+                      borderRadius: 999,
+                      background: "rgba(250,204,21,.88)",
+                      color: "#111827",
+                      fontWeight: 900,
+                      fontSize: 9,
+                    }}
+                  >
+                    Wild
+                  </div>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -284,12 +209,9 @@ export default function CanastaHandPanel({
                   boxShadow: selected
                     ? "0 0 0 1px rgba(103,232,249,.45), 0 12px 20px rgba(2,6,23,.42), inset 0 1px 0 rgba(255,255,255,.8)"
                     : recentlyDrawn
-                    ? "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 999px rgba(15,23,42,.06)"
-                    : "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.78)",
+                      ? "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 999px rgba(15,23,42,.06)"
+                      : "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.78)",
                   transition: "transform .14s ease, border-color .12s ease, background .16s ease, box-shadow .16s ease",
-                  userSelect: "none",
-                  WebkitUserSelect: "none",
-                  WebkitTouchCallout: "none",
                 }}
               >
                 {renderCardFace(c, true)}
@@ -332,8 +254,8 @@ export default function CanastaHandPanel({
               resolved.side === "left"
                 ? orderedHand[0]?.id
                 : resolved.side === "right"
-                ? orderedHand[orderedHand.length - 1]?.id
-                : resolved.targetId;
+                  ? orderedHand[orderedHand.length - 1]?.id
+                  : resolved.targetId;
             if (targetId) moveHandCard(fromId, targetId);
           }}
         >
@@ -461,17 +383,14 @@ export default function CanastaHandPanel({
                   borderRadius: 11,
                   border: isMobile && dragCardId === c.id ? "2px solid #22d3ee" : isHoverTarget ? "2px solid #22d3ee" : selected ? "2px solid #67e8f9" : "1px solid rgba(15,23,42,.3)",
                   background: recentlyDrawn ? "#efe8d4" : "#fffdf8",
-                  color: "#0f172a",
-                  fontWeight: 900,
-                  fontSize: 13,
                   zIndex: 120 + i,
                   cursor: handReorderEnabled ? "grab" : "pointer",
                   opacity: canSortHand ? 1 : 0.72,
                   boxShadow: selected
                     ? "0 0 0 1px rgba(103,232,249,.45), 0 12px 20px rgba(2,6,23,.42), inset 0 1px 0 rgba(255,255,255,.8)"
                     : recentlyDrawn
-                    ? "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 999px rgba(15,23,42,.06)"
-                    : "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.78)",
+                      ? "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 999px rgba(15,23,42,.06)"
+                      : "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.78)",
                   padding: 3,
                   transition: "left .14s ease, bottom .14s ease, transform .14s ease, border-color .12s ease, background .16s ease, box-shadow .16s ease",
                   userSelect: "none",

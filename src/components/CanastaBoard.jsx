@@ -1221,17 +1221,7 @@ export default function CanastaBoard({
     restingTitle: game.phase === "draw" ? "Steg 1: dra" : "Steg 2-3: lägg ut eller kasta",
     restingSubtitle: game.phase === "draw" ? discardStatus : openingStatus,
   };
-  const actionHint = game.roundEnded
-    ? ""
-    : game.phase === "draw"
-    ? canPickDiscardPile
-      ? "Tryck på talongen för att dra två eller på kasthögen för att ta hela högen."
-      : "Tryck på talongen för att dra två kort."
-    : canLaySelectedCards
-    ? `Tryck på din stickyta för att lägga ${selectedIds.length} markerade kort.`
-    : canDiscardSelectedCard
-    ? "Tryck på kasthögen för att slänga det markerade kortet."
-    : "Markera kort att lägga ut, eller markera exakt 1 kort och tryck på kasthögen för att slänga.";
+  const actionHint = "";
 
   const clearSelected = () => {
     setMeldPlan(null);
@@ -1247,12 +1237,22 @@ export default function CanastaBoard({
     setHandOrder(sortHandCards(myPlayer.hand).map((card) => card.id));
   };
 
-  const showTip = () => {
-    setGame((prev) => (prev ? { ...prev, notice: selectedSummary.centerHeadline } : prev));
-  };
-
   return (
-    <Card style={{ padding: 14, display: "grid", gap: 10 }}>
+    <div
+      style={{
+        padding: isMobile ? "10px 10px 0" : 14,
+        display: "grid",
+        gap: 10,
+        minHeight: "100%",
+        backgroundImage: isMobile
+          ? [
+              "radial-gradient(140% 120% at 50% 0%, rgba(255,255,255,.03), transparent 55%)",
+              "radial-gradient(120% 120% at 50% 40%, rgba(16,185,129,.07), transparent 74%)",
+              "linear-gradient(180deg, #081313, #071015 72%, #050b13)",
+            ].join(", ")
+          : "none",
+      }}
+    >
       <style>{`
         @keyframes canastaTurnBlink {
           0%, 100% { opacity: 0; }
@@ -1270,17 +1270,17 @@ export default function CanastaBoard({
       `}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "grid", gap: 4 }}>
-          <h2 style={{ margin: 0, fontSize: isMobile ? 22 : 34, lineHeight: 1 }}>Canasta</h2>
+          <h2 style={{ margin: 0, fontSize: isMobile ? 18 : 34, lineHeight: 1, letterSpacing: isMobile ? ".02em" : 0 }}>Canasta</h2>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <div
               style={{
-                padding: "5px 10px",
+                padding: isMobile ? "4px 9px" : "5px 10px",
                 borderRadius: 999,
-                background: isBotTurn ? "rgba(148,163,184,.12)" : "rgba(56,189,248,.14)",
-                color: isBotTurn ? "#cbd5e1" : "#7dd3fc",
-                border: `1px solid ${isBotTurn ? "rgba(148,163,184,.16)" : "rgba(56,189,248,.2)"}`,
+                background: isBotTurn ? "rgba(148,163,184,.08)" : "rgba(56,189,248,.1)",
+                color: isBotTurn ? "#cbd5e1" : "#a5f3fc",
+                border: `1px solid ${isBotTurn ? "rgba(148,163,184,.12)" : "rgba(56,189,248,.14)"}`,
                 fontWeight: 800,
-                fontSize: 11,
+                fontSize: isMobile ? 10 : 11,
               }}
             >
               {isBotTurn ? "Botens tur" : isMyTurn ? "Din tur" : `${activePlayer.name}s tur`}
@@ -1303,10 +1303,32 @@ export default function CanastaBoard({
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button variant="ghost" onClick={() => setSettingsOpen((s) => !s)} style={{ width: "auto" }}>
+          <Button
+            variant="ghost"
+            onClick={() => setSettingsOpen((s) => !s)}
+            style={{
+              width: "auto",
+              padding: isMobile ? "6px 10px" : undefined,
+              opacity: isMobile ? 0.78 : 1,
+              background: isMobile ? "rgba(8,15,28,.34)" : undefined,
+              border: isMobile ? "none" : undefined,
+              backdropFilter: isMobile ? "blur(10px)" : undefined,
+            }}
+          >
             Inställningar
           </Button>
-          <Button variant="ghost" onClick={handleBack} style={{ width: "auto" }}>
+          <Button
+            variant="ghost"
+            onClick={handleBack}
+            style={{
+              width: "auto",
+              padding: isMobile ? "6px 10px" : undefined,
+              opacity: isMobile ? 0.68 : 1,
+              background: isMobile ? "rgba(8,15,28,.24)" : undefined,
+              border: isMobile ? "none" : undefined,
+              backdropFilter: isMobile ? "blur(10px)" : undefined,
+            }}
+          >
             Avsluta
           </Button>
         </div>
@@ -1404,12 +1426,10 @@ export default function CanastaBoard({
         canPickDiscardPile={canPickDiscardPile}
         canDiscardSelectedCard={canDiscardSelectedCard}
         canLaySelectedCards={canLaySelectedCards}
-        showTip={showTip}
       />
 
-      {scoreCards}
-
-      {infoNote}
+      {!isMobile ? scoreCards : null}
+      {!isMobile ? infoNote : null}
       <CanastaMeldPlanModal
         meldPlan={meldPlan}
         selectedForPlan={selectedForPlan}
@@ -1460,6 +1480,6 @@ export default function CanastaBoard({
         themeGlow2={themeGlow2}
         setExternalSettings={setExternalSettings}
       />
-    </Card>
+    </div>
   );
 }
