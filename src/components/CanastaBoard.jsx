@@ -1735,6 +1735,7 @@ export default function CanastaBoard({
     if (!isHost) return;
     const playerCount = lobbyPlayers.length;
     if (playerCount < 1 || playerCount > 4) return;
+    if (mode === "single" && playerCount !== 2) return;
     if (mode === "team" && playerCount !== 4) return;
     const playersConfig = lobbyPlayers.map((p, idx) => ({
       name: p.name?.trim() || (p.isBot ? `Bot ${idx}` : `Spelare ${idx + 1}`),
@@ -2239,13 +2240,14 @@ export default function CanastaBoard({
   }, [dragCardId]);
 
   if (stage === "setup") {
+    const targetLobbySize = mode === "team" ? 4 : 2;
     const lobbyCount = lobbyPlayers.length;
-    const canStart = isHost && lobbyCount >= 1 && lobbyCount <= 4 && (mode === "single" || lobbyCount === 4);
+    const canStart = isHost && lobbyCount === targetLobbySize;
     const humansInLobby = lobbyPlayers.filter((p) => !p.isBot).length;
     const botsInLobby = lobbyPlayers.filter((p) => p.isBot).length;
-    const lobbySeats = seatTemplateList(4, isMobile);
-    const seatPlayers = Array.from({ length: 4 }, (_, idx) => lobbyPlayers[idx] ?? null);
-    const openSeatCount = Math.max(0, 4 - lobbyCount);
+    const lobbySeats = seatTemplateList(targetLobbySize, isMobile);
+    const seatPlayers = Array.from({ length: targetLobbySize }, (_, idx) => lobbyPlayers[idx] ?? null);
+    const openSeatCount = Math.max(0, targetLobbySize - lobbyCount);
     return (
       <Card
         style={{
@@ -2272,7 +2274,7 @@ export default function CanastaBoard({
               <div style={{ display: "grid", gap: 4 }}>
                 <h2 style={{ margin: 0 }}>Canasta-lobby</h2>
                 <div style={{ color: "var(--muted)", fontWeight: 700 }}>
-                  Bygg bordet innan ni startar. Du kan spela solo, bjuda in vänner eller fylla ut med bottar.
+                  Bygg bordet innan ni startar. Singel spelas alltid 1 mot 1 och lag alltid 2v2.
                 </div>
               </div>
               <div
@@ -2391,7 +2393,7 @@ export default function CanastaBoard({
               </div>
               <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
                 <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Spelare</div>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>{lobbyCount}/4</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>{lobbyCount}/{targetLobbySize}</div>
               </div>
               <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(2,6,23,.34)", border: "1px solid rgba(148,163,184,.18)" }}>
                 <div style={{ color: "var(--muted)", fontSize: 12, fontWeight: 700 }}>Manniskor</div>
@@ -2421,7 +2423,7 @@ export default function CanastaBoard({
             <Button variant={mode === "team" ? "primary" : "ghost"} onClick={() => setMode("team")} disabled={!isHost}>
               Lag (2v2)
             </Button>
-            <Button onClick={addBotToLobby} disabled={!isHost || lobbyCount >= 4}>
+            <Button onClick={addBotToLobby} disabled={!isHost || lobbyCount >= targetLobbySize}>
               Lägg till bot
             </Button>
             <Button
@@ -2578,10 +2580,10 @@ export default function CanastaBoard({
                         }}
                       >
                         <div style={{ fontWeight: 700 }}>{friend.display_name}</div>
-                        <Button
+                      <Button
                           variant={sent ? "primary" : "ghost"}
                           onClick={() => onSendRoomInvite?.(friend.id)}
-                          disabled={!roomCode || sent || typeof onSendRoomInvite !== "function" || lobbyCount >= 4}
+                          disabled={!roomCode || sent || typeof onSendRoomInvite !== "function" || lobbyCount >= targetLobbySize}
                           style={{ width: "auto", padding: "6px 10px" }}
                         >
                           {sent ? "Skickat" : "Bjud in"}
@@ -2595,7 +2597,12 @@ export default function CanastaBoard({
           )}
           {mode === "team" && (
             <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
-              Laglage kraver exakt 4 spelare. Singel kan startas direkt och fyllas pa senare.
+              Lagläge kräver exakt 4 spelare.
+            </div>
+          )}
+          {mode === "single" && (
+            <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
+              Singel spelas endast 1 mot 1 och kräver exakt 2 spelare.
             </div>
           )}
           {lobbyStatus && (
@@ -2612,7 +2619,7 @@ export default function CanastaBoard({
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {isHost ? (
               <Button onClick={start} disabled={!canStart}>
-                {lobbyCount < 2 ? "Skapa lobby" : "Starta match"}
+                {lobbyCount < targetLobbySize ? "Fyll lobbyn" : "Starta match"}
               </Button>
             ) : (
               <Button variant="ghost" disabled>
@@ -3867,7 +3874,9 @@ export default function CanastaBoard({
                       }}
                     >
                       <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>Bord</div>
-                      <div style={{ fontWeight: 900, fontSize: 20, marginTop: 2 }}>{lobbyPlayers.length}/4 spelare</div>
+                      <div style={{ fontWeight: 900, fontSize: 20, marginTop: 2 }}>
+                        {lobbyPlayers.length}/{mode === "team" ? 4 : 2} spelare
+                      </div>
                     </div>
                   </div>
                   <div style={settingsInlineRowStyle}>
@@ -3895,7 +3904,7 @@ export default function CanastaBoard({
                     </div>
                   </div>
                   <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>
-                    Max 4 spelare totalt. Har du ett rum kopplat kan du bjuda in vänner här eller låta andra joina via koden.
+                    Canasta körs här bara som 1 mot 1 i singel eller 2v2 i lagspel.
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {friends.length === 0 ? (
