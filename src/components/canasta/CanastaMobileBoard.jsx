@@ -37,36 +37,28 @@ function OpponentPanel({ panel }) {
     <div
       style={{
         display: "grid",
-        gap: 8,
-        padding: 12,
-        borderRadius: 16,
-        border: "1px solid rgba(148,163,184,.16)",
-        background: "linear-gradient(180deg, rgba(15,23,42,.9), rgba(2,6,23,.84))",
+        gap: 6,
+        padding: "6px 2px 2px",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-        <div style={{ display: "grid", gap: 2 }}>
-          <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 14 }}>{panel.label}</div>
-          <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 11 }}>{panel.playerNames}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+          <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 14, whiteSpace: "nowrap" }}>{panel.label}</div>
+          <div style={{ color: "#94a3b8", fontWeight: 700, fontSize: 12 }}>{Number(panel.total || 0).toLocaleString("sv-SE")}</div>
         </div>
         <div
           style={{
             padding: "4px 8px",
             borderRadius: 999,
-            background: panel.opened ? "rgba(34,197,94,.14)" : "rgba(148,163,184,.12)",
+            background: panel.opened ? "rgba(34,197,94,.12)" : "rgba(148,163,184,.1)",
             color: panel.opened ? "#86efac" : "#cbd5e1",
             fontSize: 10,
             fontWeight: 800,
             whiteSpace: "nowrap",
           }}
         >
-          {panel.opened ? "Öppnat" : "Ej öppnat"}
+          {panel.opened ? "Opened" : "Not opened"}
         </div>
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 12 }}>Kort: {panel.handCount}</div>
-        <div style={{ color: "#fde68a", fontWeight: 800, fontSize: 12 }}>Total: {Number(panel.total || 0).toLocaleString("sv-SE")}</div>
-        <div style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 12 }}>Öppning: {panel.opening === "canasta" ? "Canasta" : panel.opening}</div>
       </div>
       {panel.melds?.length ? (
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
@@ -75,13 +67,16 @@ function OpponentPanel({ panel }) {
           ))}
         </div>
       ) : (
-        <div style={{ color: "#64748b", fontWeight: 700, fontSize: 11 }}>Inga melds ännu</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ color: "#64748b", fontWeight: 700, fontSize: 11 }}>{panel.playerNames}</div>
+          <div style={{ color: "#94a3b8", fontWeight: 800, fontSize: 11 }}>{panel.handCount} cards</div>
+        </div>
       )}
     </div>
   );
 }
 
-function StatusPill({ label, tone = "neutral" }) {
+function StatusPill({ label, tone = "neutral", compact = false }) {
   const toneMap = {
     neutral: { bg: "rgba(148,163,184,.12)", color: "#cbd5e1", border: "rgba(148,163,184,.16)" },
     success: { bg: "rgba(34,197,94,.14)", color: "#86efac", border: "rgba(34,197,94,.2)" },
@@ -93,17 +88,48 @@ function StatusPill({ label, tone = "neutral" }) {
   return (
     <div
       style={{
-        padding: "6px 10px",
+        padding: compact ? "4px 8px" : "6px 10px",
         borderRadius: 999,
         background: colors.bg,
-        border: `1px solid ${colors.border}`,
         color: colors.color,
         fontWeight: 800,
-        fontSize: 11,
+        fontSize: compact ? 10 : 11,
         whiteSpace: "nowrap",
       }}
     >
       {label}
+    </div>
+  );
+}
+
+function StepIndicator({ phase }) {
+  const steps = [
+    { key: "draw", label: "Draw" },
+    { key: "meld", label: "Meld" },
+    { key: "discard", label: "Discard" },
+  ];
+  const activeIndex = phase === "draw" ? 0 : phase === "discard" ? 1 : 2;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {steps.map((step, index) => {
+        const active = index === activeIndex;
+        const done = index < activeIndex;
+        return (
+          <div key={step.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: active ? "#7dd3fc" : done ? "#86efac" : "rgba(148,163,184,.38)",
+                boxShadow: active ? "0 0 12px rgba(125,211,252,.75)" : "none",
+              }}
+            />
+            <span style={{ color: active ? "#e2e8f0" : "#64748b", fontSize: 11, fontWeight: active ? 800 : 700 }}>{step.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -156,36 +182,36 @@ function PileButton({ title, subtitle, onPress, disabled, card, renderCardFace, 
       disabled={disabled}
       style={{
         display: "grid",
-        gap: 10,
+        gap: 8,
         justifyItems: "center",
         alignContent: "center",
-        minHeight: 172,
-        padding: 14,
+        minHeight: 156,
+        padding: 12,
         borderRadius: 22,
-        border: `1px solid ${accentMap[accentTone] ?? accentMap.neutral}`,
-        background: "linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.92))",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,.04), 0 12px 28px rgba(2,6,23,.25)",
-        opacity: disabled ? 0.58 : 1,
+        background: "linear-gradient(180deg, rgba(15,23,42,.68), rgba(2,6,23,.36))",
+        boxShadow: disabled
+          ? "inset 0 1px 0 rgba(255,255,255,.02)"
+          : `inset 0 1px 0 rgba(255,255,255,.03), 0 0 0 1px ${accentMap[accentTone] ?? accentMap.neutral}, 0 16px 32px rgba(2,6,23,.24)`,
+        opacity: disabled ? 0.42 : 1,
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 15 }}>{title}</div>
+      <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 13, letterSpacing: ".04em", textTransform: "uppercase" }}>{title}</div>
       <div
         style={{
           width: 74,
           height: 104,
           borderRadius: 14,
           overflow: "hidden",
-          border: "1px solid rgba(148,163,184,.22)",
           background: card ? "#fffdf8" : "rgba(15,23,42,.75)",
-          boxShadow: "0 10px 22px rgba(2,6,23,.25)",
+          boxShadow: "0 14px 24px rgba(2,6,23,.35)",
         }}
       >
         {card ? renderCardFace(card, false) : <div style={{ width: "100%", height: "100%" }} />}
       </div>
-      <div style={{ display: "grid", gap: 4, justifyItems: "center" }}>
-        <div style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 12, textAlign: "center" }}>{subtitle}</div>
-        {badge ? <StatusPill label={badge.label} tone={badge.tone} /> : null}
+      <div style={{ display: "grid", gap: 3, justifyItems: "center" }}>
+        <div style={{ color: "#94a3b8", fontWeight: 700, fontSize: 11, textAlign: "center" }}>{subtitle}</div>
+        {badge ? <StatusPill label={badge.label} tone={badge.tone} compact /> : null}
       </div>
     </button>
   );
@@ -218,8 +244,8 @@ export default function CanastaMobileBoard({
   const myMelds = myTeamZone?.melds ?? [];
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "grid", gap: 8 }}>
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "grid", gap: 4 }}>
         {opponentPanels.map((panel) => (
           <OpponentPanel key={panel.teamId} panel={panel} />
         ))}
@@ -229,16 +255,22 @@ export default function CanastaMobileBoard({
         style={{
           display: "grid",
           gap: 12,
-          padding: 14,
-          borderRadius: 22,
-          border: "1px solid rgba(148,163,184,.16)",
-          background: "linear-gradient(180deg, rgba(8,15,28,.94), rgba(2,6,23,.9))",
+          padding: "14px 12px 18px",
+          borderRadius: 28,
+          backgroundImage: [
+            "radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,.03), transparent 55%)",
+            "radial-gradient(80% 90% at 50% 50%, rgba(16,185,129,.08), transparent 70%)",
+            "linear-gradient(180deg, #0a1a1a, #061112)",
+          ].join(", "),
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,.04), inset 0 -40px 60px rgba(2,6,23,.28), 0 18px 38px rgba(2,6,23,.28)",
         }}
       >
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <StatusPill label={selectedSummary.turnStepLabel} tone="info" />
-          <StatusPill label={selectedSummary.openingStatus} tone={selectedSummary.canOpenNow ? "success" : selectedSummary.teamOpened ? "neutral" : "warning"} />
-          <StatusPill label={selectedSummary.discardStatus} tone={game.discardFrozen ? "warning" : canPickDiscardPile ? "success" : "neutral"} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <StepIndicator phase={game.phase === "draw" ? "draw" : selectedSummary.canDiscardNow ? "discard" : "meld"} />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {game.discardFrozen ? <StatusPill label="Frozen" tone="warning" compact /> : null}
+            {canPickDiscardPile ? <StatusPill label="Takeable" tone="success" compact /> : null}
+          </div>
         </div>
 
         <div
@@ -270,30 +302,13 @@ export default function CanastaMobileBoard({
           />
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: 6,
-            padding: "10px 12px",
-            borderRadius: 16,
-            border: "1px solid rgba(148,163,184,.14)",
-            background: "rgba(15,23,42,.55)",
-          }}
-        >
-          <div style={{ color: "#f8fafc", fontWeight: 800, fontSize: 13 }}>{selectedSummary.centerHeadline}</div>
-          <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 12, lineHeight: 1.4 }}>{selectedSummary.centerDetail}</div>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gap: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 15 }}>Mina melds</div>
-          <div style={{ color: "#94a3b8", fontWeight: 700, fontSize: 11 }}>
-            {myTeamZone?.opened ? "Laget är öppnat" : "Inte öppnat än"}
-          </div>
-        </div>
         {myMelds.length ? (
-          <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2 }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+              <div style={{ color: "rgba(226,232,240,.9)", fontWeight: 800, fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase" }}>Melds</div>
+              {!myTeamZone?.opened ? <StatusPill label="Not opened" tone="neutral" compact /> : null}
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
             {myMelds.map((meld, index) => (
               <MyMeldCard
                 key={`my-meld-${meld.rank}-${index}`}
@@ -306,29 +321,18 @@ export default function CanastaMobileBoard({
                 }}
               />
             ))}
-          </div>
-        ) : (
-          <div
-            style={{
-              padding: 14,
-              borderRadius: 16,
-              border: "1px dashed rgba(148,163,184,.18)",
-              color: "#64748b",
-              fontWeight: 700,
-              fontSize: 12,
-            }}
-          >
-            Inga melds ännu. Markera kort i handen och använd actions för att öppna eller bygga vidare.
-          </div>
-        )}
-        {selectedCards.length > 0 ? (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <StatusPill label={`Markerade: ${selectedCards.length}`} tone="info" />
-            <StatusPill label={`Öppningsvärde: ${selectedSummary.openingValueLabel}`} tone={selectedSummary.canOpenNow ? "success" : "warning"} />
-            {selectedSummary.intentLabel ? <StatusPill label={selectedSummary.intentLabel} tone="success" /> : null}
+            </div>
           </div>
         ) : null}
       </div>
+
+      {selectedCards.length > 0 ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <StatusPill label={`${selectedCards.length} selected`} tone="info" compact />
+            <StatusPill label={selectedSummary.openingValueLabel} tone={selectedSummary.canOpenNow ? "success" : "warning"} compact />
+            {selectedSummary.intentLabel ? <StatusPill label={selectedSummary.intentLabel} tone="success" compact /> : null}
+          </div>
+      ) : null}
     </div>
   );
 }
