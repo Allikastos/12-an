@@ -2754,27 +2754,6 @@ export default function CanastaBoard({
           total: Number(totals[index] || 0),
           opening: openingByPlayer[index],
         }));
-  const controlsPanel = (
-    <div style={{ display: "grid", gridTemplateColumns: isMobileLandscape ? "1fr" : isMobile ? "repeat(2, minmax(0,1fr))" : "repeat(3, minmax(0,1fr))", gap: isMobile ? 6 : 8 }}>
-      <Button onClick={drawTwo} disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn}>
-        {game.stock.length === 0
-          ? (isMobile ? "Avstå kasthög" : "Avstå kasthög (slut)")
-          : (isMobile ? "Dra 2" : "Dra 2 kort")}
-      </Button>
-      <Button
-        onClick={takeDiscardStack}
-        disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn || !canTakeDiscardNow}
-      >
-        {isMobile ? "Ta kasthög" : "Ta hela kasthögen"}
-      </Button>
-      <Button
-        onClick={laySelected}
-        disabled={game.phase !== "discard" || selectedIds.length < 1 || game.roundEnded || isBotTurn || !isMyTurn}
-      >
-        {isMobile ? `Lägg (${selectedIds.length})` : `Lägg markerade (${selectedIds.length})`}
-      </Button>
-    </div>
-  );
   const scoreCards = (
     <div style={{ display: "grid", gridTemplateColumns: isMobileLandscape ? "1fr" : "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
       {scoreEntries.map((entry) => (
@@ -2806,6 +2785,22 @@ export default function CanastaBoard({
     </div>
   );
   const showLandscapeHandOverview = isMobileLandscape && !mobileSortMode;
+  const canDrawFromStock = game.phase === "draw" && !game.roundEnded && !isBotTurn && isMyTurn;
+  const canPickDiscardPile = canDrawFromStock && canTakeDiscardNow;
+  const canLaySelectedCards = game.phase === "discard" && selectedIds.length > 0 && !game.roundEnded && !isBotTurn && isMyTurn;
+  const canDiscardSelectedCard = game.phase === "discard" && selectedIds.length === 1 && !game.roundEnded && !isBotTurn && isMyTurn;
+  const myTeamId = myPlayer?.teamId ?? null;
+  const actionHint = game.roundEnded
+    ? ""
+    : game.phase === "draw"
+    ? canPickDiscardPile
+      ? "Tryck på talongen för att dra två eller på kasthögen för att ta hela högen."
+      : "Tryck på talongen för att dra två kort."
+    : canLaySelectedCards
+    ? `Tryck på din stickyta för att lägga ${selectedIds.length} markerade kort.`
+    : canDiscardSelectedCard
+    ? "Tryck på kasthögen för att slänga det markerade kortet."
+    : "Markera kort att lägga ut, eller markera exakt 1 kort och tryck på kasthögen för att slänga.";
 
   return (
     <Card style={{ padding: 14, display: "grid", gap: 10 }}>
@@ -2837,6 +2832,9 @@ export default function CanastaBoard({
       </div>
 
       <div style={{ color: "var(--muted)", fontWeight: 700 }}>{game.notice}</div>
+      {!game.roundEnded && actionHint ? (
+        <div style={{ color: "#bfdbfe", fontWeight: 700, fontSize: 12 }}>{actionHint}</div>
+      ) : null}
       {isBotTurn && !game.roundEnded && (
         <div style={{ color: "#7dd3fc", fontWeight: 800 }}>Boten tänker...</div>
       )}
@@ -2995,7 +2993,12 @@ export default function CanastaBoard({
             </div>
           </>
         )}
-        <div
+        <button
+          type="button"
+          onClick={drawTwo}
+          disabled={!canDrawFromStock}
+          aria-label={game.stock.length === 0 ? "Avstå kasthögen" : "Dra två kort från talongen"}
+          title={game.stock.length === 0 ? "Avstå kasthögen" : "Dra två kort"}
           style={{
             position: "absolute",
             left: "50%",
@@ -3010,8 +3013,10 @@ export default function CanastaBoard({
             backgroundPosition: "center center, 0 0, 0 0",
             backgroundRepeat: "no-repeat, repeat, no-repeat",
             boxShadow: "0 8px 18px rgba(2,6,23,.45)",
-            opacity: game.stock.length > 0 ? 1 : 0.45,
+            opacity: canDrawFromStock ? 1 : game.stock.length > 0 ? 0.72 : 0.45,
             zIndex: 4,
+            cursor: canDrawFromStock ? "pointer" : "not-allowed",
+            padding: 0,
           }}
         />
         <div
@@ -3067,7 +3072,13 @@ export default function CanastaBoard({
 
         <button
           type="button"
-          onClick={tryDiscardSelected}
+          onClick={() => {
+            if (game.phase === "draw") {
+              takeDiscardStack();
+              return;
+            }
+            tryDiscardSelected();
+          }}
           onDragOver={(e) => {
             if (isBotTurn || game.phase !== "discard" || game.roundEnded) return;
             e.preventDefault();
@@ -3092,11 +3103,28 @@ export default function CanastaBoard({
             color: "#e2e8f0",
             fontWeight: 900,
             padding: "4px 4px",
-            cursor: game.phase === "discard" && !isBotTurn && !game.roundEnded ? "pointer" : "not-allowed",
-            opacity: game.phase === "discard" && !game.roundEnded ? 1 : 0.75,
+            cursor:
+              game.phase === "draw"
+                ? canPickDiscardPile
+                  ? "pointer"
+                  : "not-allowed"
+                : game.phase === "discard" && !isBotTurn && !game.roundEnded
+                ? "pointer"
+                : "not-allowed",
+            opacity:
+              game.phase === "draw"
+                ? canPickDiscardPile
+                  ? 1
+                  : 0.7
+                : game.phase === "discard" && !game.roundEnded
+                ? 1
+                : 0.75,
             boxShadow: topDiscard ? "0 10px 18px rgba(2,6,23,.4), 0 1px 0 rgba(255,255,255,.75) inset" : "none",
             zIndex: 5,
           }}
+          disabled={game.phase === "draw" ? !canPickDiscardPile : !canDiscardSelectedCard}
+          aria-label={game.phase === "draw" ? "Ta kasthögen" : "Släng markerat kort"}
+          title={game.phase === "draw" ? "Ta kasthögen" : "Släng markerat kort"}
         >
           <CanastaFace card={topDiscard} compact />
         </button>
@@ -3119,6 +3147,8 @@ export default function CanastaBoard({
         {visibleTeamZones.map((zone) => {
           const seat = seatTemplates[zone.anchorIndex] ?? { top: "50%", left: "50%", angle: 0 };
           const canOpenZone = (zone.melds?.length ?? 0) > 0 || (zone.redThreeCount ?? 0) > 0;
+          const isMyZone = zone.teamId === myTeamId;
+          const canLayToZone = isMyZone && canLaySelectedCards;
           const leftPct = Number.parseFloat(String(seat.left).replace("%", ""));
           const topPct = Number.parseFloat(String(seat.top).replace("%", ""));
           const isSideSeat = leftPct <= 22 || leftPct >= 78;
@@ -3131,15 +3161,22 @@ export default function CanastaBoard({
           return (
             <div
               key={zone.teamId}
-              role={canOpenZone ? "button" : undefined}
-              tabIndex={canOpenZone ? 0 : undefined}
-              onClick={canOpenZone ? () => setExpandedTeamId(zone.teamId) : undefined}
+              role={canOpenZone || canLayToZone ? "button" : undefined}
+              tabIndex={canOpenZone || canLayToZone ? 0 : undefined}
+              onClick={
+                canLayToZone
+                  ? laySelected
+                  : canOpenZone
+                  ? () => setExpandedTeamId(zone.teamId)
+                  : undefined
+              }
               onKeyDown={
-                canOpenZone
+                canOpenZone || canLayToZone
                   ? (e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setExpandedTeamId(zone.teamId);
+                        if (canLayToZone) laySelected();
+                        else setExpandedTeamId(zone.teamId);
                       }
                     }
                   : undefined
@@ -3171,12 +3208,12 @@ export default function CanastaBoard({
                       : "38%"
                   : "42%",
                 zIndex: isMobile ? 2 : 6,
-                cursor: canOpenZone ? "pointer" : "default",
-                pointerEvents: canOpenZone ? "auto" : "none",
+                cursor: canLayToZone ? "copy" : canOpenZone ? "pointer" : "default",
+                pointerEvents: canLayToZone || canOpenZone ? "auto" : "none",
               }}
             >
               <TeamMelds
-                title={`${zone.label}${zone.opened ? " • öppnat" : ""}`}
+                title={`${zone.label}${zone.opened ? " • öppnat" : ""}${canLayToZone ? ` • lägg ${selectedIds.length}` : ""}`}
                 redThreeCount={zone.redThreeCount}
                 melds={zone.melds}
                 orientation={meldOrientation}
@@ -3190,14 +3227,11 @@ export default function CanastaBoard({
       </div>
       {isMobileLandscape ? (
         <div style={{ display: "grid", gap: 10 }}>
-          {controlsPanel}
           {scoreCards}
           {infoNote}
         </div>
       ) : null}
       </div>
-
-      {!isMobileLandscape ? controlsPanel : null}
 
       <div
         style={{
