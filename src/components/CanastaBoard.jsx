@@ -51,6 +51,7 @@ function handSortWeight(card) {
   if (card.joker) return 14;
   if (card.rank === 1) return 12;
   if (card.rank === 2) return 13;
+  if (card.rank === 13) return 11;
   return Number(card.rank || 0);
 }
 
@@ -1354,6 +1355,9 @@ export default function CanastaBoard({
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(MOBILE_QUERY).matches : false
   );
+  const [isLandscapeViewport, setIsLandscapeViewport] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth > window.innerHeight : false
+  );
   const prevTurnRef = useRef(null);
   const turnFlashTimerRef = useRef(null);
   const inactivityTimerRef = useRef(null);
@@ -1442,6 +1446,7 @@ export default function CanastaBoard({
   );
   const canSortHand = !game?.roundEnded;
   const handReorderEnabled = canSortHand && (!isMobile || mobileSortMode);
+  const isMobileLandscape = isMobile && isLandscapeViewport;
   const standardThemes = useMemo(
     () => themes.filter((theme) => (theme.category ?? "standard") === "standard"),
     [themes]
@@ -1526,8 +1531,8 @@ export default function CanastaBoard({
     ? 62
     : 80;
   const handCardHeight = Math.round(handCardWidth * 1.5);
-  const handAreaHeight = isMobile ? (actualHandCount >= 15 ? 138 : 150) : 192;
-  const handSpan = isMobile ? 320 : 680;
+  const handAreaHeight = isMobileLandscape ? 176 : isMobile ? (actualHandCount >= 15 ? 138 : 150) : 192;
+  const handSpan = isMobileLandscape ? 560 : isMobile ? 320 : 680;
   const handStep = Math.min(isMobile ? 34 : 46, handCount > 1 ? handSpan / (handCount - 1) : 0);
   const resolveHandDropTarget = useCallback((clientX) => {
     const container = handAreaRef.current;
@@ -2099,10 +2104,17 @@ export default function CanastaBoard({
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const mq = window.matchMedia(MOBILE_QUERY);
-    const onChange = () => setIsMobile(mq.matches);
+    const onChange = () => {
+      setIsMobile(mq.matches);
+      setIsLandscapeViewport(window.innerWidth > window.innerHeight);
+    };
     onChange();
     mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
+    window.addEventListener("resize", onChange);
+    return () => {
+      mq.removeEventListener?.("change", onChange);
+      window.removeEventListener("resize", onChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -2728,6 +2740,72 @@ export default function CanastaBoard({
       game.players.find((player) => player.teamId === matchWinnerTeamId)?.name ??
       matchWinnerTeamId
     : null;
+  const scoreEntries =
+    game.mode === "team"
+      ? teamZones.map((zone) => ({
+          key: zone.teamId,
+          label: zone.label,
+          total: teamTotals[zone.teamId] ?? 0,
+          opening: openingRequirement(teamTotals[zone.teamId] ?? 0),
+        }))
+      : game.players.map((player, index) => ({
+          key: player.id,
+          label: player.name,
+          total: Number(totals[index] || 0),
+          opening: openingByPlayer[index],
+        }));
+  const controlsPanel = (
+    <div style={{ display: "grid", gridTemplateColumns: isMobileLandscape ? "1fr" : isMobile ? "repeat(2, minmax(0,1fr))" : "repeat(3, minmax(0,1fr))", gap: isMobile ? 6 : 8 }}>
+      <Button onClick={drawTwo} disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn}>
+        {game.stock.length === 0
+          ? (isMobile ? "Avstå kasthög" : "Avstå kasthög (slut)")
+          : (isMobile ? "Dra 2" : "Dra 2 kort")}
+      </Button>
+      <Button
+        onClick={takeDiscardStack}
+        disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn || !canTakeDiscardNow}
+      >
+        {isMobile ? "Ta kasthög" : "Ta hela kasthögen"}
+      </Button>
+      <Button
+        onClick={laySelected}
+        disabled={game.phase !== "discard" || selectedIds.length < 1 || game.roundEnded || isBotTurn || !isMyTurn}
+      >
+        {isMobile ? `Lägg (${selectedIds.length})` : `Lägg markerade (${selectedIds.length})`}
+      </Button>
+    </div>
+  );
+  const scoreCards = (
+    <div style={{ display: "grid", gridTemplateColumns: isMobileLandscape ? "1fr" : "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+      {scoreEntries.map((entry) => (
+        <div
+          key={`${entry.key}-score`}
+          style={{
+            display: "grid",
+            gap: 4,
+            borderRadius: 12,
+            border: "1px solid rgba(148,163,184,.25)",
+            background: "rgba(15,23,42,.45)",
+            padding: "10px 12px",
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>{entry.label} totalpoäng</div>
+          <div style={{ color: "#f8fafc", fontSize: 22, fontWeight: 900 }}>
+            {Number(entry.total || 0).toLocaleString("sv-SE")}
+          </div>
+          <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 11 }}>
+            Öppning: {entry.opening === "canasta" ? "Canasta" : entry.opening}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  const infoNote = (
+    <div style={{ color: "var(--muted)", fontWeight: 600, fontSize: 12 }}>
+      Kasthögen tas nu i sin helhet, frusen hög hanteras separat och rondpoäng räknas automatiskt.
+    </div>
+  );
+  const showLandscapeHandOverview = isMobileLandscape && !mobileSortMode;
 
   return (
     <Card style={{ padding: 14, display: "grid", gap: 10 }}>
@@ -2747,7 +2825,7 @@ export default function CanastaBoard({
         }
       `}</style>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0, fontSize: isMobile ? 34 : 42 }}>Canasta</h2>
+        <h2 style={{ margin: 0, fontSize: isMobileLandscape ? 28 : isMobile ? 34 : 42 }}>Canasta</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button variant="ghost" onClick={() => setSettingsOpen((s) => !s)} style={{ width: "auto" }}>
             Inställningar
@@ -2837,10 +2915,11 @@ export default function CanastaBoard({
         </div>
       )}
 
+      <div style={{ display: "grid", gridTemplateColumns: isMobileLandscape ? "minmax(0, 1.45fr) minmax(220px, .9fr)" : "1fr", gap: 10, alignItems: "start" }}>
       <div
         style={{
           position: "relative",
-          minHeight: isMobile ? 430 : 520,
+          minHeight: isMobileLandscape ? 310 : isMobile ? 430 : 520,
           borderRadius: isMobile ? 16 : 24,
           border: `1px solid color-mix(in srgb, ${themeAccent} 55%, rgba(148,163,184,.35))`,
           backgroundImage: [
@@ -3109,26 +3188,16 @@ export default function CanastaBoard({
           );
         })}
       </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0,1fr))" : "repeat(3, minmax(0,1fr))", gap: isMobile ? 6 : 8 }}>
-        <Button onClick={drawTwo} disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn}>
-          {game.stock.length === 0
-            ? (isMobile ? "Avstå kasthög" : "Avstå kasthög (slut)")
-            : (isMobile ? "Dra 2" : "Dra 2 kort")}
-        </Button>
-        <Button
-          onClick={takeDiscardStack}
-          disabled={game.phase !== "draw" || game.roundEnded || isBotTurn || !isMyTurn || !canTakeDiscardNow}
-        >
-          {isMobile ? "Ta kasthög" : "Ta hela kasthögen"}
-        </Button>
-        <Button
-          onClick={laySelected}
-          disabled={game.phase !== "discard" || selectedIds.length < 1 || game.roundEnded || isBotTurn || !isMyTurn}
-        >
-          {isMobile ? `Lägg (${selectedIds.length})` : `Lägg markerade (${selectedIds.length})`}
-        </Button>
+      {isMobileLandscape ? (
+        <div style={{ display: "grid", gap: 10 }}>
+          {controlsPanel}
+          {scoreCards}
+          {infoNote}
+        </div>
+      ) : null}
       </div>
+
+      {!isMobileLandscape ? controlsPanel : null}
 
       <div
         style={{
@@ -3159,6 +3228,60 @@ export default function CanastaBoard({
           </div>
         ) : null}
 
+        {showLandscapeHandOverview ? (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              overflowX: "auto",
+              padding: "4px 2px 10px",
+              scrollbarWidth: "thin",
+              touchAction: "pan-x",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+            }}
+          >
+            {orderedHand.map((c) => {
+              const selected = selectedIds.includes(c.id);
+              const recentlyDrawn = recentDrawnIds.includes(c.id);
+              return (
+                <button
+                  key={`landscape-hand-${c.id}`}
+                  type="button"
+                  onClick={() => {
+                    if (suppressTapRef.current) {
+                      suppressTapRef.current = false;
+                      return;
+                    }
+                    toggleSelect(c.id);
+                  }}
+                  style={{
+                    flex: "0 0 auto",
+                    width: 58,
+                    height: 88,
+                    borderRadius: 11,
+                    border: selected ? "2px solid #67e8f9" : "1px solid rgba(15,23,42,.3)",
+                    background: recentlyDrawn ? "#efe8d4" : "#fffdf8",
+                    padding: 3,
+                    transform: selected ? "translateY(-8px)" : "translateY(0)",
+                    boxShadow: selected
+                      ? "0 0 0 1px rgba(103,232,249,.45), 0 12px 20px rgba(2,6,23,.42), inset 0 1px 0 rgba(255,255,255,.8)"
+                      : recentlyDrawn
+                      ? "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 999px rgba(15,23,42,.06)"
+                      : "0 9px 16px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.78)",
+                    transition: "transform .14s ease, border-color .12s ease, background .16s ease, box-shadow .16s ease",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                    WebkitTouchCallout: "none",
+                  }}
+                >
+                  <CanastaFace card={c} compact />
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <div
           ref={handAreaRef}
           style={{
@@ -3351,47 +3474,12 @@ export default function CanastaBoard({
             );
           })}
         </div>
+        )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
-        {(game.mode === "team"
-          ? teamZones.map((zone) => ({
-              key: zone.teamId,
-              label: zone.label,
-              total: teamTotals[zone.teamId] ?? 0,
-              opening: openingRequirement(teamTotals[zone.teamId] ?? 0),
-            }))
-          : game.players.map((player, index) => ({
-              key: player.id,
-              label: player.name,
-              total: Number(totals[index] || 0),
-              opening: openingByPlayer[index],
-            }))).map((entry) => (
-          <div
-            key={`${entry.key}-score`}
-            style={{
-              display: "grid",
-              gap: 4,
-              borderRadius: 12,
-              border: "1px solid rgba(148,163,184,.25)",
-              background: "rgba(15,23,42,.45)",
-              padding: "10px 12px",
-            }}
-          >
-            <div style={{ color: "var(--muted)", fontWeight: 700, fontSize: 12 }}>{entry.label} totalpoäng</div>
-            <div style={{ color: "#f8fafc", fontSize: 22, fontWeight: 900 }}>
-              {Number(entry.total || 0).toLocaleString("sv-SE")}
-            </div>
-            <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 11 }}>
-              Öppning: {entry.opening === "canasta" ? "Canasta" : entry.opening}
-            </div>
-          </div>
-        ))}
-      </div>
+      {!isMobileLandscape ? scoreCards : null}
 
-      <div style={{ color: "var(--muted)", fontWeight: 600, fontSize: 12 }}>
-        Kasthögen tas nu i sin helhet, frusen hög hanteras separat och rondpoäng räknas automatiskt.
-      </div>
+      {!isMobileLandscape ? infoNote : null}
       {meldPlan && (
         <div
           role="dialog"
