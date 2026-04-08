@@ -1,3 +1,5 @@
+import CanastaMobileBoard from "./CanastaMobileBoard";
+
 export default function CanastaBoardView({
   isMobile,
   isMobileLandscape,
@@ -11,8 +13,6 @@ export default function CanastaBoardView({
   nextRoundCountdown,
   isHost,
   startNextRound,
-  scoreCards,
-  infoNote,
   actionHint,
   isBotTurn,
   turnFlash,
@@ -34,15 +34,61 @@ export default function CanastaBoardView({
   canDiscardSelectedCard,
   visibleTeamZones,
   seatTemplates,
+  myPlayerId,
   myTeamId,
   canLaySelectedCards,
   selectedIds,
+  selectedCards,
+  selectedSummary,
   laySelected,
   setExpandedTeamId,
   renderCardFace,
   renderTeamMelds,
   getTeamTotal,
+  rankLabel,
 }) {
+  const otherPlayerHands = game.players.filter((player) => player.id !== myPlayerId);
+  const myTeamZone = teamZones.find((zone) => zone.teamId === myTeamId) ?? null;
+  const opponentPanels = teamZones
+    .filter((zone) => zone.teamId !== myTeamId)
+    .map((zone) => {
+      const players = game.players.filter((player) => player.teamId === zone.teamId);
+      return {
+        teamId: zone.teamId,
+        label: zone.label,
+        playerNames: players.map((player) => player.name).join(" • "),
+        handCount: players.reduce((sum, player) => sum + (player.hand?.length ?? 0), 0),
+        total: getTeamTotal(zone.teamId),
+        opening: zone.opening,
+        opened: zone.opened,
+        melds: zone.melds,
+        rankLabel,
+      };
+    });
+
+  if (isMobile) {
+    return (
+      <CanastaMobileBoard
+        game={game}
+        myTeamZone={myTeamZone}
+        opponentPanels={opponentPanels}
+        topDiscard={topDiscard}
+        canDrawFromStock={canDrawFromStock}
+        drawTwo={drawTwo}
+        canPickDiscardPile={canPickDiscardPile}
+        takeDiscardStack={takeDiscardStack}
+        tryDiscardSelected={tryDiscardSelected}
+        canDiscardSelectedCard={canDiscardSelectedCard}
+        selectedCards={selectedCards}
+        selectedSummary={selectedSummary}
+        laySelected={laySelected}
+        setExpandedTeamId={setExpandedTeamId}
+        renderCardFace={renderCardFace}
+        rankLabel={rankLabel}
+      />
+    );
+  }
+
   return (
     <>
       {!game.roundEnded && actionHint ? (
@@ -139,14 +185,7 @@ export default function CanastaBoardView({
         </div>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isMobileLandscape ? "minmax(0, 1.45fr) minmax(220px, .9fr)" : "1fr",
-          gap: 10,
-          alignItems: "start",
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, alignItems: "start" }}>
         <div
           style={{
             position: "relative",
@@ -378,6 +417,84 @@ export default function CanastaBoardView({
             Kasthög: {game.discard.length}
           </div>
 
+          {otherPlayerHands.map((player, index) => {
+            const seat = seatTemplates[index] ?? { top: "50%", left: "50%" };
+            const leftPct = Number.parseFloat(String(seat.left).replace("%", ""));
+            const topPct = Number.parseFloat(String(seat.top).replace("%", ""));
+            const isSideSeat = leftPct <= 22 || leftPct >= 78;
+            const isTopSeat = topPct <= 18;
+            const count = player.hand?.length ?? 0;
+            const visibleCount = Math.min(count, isMobile ? 8 : 10);
+            const cardWidth = isMobile ? 11 : 13;
+            const cardHeight = isMobile ? 17 : 20;
+            const step = isMobile ? 4 : 5;
+            const originLeft = isSideSeat ? (leftPct <= 22 ? "8%" : "92%") : seat.left;
+            const originTop = isTopSeat ? "9%" : isSideSeat ? `${Math.max(20, Math.min(80, topPct))}%` : seat.top;
+
+            return (
+              <div
+                key={`opp-hand-${player.id}`}
+                style={{
+                  position: "absolute",
+                  left: originLeft,
+                  top: originTop,
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 7,
+                  pointerEvents: "none",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    width: isSideSeat ? cardWidth + 10 : Math.max(cardWidth, (visibleCount - 1) * step + cardWidth + 10),
+                    height: isSideSeat ? Math.max(cardHeight, (visibleCount - 1) * step + cardHeight) + 12 : cardHeight + 12,
+                  }}
+                >
+                  {Array.from({ length: visibleCount }, (_, cardIdx) => (
+                    <div
+                      key={`${player.id}-hidden-${cardIdx}`}
+                      style={{
+                        position: "absolute",
+                        left: isSideSeat ? 0 : cardIdx * step,
+                        top: isSideSeat ? cardIdx * step : 0,
+                        width: cardWidth,
+                        height: cardHeight,
+                        borderRadius: 4,
+                        border: "1px solid rgba(15,23,42,.45)",
+                        background: cardBackImage,
+                        backgroundSize: "16px 16px, 8px 8px, 100% 100%",
+                        backgroundPosition: "center center, 0 0, 0 0",
+                        backgroundRepeat: "no-repeat, repeat, no-repeat",
+                        boxShadow: "0 2px 6px rgba(2,6,23,.35)",
+                        opacity: 0.96,
+                      }}
+                    />
+                  ))}
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: -8,
+                      bottom: -2,
+                      minWidth: 18,
+                      height: 18,
+                      borderRadius: 999,
+                      background: "rgba(2,6,23,.86)",
+                      border: "1px solid rgba(148,163,184,.35)",
+                      color: "#e2e8f0",
+                      fontSize: 10,
+                      fontWeight: 900,
+                      display: "grid",
+                      placeItems: "center",
+                      padding: "0 5px",
+                    }}
+                  >
+                    {count}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
           {visibleTeamZones.map((zone) => {
             const seat = seatTemplates[zone.anchorIndex] ?? { top: "50%", left: "50%", angle: 0 };
             const canOpenZone = (zone.melds?.length ?? 0) > 0 || (zone.redThreeCount ?? 0) > 0;
@@ -441,12 +558,6 @@ export default function CanastaBoardView({
             );
           })}
         </div>
-        {isMobileLandscape ? (
-          <div style={{ display: "grid", gap: 10 }}>
-            {scoreCards}
-            {infoNote}
-          </div>
-        ) : null}
       </div>
     </>
   );

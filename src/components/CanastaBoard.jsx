@@ -15,6 +15,7 @@ import {
   sortHandCards,
   cardLabel,
   isWild,
+  cardPoints,
   openingRequirement,
   getTeamTotalFromTotals,
   getPlayerOpeningTotal,
@@ -1057,6 +1058,7 @@ export default function CanastaBoard({
   }
 
   const selectedForPlan = meldPlan ? myPlayer.hand.filter((c) => meldPlan.selectedIds.includes(c.id)) : [];
+  const selectedCards = myPlayer.hand.filter((c) => selectedIds.includes(c.id));
   const wildForPlan = selectedForPlan.filter((c) => isWild(c));
   const planPreview = meldPlan ? resolvePlannedGroups(game, meldPlan) : { groups: [], error: null };
   const activePlanCard = meldPlan ? wildForPlan.find((c) => c.id === meldPlan.activeCardId) ?? null : null;
@@ -1125,6 +1127,100 @@ export default function CanastaBoard({
   const canLaySelectedCards = game.phase === "discard" && selectedIds.length > 0 && !game.roundEnded && !isBotTurn && isMyTurn;
   const canDiscardSelectedCard = game.phase === "discard" && selectedIds.length === 1 && !game.roundEnded && !isBotTurn && isMyTurn;
   const myTeamId = myPlayer?.teamId ?? null;
+  const myTeam = game.teams?.[myTeamId] ?? null;
+  const openingTarget = openingRequirement(getPlayerOpeningTotal(game, totals, localPlayerIndex));
+  const selectedPositivePoints = selectedCards.reduce((acc, card) => acc + Math.max(0, cardPoints(card)), 0);
+  const selectedNaturalRanks = [...new Set(selectedCards.filter((card) => !isWild(card) && card.rank !== 3).map((card) => card.rank))];
+  const primarySelectedRank = selectedNaturalRanks.length === 1 ? selectedNaturalRanks[0] : null;
+  const selectedExistingMeld = primarySelectedRank != null ? myTeam?.melds?.find((meld) => meld.rank === primarySelectedRank) ?? null : null;
+  const selectedNeedsPlanner = selectedIds.length > 0 && shouldUseMeldPlanner(game, selectedIds);
+  const selectedLayPreview =
+    selectedIds.length > 0 && !selectedNeedsPlanner ? applyMeldMany(game, selectedIds, totals) : null;
+  const selectedCanLayNow = Boolean(
+    selectedIds.length > 0 && game.phase === "discard" && !game.roundEnded && !isBotTurn && isMyTurn && (selectedNeedsPlanner || !selectedLayPreview?.error)
+  );
+  const selectedPickupMatchCount =
+    topDiscard && !isWild(topDiscard) && !topDiscard.joker
+      ? selectedCards.filter((card) => !isWild(card) && card.rank === topDiscard.rank).length
+      : 0;
+  const selectedMakesDiscardPickup = selectedPickupMatchCount >= 2;
+  const openingValueLabel =
+    openingTarget === "canasta"
+      ? `${selectedCards.length} kort / Canasta`
+      : `${selectedPositivePoints} / ${openingTarget}`;
+  const openingStatus = myTeam?.opened
+    ? "Laget är öppnat"
+    : openingTarget === "canasta"
+      ? selectedCanLayNow
+        ? "Du kan öppna med canasta"
+        : "Öppningskrav: Canasta"
+      : selectedPositivePoints >= Number(openingTarget)
+        ? "Du kan öppna"
+        : `Du saknar ${Math.max(0, Number(openingTarget) - selectedPositivePoints)} poäng för öppning`;
+  const discardStatus = game.discardFrozen
+    ? selectedMakesDiscardPickup
+      ? "Frusen hög, men markerat par kan ta den"
+      : "Kasthögen är frusen"
+    : canPickDiscardPile
+      ? "Kasthögen är möjlig att ta"
+      : selectedMakesDiscardPickup
+        ? "Markerade kort gör högen möjlig att ta"
+        : "Kasthögen kan inte tas nu";
+  const intentLabel =
+    selectedIds.length === 0
+      ? ""
+      : selectedNeedsPlanner
+        ? "Lägg ut i flera stick"
+        : selectedExistingMeld
+          ? `Lägg till i ${rankLabel(primarySelectedRank)}`
+          : primarySelectedRank != null
+            ? `Skapa ny meld: ${rankLabel(primarySelectedRank)}`
+            : "";
+  const selectedSummary = {
+    teamOpened: Boolean(myTeam?.opened),
+    openingValueLabel,
+    openingStatus,
+    discardStatus,
+    canOpenNow: !myTeam?.opened && selectedCanLayNow,
+    canLayNow: selectedCanLayNow,
+    targetExistingRank: selectedExistingMeld?.rank ?? null,
+    intentLabel,
+    intentActionLabel: intentLabel || "Lägg ut",
+    turnStepLabel:
+      game.phase === "draw"
+        ? "Steg 1 av 3: Dra"
+        : canDiscardSelectedCard
+          ? "Steg 3 av 3: Kasta"
+          : "Steg 2 av 3: Lägg ut",
+    centerHeadline:
+      game.phase === "draw"
+        ? canPickDiscardPile
+          ? "Välj mellan talong och kasthög"
+          : "Tryck på talongen för att dra två kort"
+        : selectedIds.length > 0
+          ? intentLabel || actionHint
+          : canDiscardSelectedCard
+            ? "Du kan kasta det markerade kortet"
+            : actionHint,
+    centerDetail:
+      game.phase === "draw"
+        ? discardStatus
+        : selectedIds.length > 0
+          ? openingStatus
+          : "Markera kort i handen för att skapa ny meld eller bygga vidare på en befintlig.",
+    actionTitle:
+      selectedIds.length > 0
+        ? `${selectedIds.length} markerade kort`
+        : game.phase === "draw"
+          ? "Dra kort"
+          : "Välj drag",
+    actionSubtitle:
+      selectedIds.length > 0
+        ? `${openingStatus}${intentLabel ? ` • ${intentLabel}` : ""}`
+        : discardStatus,
+    restingTitle: game.phase === "draw" ? "Steg 1: dra" : "Steg 2-3: lägg ut eller kasta",
+    restingSubtitle: game.phase === "draw" ? discardStatus : openingStatus,
+  };
   const actionHint = game.roundEnded
     ? ""
     : game.phase === "draw"
@@ -1136,6 +1232,24 @@ export default function CanastaBoard({
     : canDiscardSelectedCard
     ? "Tryck på kasthögen för att slänga det markerade kortet."
     : "Markera kort att lägga ut, eller markera exakt 1 kort och tryck på kasthögen för att slänga.";
+
+  const clearSelected = () => {
+    setMeldPlan(null);
+    setSelectedIds([]);
+  };
+
+  const sortHandNow = () => {
+    if (!myPlayer) return;
+    setMobileSortMode(false);
+    setDragCardId(null);
+    setHoverCardId(null);
+    setHandDropSide(null);
+    setHandOrder(sortHandCards(myPlayer.hand).map((card) => card.id));
+  };
+
+  const showTip = () => {
+    setGame((prev) => (prev ? { ...prev, notice: selectedSummary.centerHeadline } : prev));
+  };
 
   return (
     <Card style={{ padding: 14, display: "grid", gap: 10 }}>
@@ -1154,8 +1268,38 @@ export default function CanastaBoard({
           50% { opacity: .52; }
         }
       `}</style>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0, fontSize: isMobileLandscape ? 28 : isMobile ? 34 : 42 }}>Canasta</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gap: 4 }}>
+          <h2 style={{ margin: 0, fontSize: isMobile ? 26 : 34, lineHeight: 1 }}>Canasta</h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div
+              style={{
+                padding: "5px 10px",
+                borderRadius: 999,
+                background: isBotTurn ? "rgba(148,163,184,.12)" : "rgba(56,189,248,.14)",
+                color: isBotTurn ? "#cbd5e1" : "#7dd3fc",
+                border: `1px solid ${isBotTurn ? "rgba(148,163,184,.16)" : "rgba(56,189,248,.2)"}`,
+                fontWeight: 800,
+                fontSize: 11,
+              }}
+            >
+              {isBotTurn ? "Botens tur" : isMyTurn ? "Din tur" : `${activePlayer.name}s tur`}
+            </div>
+            <div
+              style={{
+                padding: "5px 10px",
+                borderRadius: 999,
+                background: "rgba(148,163,184,.1)",
+                color: "#cbd5e1",
+                border: "1px solid rgba(148,163,184,.14)",
+                fontWeight: 800,
+                fontSize: 11,
+              }}
+            >
+              {selectedSummary.turnStepLabel}
+            </div>
+          </div>
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button variant="ghost" onClick={() => setSettingsOpen((s) => !s)} style={{ width: "auto" }}>
             Inställningar
@@ -1180,8 +1324,6 @@ export default function CanastaBoard({
         nextRoundCountdown={nextRoundCountdown}
         isHost={isHost}
         startNextRound={startNextRound}
-        scoreCards={scoreCards}
-        infoNote={infoNote}
         actionHint={actionHint}
         isBotTurn={isBotTurn}
         turnFlash={turnFlash}
@@ -1203,14 +1345,18 @@ export default function CanastaBoard({
         canDiscardSelectedCard={canDiscardSelectedCard}
         visibleTeamZones={visibleTeamZones}
         seatTemplates={seatTemplates}
+        myPlayerId={myPlayer.id}
         myTeamId={myTeamId}
         canLaySelectedCards={canLaySelectedCards}
         selectedIds={selectedIds}
+        selectedCards={selectedCards}
+        selectedSummary={selectedSummary}
         laySelected={laySelected}
         setExpandedTeamId={setExpandedTeamId}
         renderCardFace={(card, compact) => <CanastaFace card={card} compact={compact} />}
         renderTeamMelds={(props) => <TeamMelds {...props} />}
         getTeamTotal={(teamId) => getTeamTotalFromTotals(game, totals, teamId)}
+        rankLabel={rankLabel}
       />
 
       <CanastaHandPanel
@@ -1222,6 +1368,7 @@ export default function CanastaBoard({
         showLandscapeHandOverview={showLandscapeHandOverview}
         orderedHand={orderedHand}
         selectedIds={selectedIds}
+        selectedSummary={selectedSummary}
         recentDrawnIds={recentDrawnIds}
         suppressTapRef={suppressTapRef}
         toggleSelect={toggleSelect}
@@ -1245,11 +1392,22 @@ export default function CanastaBoard({
         handCardWidth={handCardWidth}
         handCardHeight={handCardHeight}
         renderCardFace={(card, compact) => <CanastaFace card={card} compact={compact} />}
+        clearSelected={clearSelected}
+        sortHandNow={sortHandNow}
+        drawTwo={drawTwo}
+        takeDiscardStack={takeDiscardStack}
+        tryDiscardSelected={tryDiscardSelected}
+        laySelected={laySelected}
+        canDrawFromStock={canDrawFromStock}
+        canPickDiscardPile={canPickDiscardPile}
+        canDiscardSelectedCard={canDiscardSelectedCard}
+        canLaySelectedCards={canLaySelectedCards}
+        showTip={showTip}
       />
 
-      {!isMobileLandscape ? scoreCards : null}
+      {scoreCards}
 
-      {!isMobileLandscape ? infoNote : null}
+      {infoNote}
       <CanastaMeldPlanModal
         meldPlan={meldPlan}
         selectedForPlan={selectedForPlan}

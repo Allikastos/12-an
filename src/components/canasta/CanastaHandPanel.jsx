@@ -1,4 +1,5 @@
 import { Button } from "../../ui/Button";
+import CanastaActionBar from "./CanastaActionBar";
 
 export default function CanastaHandPanel({
   isMobile,
@@ -9,6 +10,7 @@ export default function CanastaHandPanel({
   showLandscapeHandOverview,
   orderedHand,
   selectedIds,
+  selectedSummary,
   recentDrawnIds,
   suppressTapRef,
   toggleSelect,
@@ -32,7 +34,188 @@ export default function CanastaHandPanel({
   handCardWidth,
   handCardHeight,
   renderCardFace,
+  clearSelected,
+  sortHandNow,
+  drawTwo,
+  takeDiscardStack,
+  tryDiscardSelected,
+  laySelected,
+  canDrawFromStock,
+  canPickDiscardPile,
+  canDiscardSelectedCard,
+  canLaySelectedCards,
+  showTip,
 }) {
+  const hasSelection = selectedIds.length > 0;
+  const mobileActions = hasSelection
+    ? [
+        {
+          key: "lay",
+          label: selectedSummary?.intentActionLabel ?? "Lägg ut",
+          onPress: laySelected,
+          disabled: !canLaySelectedCards,
+          variant: "primary",
+        },
+        {
+          key: "discard",
+          label: "Kasta",
+          onPress: tryDiscardSelected,
+          disabled: !canDiscardSelectedCard,
+        },
+        {
+          key: "clear",
+          label: "Avmarkera",
+          onPress: clearSelected,
+        },
+        {
+          key: "sort",
+          label: "Sortera",
+          onPress: sortHandNow,
+        },
+      ]
+    : [
+        {
+          key: "draw",
+          label: "Dra från talong",
+          onPress: drawTwo,
+          disabled: !canDrawFromStock,
+          variant: "primary",
+        },
+        {
+          key: "pickup",
+          label: "Ta kasthög",
+          onPress: takeDiscardStack,
+          disabled: !canPickDiscardPile,
+        },
+        {
+          key: "sort",
+          label: "Sortera",
+          onPress: sortHandNow,
+        },
+        {
+          key: "tip",
+          label: "Tips",
+          onPress: showTip,
+        },
+      ];
+
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          position: "sticky",
+          bottom: 8,
+          zIndex: 40,
+          display: "grid",
+          gap: 10,
+          marginTop: 4,
+        }}
+      >
+        <CanastaActionBar
+          title={hasSelection ? selectedSummary?.actionTitle ?? "Markerade kort" : selectedSummary?.restingTitle ?? "Nästa steg"}
+          subtitle={hasSelection ? selectedSummary?.actionSubtitle ?? "" : selectedSummary?.restingSubtitle ?? ""}
+          actions={mobileActions}
+        />
+
+        <div
+          style={{
+            borderRadius: 22,
+            border: "1px solid rgba(148,163,184,.18)",
+            background: "linear-gradient(180deg, rgba(2,6,23,.98), rgba(15,23,42,.96))",
+            padding: "12px 12px 14px",
+            boxShadow: "0 18px 40px rgba(2,6,23,.35)",
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "grid", gap: 2 }}>
+              <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 14 }}>Din hand</div>
+              <div style={{ color: "#94a3b8", fontWeight: 600, fontSize: 11 }}>
+                {myPlayer.hand.length} kort • tryck för att markera
+              </div>
+            </div>
+            {hasSelection ? (
+              <div style={{ color: "#7dd3fc", fontWeight: 800, fontSize: 11 }}>{selectedIds.length} valda</div>
+            ) : null}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              overflowX: "auto",
+              gap: 0,
+              paddingBottom: 4,
+              scrollbarWidth: "thin",
+              touchAction: "pan-x",
+            }}
+          >
+            {orderedHand.map((c, index) => {
+              const selected = selectedIds.includes(c.id);
+              const recentlyDrawn = recentDrawnIds.includes(c.id);
+              const isWild = c.joker || c.rank === 2;
+              return (
+                <button
+                  key={`mobile-hand-${c.id}`}
+                  type="button"
+                  onClick={() => {
+                    if (suppressTapRef.current) {
+                      suppressTapRef.current = false;
+                      return;
+                    }
+                    toggleSelect(c.id);
+                  }}
+                  style={{
+                    flex: "0 0 auto",
+                    width: 68,
+                    height: 104,
+                    marginLeft: index === 0 ? 0 : -18,
+                    borderRadius: 14,
+                    padding: 3,
+                    background: recentlyDrawn ? "#efe8d4" : "#fffdf8",
+                    border: selected
+                      ? "2px solid #67e8f9"
+                      : isWild
+                        ? "2px solid rgba(250,204,21,.6)"
+                        : "1px solid rgba(15,23,42,.22)",
+                    transform: selected ? "translateY(-10px)" : "translateY(0)",
+                    boxShadow: selected
+                      ? "0 0 0 1px rgba(103,232,249,.35), 0 14px 26px rgba(2,6,23,.4)"
+                      : isWild
+                        ? "0 10px 20px rgba(2,6,23,.28), 0 0 0 1px rgba(250,204,21,.12)"
+                        : "0 10px 20px rgba(2,6,23,.28)",
+                    transition: "transform .15s ease, box-shadow .15s ease, border-color .15s ease",
+                    position: "relative",
+                    zIndex: selected ? 40 + index : index,
+                  }}
+                >
+                  {renderCardFace(c, false)}
+                  {isWild ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 6,
+                        top: 6,
+                        padding: "2px 5px",
+                        borderRadius: 999,
+                        background: "rgba(250,204,21,.88)",
+                        color: "#111827",
+                        fontWeight: 900,
+                        fontSize: 9,
+                      }}
+                    >
+                      Wild
+                    </div>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
