@@ -10,6 +10,7 @@ import { Input } from "./ui/Input";
 import ScoreSheet from "./components/ScoreSheet";
 import DiceTray, { DieFace } from "./components/DiceTray";
 import MiniSolitaire from "./components/MiniSolitaire";
+import GinRummyBoard from "./components/GinRummyBoard";
 import HarpanThemeBackground from "./components/HarpanThemeBackground";
 import CanastaBoard from "./components/CanastaBoard";
 import { createDefaultSettings } from "./config/defaultSettings";
@@ -70,7 +71,7 @@ export default function App() {
   } = useLeaderboardStats();
   const [showKingHistory, setShowKingHistory] = useState(false);
 
-  const [step, setStep] = useState("home"); // home | room | solo | canasta
+  const [step, setStep] = useState("home"); // home | room | solo | gin | canasta
   const [roomCode, setRoomCode] = useState("");
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState(null);
@@ -117,6 +118,7 @@ export default function App() {
     kingHistory,
     joinRoom,
     joinCanastaLobby,
+    joinGinLobby,
   });
   const {
     chatMessages,
@@ -445,6 +447,11 @@ export default function App() {
     });
   }, [name, profile?.display_name, authName, sendChatMessage, roomId, user?.id, playerId]);
 
+  const openChatPanel = useCallback(() => {
+    setShowChat(true);
+    markChatOpened();
+  }, [markChatOpened]);
+
   const playRollFeedback = useCallback(() => {
     if (settings.diceHaptics && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       navigator.vibrate(22);
@@ -686,6 +693,10 @@ export default function App() {
       void createCanastaLobby();
       return;
     }
+    if (selectedPlayMode === "gin") {
+      void createGinLobby();
+      return;
+    }
     void createRoom();
   }
 
@@ -693,6 +704,10 @@ export default function App() {
     setShowPlayMenu(false);
     if (selectedPlayMode === "canasta") {
       void joinCanastaLobby();
+      return;
+    }
+    if (selectedPlayMode === "gin") {
+      void joinGinLobby();
       return;
     }
     void joinRoom();
@@ -824,6 +839,24 @@ export default function App() {
     }
   }
 
+  async function createGinLobby() {
+    const playerName = getResolvedPlayerName();
+    if (!user?.id && playerName.length < 2) {
+      alert("Skriv ett namn (minst 2 tecken) innan du skapar lobby.");
+      return;
+    }
+    const code = makeCode(6);
+    const { data: room, error } = await createRoomWithCode(code);
+    if (error || !room) {
+      alert(formatDbError(error, "Kunde inte skapa Gin Rummy-lobbyn."));
+      return;
+    }
+    const joined = await joinRoomWithRoom(room, code, "gin");
+    if (joined?.error) {
+      alert(formatDbError(joined.error, "Kunde inte joina Gin Rummy-lobbyn."));
+    }
+  }
+
   async function joinCanastaLobby(codeParam) {
     const code = (codeParam ?? roomCode).trim().toUpperCase();
     const playerName = getResolvedPlayerName();
@@ -839,6 +872,35 @@ export default function App() {
     const joined = await joinRoomWithRoom(room, code, "canasta");
     if (joined?.error) {
       alert(formatDbError(joined.error, "Kunde inte joina Canasta-lobbyn."));
+    }
+  }
+
+  async function joinGinLobby(codeParam) {
+    const code = (codeParam ?? roomCode).trim().toUpperCase();
+    const playerName = getResolvedPlayerName();
+    if (!user?.id && playerName.length < 2) {
+      alert("Skriv ett namn (minst 2 tecken) innan du joinar lobby.");
+      return;
+    }
+    const { data: room, error: roomErr } = await getRoomByCode(code);
+    if (roomErr || !room) {
+      alert(formatDbError(roomErr, "Gin Rummy-lobbyn hittades inte. Kontrollera koden."));
+      return;
+    }
+    const { data: playersInRoom } = await supabase
+      .from("players")
+      .select("id, device_id")
+      .eq("room_id", room.id);
+    const hasExistingSeat = (playersInRoom ?? []).some(
+      (player) => String(player.device_id ?? "") === String(deviceId)
+    );
+    if (!hasExistingSeat && (playersInRoom?.length ?? 0) >= 2) {
+      alert("Gin Rummy-rummet är fullt. Det stöder exakt 2 spelare.");
+      return;
+    }
+    const joined = await joinRoomWithRoom(room, code, "gin");
+    if (joined?.error) {
+      alert(formatDbError(joined.error, "Kunde inte joina Gin Rummy-lobbyn."));
     }
   }
 
@@ -885,9 +947,9 @@ export default function App() {
 
   function shareRoomLink() {
     if (!roomCode) return;
-    const gameParam = step === "canasta" ? "&game=canasta" : "";
+    const gameParam = step === "canasta" ? "&game=canasta" : step === "gin" ? "&game=gin" : "";
     const url = `${window.location.origin}?room=${roomCode}${gameParam}`;
-    const title = step === "canasta" ? "Canasta" : "12:an";
+    const title = step === "canasta" ? "Canasta" : step === "gin" ? "Gin Rummy" : "12:an";
     const text = `Kom och spela ${title}! Rumskod: ${roomCode} Länk: ${url}`;
     if (navigator.share) {
       navigator.share({ title, text, url }).catch(() => {});
@@ -941,6 +1003,32 @@ export default function App() {
     await supabase.from("players").delete().eq("id", botPlayerId);
   }, [roomId, playerId, roomState?.host_player_id, players]);
 
+  const addGinBot = useCallback(async () => {
+    const canManageLobby = !roomState?.host_player_id || roomState.host_player_id === playerId;
+    if (!roomId || !playerId || !canManageLobby) return;
+    const nonBotCount = players.filter((p) => !String(p.device_id ?? "").startsWith("bot:")).length;
+    const botCount = players.filter((p) => String(p.device_id ?? "").startsWith("bot:")).length;
+    if (nonBotCount + botCount >= 2 || botCount >= 1) return;
+    const botName = "Gin-bot";
+    const botDeviceId = `bot:${roomId}:gin:${Date.now()}`;
+    const { data: bot, error } = await createPlayer(roomId, botName, botDeviceId, null);
+    if (error || !bot) {
+      alert(formatDbError(error, "Kunde inte lägga till Gin-boten."));
+      return;
+    }
+    await ensureScore(roomId, bot.id);
+  }, [roomId, playerId, roomState?.host_player_id, players]);
+
+  const removeGinBot = useCallback(async () => {
+    const canManageLobby = !roomState?.host_player_id || roomState.host_player_id === playerId;
+    if (!roomId || !playerId || !canManageLobby) return;
+    const bot = players.find((p) => String(p.device_id ?? "").startsWith("bot:"));
+    if (!bot) return;
+    await supabase.from("scores").delete().eq("room_id", roomId).eq("player_id", bot.id);
+    await supabase.from("player_state").delete().eq("room_id", roomId).eq("player_id", bot.id);
+    await supabase.from("players").delete().eq("id", bot.id);
+  }, [roomId, playerId, roomState?.host_player_id, players]);
+
   const updateCanastaLobbyConfig = useCallback(async (patch) => {
     const canManageLobby = !roomState?.host_player_id || roomState.host_player_id === playerId;
     if (!roomId || !playerId || !canManageLobby) return;
@@ -972,6 +1060,40 @@ export default function App() {
     if (data) setRoomState(data);
   }, [roomId, playerId, roomState?.round_counts, updateRoomStateSafe]);
 
+  const updateGinLobbyConfig = useCallback(async (patch) => {
+    const canManageLobby = !roomState?.host_player_id || roomState.host_player_id === playerId;
+    if (!roomId || !playerId || !canManageLobby) return;
+    const existing = roomState?.round_counts ?? {};
+    const next = {
+      ...existing,
+      __game_type: "gin",
+      __gin_target_score: Number(patch?.targetScore) > 0 ? Number(patch.targetScore) : 100,
+    };
+    const { data } = await updateRoomStateSafe({
+      host_player_id: roomState?.host_player_id ?? playerId,
+      round_counts: next,
+      updated_at: new Date().toISOString(),
+    });
+    if (data) setRoomState(data);
+  }, [roomId, playerId, roomState?.host_player_id, roomState?.round_counts, updateRoomStateSafe]);
+
+  const syncGinMatchState = useCallback(async (payload, roomPatch = {}) => {
+    if (!roomId || !playerId) return;
+    const existing = roomState?.round_counts ?? {};
+    const next = {
+      ...existing,
+      __game_type: "gin",
+      __gin_target_score: Number(payload?.targetScore) > 0 ? Number(payload.targetScore) : 100,
+      __gin_match: payload,
+    };
+    const { data } = await updateRoomStateSafe({
+      round_counts: next,
+      updated_at: new Date().toISOString(),
+      ...roomPatch,
+    });
+    if (data) setRoomState(data);
+  }, [roomId, playerId, roomState?.round_counts, updateRoomStateSafe]);
+
   useEffect(() => {
     if (step !== "canasta") return;
     if (!roomId || !playerId) return;
@@ -983,6 +1105,17 @@ export default function App() {
       targetScore: Number(existing.__canasta_target_score) === 5000 ? 5000 : 10000,
     });
   }, [step, roomId, playerId, roomState?.host_player_id, roomState?.round_counts, updateCanastaLobbyConfig]);
+
+  useEffect(() => {
+    if (step !== "gin") return;
+    if (!roomId || !playerId) return;
+    if (roomState?.host_player_id && roomState.host_player_id !== playerId) return;
+    const existing = roomState?.round_counts ?? {};
+    if (existing.__game_type === "gin" && existing.__gin_target_score) return;
+    void updateGinLobbyConfig({
+      targetScore: Number(existing.__gin_target_score) > 0 ? Number(existing.__gin_target_score) : 100,
+    });
+  }, [step, roomId, playerId, roomState?.host_player_id, roomState?.round_counts, updateGinLobbyConfig]);
 
   async function ensurePlayerIdForRoom() {
     if (playerId) return playerId;
@@ -1641,6 +1774,133 @@ export default function App() {
     );
   }
 
+  if (step === "gin") {
+    const ginIsHost = roomState?.host_player_id ? roomState.host_player_id === playerId : true;
+    return (
+      <>
+        <HarpanThemeBackground active={showHarpanThemeVideo} />
+        <Container>
+          <GinRummyBoard
+            onBack={() => setStep("home")}
+            roomCode={roomCode}
+            roomPlayers={players}
+            roomState={roomState}
+            playerId={playerId}
+            isHost={ginIsHost}
+            friends={friends}
+            sentInvites={sentInvites}
+            onSendRoomInvite={(friendId) => sendRoomInvite(friendId)}
+            onShareRoom={shareRoomLink}
+            onUpdateLobbyConfig={updateGinLobbyConfig}
+            onSyncMatchState={syncGinMatchState}
+            onAddBot={addGinBot}
+            onRemoveBot={removeGinBot}
+            onOpenChat={openChatPanel}
+            chatUnread={chatUnread}
+          />
+        </Container>
+        {chatToasts.length > 0 && (
+          <div
+            style={{
+              position: "fixed",
+              top: 76,
+              left: "50%",
+              transform: "translateX(-50%)",
+              display: "grid",
+              gap: 8,
+              zIndex: 90,
+              maxWidth: "92vw",
+              width: "min(520px, 92vw)",
+              pointerEvents: "none",
+            }}
+          >
+            {chatToasts.map((toast) => (
+              <div
+                key={toast.id}
+                style={{
+                  background: "rgba(15,23,42,.92)",
+                  color: "white",
+                  padding: "10px 14px",
+                  borderRadius: 14,
+                  border: "1px solid rgba(255,255,255,.14)",
+                  fontWeight: 700,
+                  boxShadow: "0 12px 30px rgba(2,6,23,.4)",
+                }}
+              >
+                {toast.text}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showChat && (
+          <div
+            onClick={() => setShowChat(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,.68)",
+              display: "grid",
+              placeItems: "center",
+              padding: 16,
+              zIndex: 70,
+            }}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ width: "min(860px, 100%)" }}>
+              <Card style={{ padding: 18, maxHeight: "82vh", overflow: "auto", background: "rgba(8,12,20,.985)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <h3 style={{ margin: 0 }}>Chat</h3>
+                  <Button variant="ghost" style={{ width: "auto" }} onClick={() => setShowChat(false)}>
+                    Stäng
+                  </Button>
+                </div>
+
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  <div
+                    style={{
+                      maxHeight: "52vh",
+                      overflow: "auto",
+                      display: "grid",
+                      gap: 8,
+                      padding: 8,
+                      borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      background: "rgba(255,255,255,.02)",
+                    }}
+                  >
+                    {chatMessages.length === 0 && (
+                      <div style={{ color: "var(--muted)" }}>Inga meddelanden ännu.</div>
+                    )}
+                    {chatMessages.map((m) => (
+                      <div key={m.id} style={{ display: "grid", gap: 4 }}>
+                        <div style={{ fontWeight: 800 }}>{m.sender_name}</div>
+                        <div style={{ color: "var(--text)" }}>{m.body}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                    <Input
+                      placeholder="Skriv ett meddelande..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") sendChat();
+                      }}
+                    />
+                    <Button onClick={sendChat} style={{ width: "auto" }}>
+                      Skicka
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   if (step === "home") {
     return (
       <>
@@ -1894,6 +2154,22 @@ export default function App() {
             >
               Poängblad
             </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSelectedPlayMode("gin");
+                setShowPlayMenu(true);
+              }}
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(250,204,21,.12), rgba(248,113,113,.16))",
+                border: "1px solid rgba(250,204,21,.3)",
+                color: "#fef3c7",
+                fontWeight: 900,
+              }}
+            >
+              Gin Rummy för 2 spelare
+            </Button>
           </div>
 
           {showPlayMenu && (
@@ -1977,12 +2253,18 @@ export default function App() {
                       <div style={{ color: "var(--muted)", fontWeight: 650, fontSize: 13 }}>
                         Välj spel innan du skapar/joinar rum.
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
                         <Button
                           variant={selectedPlayMode === "12an" ? "primary" : "ghost"}
                           onClick={() => setSelectedPlayMode("12an")}
                         >
                           12:an
+                        </Button>
+                        <Button
+                          variant={selectedPlayMode === "gin" ? "primary" : "ghost"}
+                          onClick={() => setSelectedPlayMode("gin")}
+                        >
+                          Gin Rummy
                         </Button>
                         <Button
                           variant={selectedPlayMode === "canasta" ? "primary" : "ghost"}
@@ -1994,6 +2276,11 @@ export default function App() {
                       {selectedPlayMode === "canasta" && (
                         <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
                           Canasta är vald i menyn. Spelläget kopplas in i nästa steg.
+                        </div>
+                      )}
+                      {selectedPlayMode === "gin" && (
+                        <div style={{ color: "#fde68a", fontWeight: 700, fontSize: 12 }}>
+                          Gin Rummy är valt i menyn. Rummet skapas för exakt 2 spelare.
                         </div>
                       )}
                     </div>
@@ -2029,7 +2316,7 @@ export default function App() {
                     {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
                     <span style={{ color: "var(--muted)", fontWeight: 700 }}>
                       {" "}
-                      · {inv.gameType === "canasta" ? "Canasta" : "12:an"}
+                      · {inv.gameType === "canasta" ? "Canasta" : inv.gameType === "gin" ? "Gin Rummy" : "12:an"}
                     </span>
                   </div>
                   <Button
@@ -2538,7 +2825,7 @@ export default function App() {
                                 {inv.sender?.display_name ?? "Spelare"} – {inv.roomCode || "—"}
                                 <span style={{ color: "var(--muted)", fontWeight: 700 }}>
                                   {" "}
-                                  · {inv.gameType === "canasta" ? "Canasta" : "12:an"}
+                                  · {inv.gameType === "canasta" ? "Canasta" : inv.gameType === "gin" ? "Gin Rummy" : "12:an"}
                                 </span>
                               </div>
                               <div style={{ display: "flex", gap: 6 }}>

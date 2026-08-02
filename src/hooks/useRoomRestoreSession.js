@@ -65,6 +65,10 @@ export function useRoomRestoreSession({
         savedStep === "canasta" ||
         Boolean(roomState?.round_counts?.__canasta_mode || roomState?.round_counts?.__canasta_match)
           ? "canasta"
+          : savedStep === "gin" ||
+            roomState?.round_counts?.__game_type === "gin" ||
+            Boolean(roomState?.round_counts?.__gin_match)
+          ? "gin"
           : "room";
 
       if (cancelled) return;
@@ -75,6 +79,8 @@ export function useRoomRestoreSession({
       if (!name && player.name) setName(player.name);
       if (restoredStep === "canasta") {
         setSelectedPlayMode?.("canasta");
+      } else if (restoredStep === "gin") {
+        setSelectedPlayMode?.("gin");
       }
       setStep(restoredStep);
 

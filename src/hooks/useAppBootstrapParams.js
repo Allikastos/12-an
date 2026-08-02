@@ -18,6 +18,8 @@ export function useAppBootstrapParams({
     if (sharedCode) setRoomCode(sanitizeRoomCode(sharedCode));
     if (sharedGame === "canasta" && typeof setSelectedPlayMode === "function") {
       setSelectedPlayMode("canasta");
+    } else if (sharedGame === "gin" && typeof setSelectedPlayMode === "function") {
+      setSelectedPlayMode("gin");
     }
   }, [sanitizeRoomCode, setRoomCode, setSelectedPlayMode]);
 

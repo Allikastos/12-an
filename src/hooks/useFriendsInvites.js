@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 
-export function useFriendsInvites({ userId, roomId, kingHistory, joinRoom, joinCanastaLobby = null }) {
+export function useFriendsInvites({
+  userId,
+  roomId,
+  kingHistory,
+  joinRoom,
+  joinCanastaLobby = null,
+  joinGinLobby = null,
+}) {
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState({ incoming: [], outgoing: [] });
   const [friendSearch, setFriendSearch] = useState("");
@@ -195,8 +202,11 @@ export function useFriendsInvites({ userId, roomId, kingHistory, joinRoom, joinC
       roomId: r.room_id,
       roomCode: roomById.get(r.room_id)?.code ?? "",
       gameType:
-        roomStateById.get(r.room_id)?.round_counts?.__canasta_mode ||
-        roomStateById.get(r.room_id)?.round_counts?.__canasta_match
+        roomStateById.get(r.room_id)?.round_counts?.__game_type === "gin" ||
+        roomStateById.get(r.room_id)?.round_counts?.__gin_match
+          ? "gin"
+          : roomStateById.get(r.room_id)?.round_counts?.__canasta_mode ||
+            roomStateById.get(r.room_id)?.round_counts?.__canasta_match
           ? "canasta"
           : "12an",
       sender: senderById.get(r.sender_profile_id) ?? null,
@@ -234,8 +244,12 @@ export function useFriendsInvites({ userId, roomId, kingHistory, joinRoom, joinC
       await joinCanastaLobby(invite.roomCode);
       return;
     }
+    if (invite.gameType === "gin" && typeof joinGinLobby === "function") {
+      await joinGinLobby(invite.roomCode);
+      return;
+    }
     await joinRoom(invite.roomCode);
-  }, [joinRoom, joinCanastaLobby]);
+  }, [joinRoom, joinCanastaLobby, joinGinLobby]);
 
   const declineRoomInvite = useCallback(async (inviteId) => {
     if (!inviteId) return;
